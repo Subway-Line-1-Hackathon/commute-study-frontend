@@ -3,12 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { COMMUTE, ROUTES } from '../lib/constants'
 import { calcStudyMinutes, isReviewOnly, isValidCommute } from '../lib/time'
 import { useAuthStore } from '../store/useAuthStore'
+import TopBar from '../components/TopBar'
 
 export default function S04Commute() {
   const navigate = useNavigate()
   const saved = useAuthStore((s) => s.commute)
   const saveCommute = useAuthStore((s) => s.saveCommute)
-  const logout = useAuthStore((s) => s.logout)
 
   const [input, setInput] = useState(saved ? String(saved.oneWayMin) : '')
 
@@ -23,16 +23,9 @@ export default function S04Commute() {
     navigate(ROUTES.MATERIAL)
   }
 
-  const handleLogout = () => {
-    logout()
-    navigate(ROUTES.LOGIN, { replace: true })
-  }
-
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-white px-6 py-10">
-      <button onClick={handleLogout} className="self-start py-2 text-sm text-slate-500">
-        ‹ 로그아웃
-      </button>
+    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-white px-6 py-6">
+      <TopBar backTo={ROUTES.NICKNAME} />
 
       <h1 className="mt-4 text-2xl font-bold text-slate-900">
         편도 통학 시간을

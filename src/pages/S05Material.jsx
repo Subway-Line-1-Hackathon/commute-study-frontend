@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import BackButton from '../components/BackButton'
+import TopBar from '../components/TopBar'
 import { MATERIAL_STATUS as M, ROUTES } from '../lib/constants'
 import { useMaterialStore } from '../store/useMaterialStore'
 
@@ -97,7 +97,7 @@ export default function S05Material() {
 
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col bg-slate-50 px-5 py-6">
-      <BackButton to={ROUTES.COMMUTE} />
+      <TopBar backTo={ROUTES.COMMUTE} />
 
       <h1 className="mt-2 text-2xl font-bold text-slate-900">
         과목과 학습 자료를
