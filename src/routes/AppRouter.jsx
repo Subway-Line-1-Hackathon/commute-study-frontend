@@ -7,13 +7,24 @@ import Stub from '../pages/Stub'
 import S01Login from '../pages/S01Login'
 import S04Commute from '../pages/S04Commute'
 import S05Material from '../pages/S05Material'
+import S20Home from '../pages/S20Home'
+import S30Setup from '../pages/S30Setup'
+import S02Nickname from '../pages/S02Nickname'
+import S40Player from '../pages/S40Player'
 
 export default function AppRouter() {
   return (
     <Routes>
       <Route path={ROUTES.SPLASH} element={<S00Splash />} />
       <Route path={ROUTES.LOGIN} element={<S01Login />} />
-
+      <Route
+        path={ROUTES.PLAYER}
+        element={
+          <RequireActive>
+            <S40Player />
+          </RequireActive>
+        }
+      />
       <Route
         path={ROUTES.COMMUTE}
         element={
@@ -43,7 +54,7 @@ export default function AppRouter() {
         path={ROUTES.HOME}
         element={
           <RequireActive>
-            <Stub name="S-20 홈" />
+            <S20Home />
           </RequireActive>
         }
       />
@@ -51,7 +62,7 @@ export default function AppRouter() {
         path={ROUTES.SETUP}
         element={
           <RequireActive>
-            <Stub name="S-30 양식/난이도" />
+            <S30Setup />
           </RequireActive>
         }
       />
@@ -69,6 +80,14 @@ export default function AppRouter() {
           <RequireActive>
             <Stub name="S-50 통학 후 요약" />
           </RequireActive>
+        }
+      />
+      <Route
+        path={ROUTES.NICKNAME}
+        element={
+          <RequireAuth>
+            <S02Nickname />
+          </RequireAuth>
         }
       />
 
