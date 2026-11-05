@@ -11,7 +11,7 @@ import S20Home from '../pages/S20Home'
 import S30Setup from '../pages/S30Setup'
 import S02Nickname from '../pages/S02Nickname'
 import S40Player from '../pages/S40Player'
-
+import S50Summary from '../pages/S50Summary'
 export default function AppRouter() {
   return (
     <Routes>
@@ -78,7 +78,7 @@ export default function AppRouter() {
         path={ROUTES.SUMMARY}
         element={
           <RequireActive>
-            <Stub name="S-50 통학 후 요약" />
+            <S50Summary />
           </RequireActive>
         }
       />
