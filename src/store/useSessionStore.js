@@ -25,8 +25,8 @@ export const useSessionStore = create(
             types,
             difficulty,
             questions,
-            answers: [],
-            currentIndex: 0,
+            answers: [], // 푼 문제 수 = answers.length (다음 문제 번호도 여기서 결정)
+            totalSec: studyMin * 60,
             remainingSec: studyMin * 60,
             status: S.READY,
             startedAt: null,
@@ -41,13 +41,18 @@ export const useSessionStore = create(
             : s,
         ),
 
+      // 답안 제출. 마지막 문제면 COMPLETED
       submitAnswer: (value) => {
         const cur = get().current
         if (!cur || cur.status !== S.IN_PROGRESS) return null
-        const q = cur.questions[cur.currentIndex]
+
+        const idx = cur.answers.length
+        const q = cur.questions[idx]
+        if (!q) return null
+
         const correct = judge(q, value)
         const answers = [...cur.answers, { questionId: q.id, value, correct }]
-        const isLast = cur.currentIndex === cur.questions.length - 1
+        const isLast = idx === cur.questions.length - 1
 
         let wrongNotes = get().wrongNotes
         if (!correct) {
@@ -77,27 +82,26 @@ export const useSessionStore = create(
           patch.history = [next, ...get().history]
         }
         set(patch)
-        return { correct, completed: isLast, explanation: q.explanation }
+        return { correct, completed: isLast, question: q }
       },
 
-      next: () =>
-        set((s) =>
-          s.current && s.current.status === S.IN_PROGRESS
-            ? { current: { ...s.current, currentIndex: s.current.currentIndex + 1 } }
-            : s,
-        ),
-
+      // 1초마다 호출. 0이 되면 ENDED
       tick: () => {
         const cur = get().current
         if (!cur || cur.status !== S.IN_PROGRESS) return
-        if (cur.remainingSec <= 1) return get().endSession()
+        if (cur.remainingSec <= 1) {
+          set({ current: { ...cur, remainingSec: 0 } })
+          get().endSession()
+          return
+        }
         set({ current: { ...cur, remainingSec: cur.remainingSec - 1 } })
       },
 
+      // 중도 종료 / 시간 종료. 이어하기는 불가
       endSession: () => {
         const cur = get().current
-        if (!cur) return
-        const ended = { ...cur, status: S.ENDED, remainingSec: Math.max(0, cur.remainingSec) }
+        if (!cur || cur.status === S.COMPLETED || cur.status === S.ENDED) return
+        const ended = { ...cur, status: S.ENDED }
         set({ current: ended, history: [ended, ...get().history] })
       },
 
