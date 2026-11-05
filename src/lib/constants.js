@@ -17,6 +17,7 @@ export const DIFFICULTY = { EASY: 'EASY', NORMAL: 'NORMAL', HARD: 'HARD' }
 export const COMMUTE = { MIN: 5, MAX: 180, RATIO: 0.7, REVIEW_ONLY_BELOW: 20 }
 
 export const ROUTES = {
+  NICKNAME: '/onboarding/nickname',
   SPLASH: '/',
   LOGIN: '/login',
   COMMUTE: '/onboarding/commute',
@@ -27,3 +28,4 @@ export const ROUTES = {
   PLAYER: '/study/play',
   SUMMARY: '/study/summary',
 }
+export const NICKNAME_RULE = { MIN: 2, MAX: 10 }
