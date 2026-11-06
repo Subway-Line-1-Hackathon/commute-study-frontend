@@ -92,7 +92,7 @@ export default function S50Summary() {
 
       {unit?.summary && (
         <section className="mt-6 rounded-xl bg-white p-4 shadow-sm">
-          <h2 className="font-semibold text-slate-800">단원 요약</h2>
+          <h2 className="font-semibold text-slate-800">자료 요약</h2>
           <p className="mt-2 text-sm leading-relaxed text-slate-600">{unit.summary}</p>
         </section>
       )}

@@ -63,15 +63,21 @@ export default function S20Home() {
   return (
     <div className="mx-auto min-h-screen max-w-md bg-slate-50 pb-10">
       <header className="bg-white px-5 pb-6 pt-4">
-        <TopBar />
+        <TopBar showSettings />
         <p className="mt-2 text-sm text-slate-500">{user?.nickname ?? '학습자'}님, 안녕하세요</p>
-        <h1 className="mt-1 text-2xl font-bold text-slate-900">오늘은 어떤 단원을 풀까요?</h1>
+        <h1 className="mt-1 text-2xl font-bold text-slate-900">오늘은 어떤 자료로 공부할까요?</h1>
 
         {commute && (
-          <div className="mt-4 flex items-center justify-between rounded-xl bg-blue-50 px-4 py-3">
+          <button
+            onClick={() => navigate(ROUTES.SETTINGS)}
+            className="mt-4 flex w-full items-center justify-between rounded-xl bg-blue-50 px-4 py-3 text-left active:bg-blue-100"
+          >
             <span className="text-sm text-slate-600">통학 학습 가능 시간</span>
-            <span className="text-lg font-bold text-blue-600">{commute.studyMin}분</span>
-          </div>
+            <span className="text-lg font-bold text-blue-600">
+              {commute.studyMin}분{' '}
+              <span className="text-xs font-normal text-slate-400">수정 ›</span>
+            </span>
+          </button>
         )}
 
         {reviewOnly && (
@@ -88,9 +94,7 @@ export default function S20Home() {
 
             {units.length === 0 && (
               <p className="rounded-xl bg-white p-4 text-sm text-slate-400">
-                {pending
-                  ? '자료를 처리하고 있어요. 잠시만 기다려 주세요.'
-                  : '등록된 단원이 없어요.'}
+                {pending ? '자료를 처리하고 있어요. 잠시만 기다려 주세요.' : '등록된 자료가 없어요.'}
               </p>
             )}
 
