@@ -75,7 +75,9 @@ export default function S60Settings() {
             }}
             placeholder="예: 50"
             className={`w-full rounded-xl border px-4 py-3 text-lg outline-none focus:ring-2 ${
-              commuteError ? 'border-red-400 focus:ring-red-200' : 'border-slate-300 focus:ring-blue-200'
+              commuteError
+                ? 'border-red-400 focus:ring-red-200'
+                : 'border-slate-300 focus:ring-blue-200'
             }`}
           />
           <span className="shrink-0 text-slate-600">분</span>
@@ -123,7 +125,9 @@ export default function S60Settings() {
           maxLength={NICKNAME_RULE.MAX}
           placeholder="닉네임"
           className={`mt-3 w-full rounded-xl border px-4 py-3 text-lg outline-none focus:ring-2 ${
-            nicknameError ? 'border-red-400 focus:ring-red-200' : 'border-slate-300 focus:ring-blue-200'
+            nicknameError
+              ? 'border-red-400 focus:ring-red-200'
+              : 'border-slate-300 focus:ring-blue-200'
           }`}
         />
         <p className="mt-2 min-h-5 text-sm text-red-500">{nicknameError}</p>
