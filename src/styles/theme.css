@@ -1,6 +1,7 @@
 @theme {
   --color-primary: #2457f5;
   --color-background: #f4f6fb;
+  --color-surface: #ffffff;
   --color-ink: #12203a;
   --color-muted: #5b6780;
   --color-line: #dde3ee;
@@ -11,6 +12,8 @@
   --color-warning-soft: #fff1d6;
   --color-danger: #b3261e;
   --color-danger-soft: #fdecea;
+
+  --radius-button: 14px;
 
   --font-sans: 'Noto Sans KR', ui-sans-serif, system-ui, sans-serif;
 
