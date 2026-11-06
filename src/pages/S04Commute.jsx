@@ -31,8 +31,7 @@ export default function S04Commute() {
     <div className="mx-auto flex min-h-screen max-w-md flex-col bg-white px-6 py-6">
       <TopBar backTo={ROUTES.NICKNAME} />
 
-      <p className="mt-4 text-sm text-slate-500">최초 설정 1/2</p>
-      <h1 className="mt-1 text-2xl font-bold text-slate-900">통학 시간을 알려주세요</h1>
+      <h1 className="mt-4 text-2xl font-bold text-slate-900">통학 시간을 알려주세요</h1>
       <p className="mt-2 text-xs text-slate-500">
         <span className="text-red-500">*</span> 표시는 필수 입력
       </p>
@@ -60,13 +59,11 @@ export default function S04Commute() {
           )}
         </div>
       </div>
-
       {valid && isReviewOnly(minutes) && (
         <div className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-800">
           {COMMUTE.REVIEW_ONLY_BELOW}분 미만은 복습 커리큘럼으로 진행돼요.
         </div>
       )}
-
       <div className="mt-auto pt-10">
         <Button onClick={handleNext} disabled={!valid}>
           다음
