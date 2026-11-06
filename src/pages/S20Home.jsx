@@ -6,6 +6,7 @@ import TopBar from '../components/TopBar'
 import UnitCard from '../components/UnitCard'
 import { MATERIAL_STATUS as M, ROUTES } from '../lib/constants'
 import { getTimePlan } from '../lib/plan'
+import { getOpenNotes } from '../lib/review'
 import { isReviewOnly } from '../lib/time'
 import { useAuthStore } from '../store/useAuthStore'
 import { useMaterialStore } from '../store/useMaterialStore'
@@ -20,6 +21,7 @@ export default function S20Home() {
   const subjects = useMaterialStore((s) => s.subjects)
   const materials = useMaterialStore((s) => s.materials)
   const unitProgress = useSessionStore((s) => s.unitProgress)
+  const openCount = useSessionStore((s) => getOpenNotes(s.wrongNotes).length)
   const endSession = useSessionStore((s) => s.endSession)
   const clearCurrent = useSessionStore((s) => s.clearCurrent)
 
@@ -83,6 +85,14 @@ export default function S20Home() {
         {reviewOnly && (
           <div className="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
             학습 가능 시간이 20분 미만이라 <b>복습 퀴즈만 이용 가능</b>해요.
+            {openCount > 0 && (
+              <button
+                onClick={() => navigate(ROUTES.REVIEW)}
+                className="mt-2 w-full rounded-lg bg-amber-500 py-2 font-semibold text-white active:bg-amber-600"
+              >
+                오답 복습 시작 ({openCount}문제)
+              </button>
+            )}
           </div>
         )}
       </header>
@@ -94,7 +104,9 @@ export default function S20Home() {
 
             {units.length === 0 && (
               <p className="rounded-xl bg-white p-4 text-sm text-slate-400">
-                {pending ? '자료를 처리하고 있어요. 잠시만 기다려 주세요.' : '등록된 자료가 없어요.'}
+                {pending
+                  ? '자료를 처리하고 있어요. 잠시만 기다려 주세요.'
+                  : '등록된 자료가 없어요.'}
               </p>
             )}
 
@@ -114,6 +126,19 @@ export default function S20Home() {
             </div>
           </section>
         ))}
+
+        <button
+          onClick={() => navigate(ROUTES.WRONG_NOTES)}
+          className="flex w-full items-center justify-between rounded-xl bg-white p-4 text-left shadow-sm active:bg-slate-50"
+        >
+          <div>
+            <p className="font-semibold text-slate-800">오답노트</p>
+            <p className="mt-0.5 text-xs text-slate-500">
+              {openCount > 0 ? `미해결 ${openCount}문제` : '틀린 문제가 아직 없어요'}
+            </p>
+          </div>
+          <span className="text-slate-400">›</span>
+        </button>
 
         <button
           onClick={() => navigate(ROUTES.MATERIAL)}

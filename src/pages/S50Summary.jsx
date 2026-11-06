@@ -52,6 +52,10 @@ export default function S50Summary() {
 
   // 같은 단원을 새 세션으로 다시 출발
   const handleRetry = () => {
+    if (cur.mode === 'review') {
+      navigate(ROUTES.REVIEW, { replace: true })
+      return
+    }
     const store = useSessionStore.getState()
     store.createSession({
       unit: { id: cur.unitId, title: cur.unitTitle },
