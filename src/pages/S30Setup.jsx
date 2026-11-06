@@ -1,12 +1,18 @@
 import { useState } from 'react'
-import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
-import BackButton from '../components/BackButton'
+import { Navigate, useNavigate } from 'react-router-dom'
 import Chip from '../components/Chip'
+import ConfirmModal from '../components/ConfirmModal'
 import SegmentedToggle from '../components/SegmentedToggle'
-import { DIFFICULTY, MATERIAL_STATUS as M, QUESTION_TYPE as T, ROUTES } from '../lib/constants'
-import { useAuthStore } from '../store/useAuthStore'
-import { useMaterialStore } from '../store/useMaterialStore'
-import { useSessionStore } from '../store/useSessionStore'
+import TimerBadge from '../components/TimerBadge'
+import {
+  DIFFICULTY,
+  PHASE,
+  QUESTION_TYPE as T,
+  ROUTES,
+  SESSION_STATUS as S,
+} from '../lib/constants'
+import { recommendCount } from '../lib/plan'
+import { getSessionRoute, useSessionStore } from '../store/useSessionStore'
 
 const TYPE_OPTIONS = [
   { value: T.OX, label: 'O/X' },
@@ -23,34 +29,32 @@ const DIFFICULTY_OPTIONS = [
 const COUNT_OPTIONS = [
   { value: 5, label: '5문제' },
   { value: 10, label: '10문제' },
+  { value: 15, label: '15문제' },
+  { value: 20, label: '20문제' },
 ]
 
 export default function S30Setup() {
   const navigate = useNavigate()
-  const [params] = useSearchParams()
-  const unitId = params.get('unit')
-
-  const commute = useAuthStore((s) => s.commute)
-  const subjects = useMaterialStore((s) => s.subjects)
-  const materials = useMaterialStore((s) => s.materials)
+  const cur = useSessionStore((s) => s.current)
+  const startQuiz = useSessionStore((s) => s.startQuiz)
+  const endSession = useSessionStore((s) => s.endSession)
 
   const [types, setTypes] = useState([T.MCQ])
   const [difficulty, setDifficulty] = useState(DIFFICULTY.NORMAL)
   const [count, setCount] = useState(5)
+  const [confirmEnd, setConfirmEnd] = useState(false)
 
-  // 단원 찾기 (잘못된 주소로 들어오면 홈으로)
-  let unit = null
-  let subjectName = ''
-  for (const m of materials) {
-    if (m.status !== M.READY) continue
-    const found = m.units.find((u) => u.id === unitId)
-    if (found) {
-      unit = found
-      subjectName = subjects.find((s) => s.id === m.subjectId)?.name ?? ''
-      break
-    }
+  if (
+    !cur ||
+    cur.phase !== PHASE.QUIZ_SETUP ||
+    cur.status === S.COMPLETED ||
+    cur.status === S.ENDED
+  ) {
+    return <Navigate to={getSessionRoute(cur)} replace />
   }
-  if (!unit) return <Navigate to={ROUTES.HOME} replace />
+
+  const recommended = recommendCount(types, cur.quizRemainingSec)
+  const heard = cur.plan.conceptSec > 0
 
   const toggleType = (value) => {
     setTypes((prev) => (prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value]))
@@ -58,24 +62,32 @@ export default function S30Setup() {
 
   const handleStart = () => {
     if (types.length === 0) return
-    const { getResumable, endSession, createSession } = useSessionStore.getState()
-    if (getResumable()) endSession() // 진행 중이던 세션은 종료 처리
-    createSession({
-      unit,
-      types,
-      difficulty,
-      count,
-      studyMin: commute?.studyMin ?? 20,
-    })
-    navigate(ROUTES.PLAYER)
+    startQuiz({ types, difficulty, count })
+    navigate(ROUTES.PLAYER, { replace: true })
+  }
+
+  const handleEnd = () => {
+    setConfirmEnd(false)
+    endSession()
+    navigate(ROUTES.HOME, { replace: true })
   }
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-white px-5 py-6">
-      <BackButton to={ROUTES.HOME} />
+    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-white px-5 py-4">
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => setConfirmEnd(true)}
+          className="py-2 text-sm text-slate-500 active:text-slate-800"
+        >
+          ‹ 그만하기
+        </button>
+        <TimerBadge seconds={cur.quizRemainingSec} />
+      </div>
 
-      <p className="mt-2 text-sm text-slate-500">{subjectName}</p>
-      <h1 className="text-2xl font-bold text-slate-900">{unit.title}</h1>
+      <p className="mt-2 text-sm text-slate-500">
+        {heard ? '개념 듣기가 끝났어요' : '문제 풀이'} · {cur.unitTitle}
+      </p>
+      <h1 className="text-2xl font-bold text-slate-900">어떤 문제를 풀까요?</h1>
 
       <section className="mt-8">
         <h2 className="mb-1 font-semibold text-slate-800">문제 양식</h2>
@@ -103,6 +115,12 @@ export default function S30Setup() {
       <section className="mt-8">
         <h2 className="mb-3 font-semibold text-slate-800">문제 수</h2>
         <SegmentedToggle options={COUNT_OPTIONS} value={count} onChange={setCount} />
+        {types.length > 0 && (
+          <p className="mt-2 text-xs text-slate-500">
+            남은 시간으로는 약 {recommended}문제를 풀 수 있어요.
+            {count > recommended && ' 시간이 끝나면 풀지 못한 문제는 건너뛰어요.'}
+          </p>
+        )}
       </section>
 
       <div className="mt-auto pt-10">
@@ -111,9 +129,20 @@ export default function S30Setup() {
           disabled={types.length === 0}
           className="w-full rounded-xl bg-blue-600 py-3.5 font-semibold text-white disabled:bg-slate-300"
         >
-          학습 시작
+          문제 풀기 시작
         </button>
       </div>
+
+      {confirmEnd && (
+        <ConfirmModal
+          title="학습을 그만할까요?"
+          message="그만하면 이어서 할 수 없어요."
+          confirmLabel="그만하기"
+          cancelLabel="계속하기"
+          onConfirm={handleEnd}
+          onCancel={() => setConfirmEnd(false)}
+        />
+      )}
     </div>
   )
 }

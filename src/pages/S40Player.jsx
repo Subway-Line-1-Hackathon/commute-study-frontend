@@ -3,13 +3,14 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import ConfirmModal from '../components/ConfirmModal'
 import QuestionCard from '../components/QuestionCard'
 import TimerBadge from '../components/TimerBadge'
-import { ROUTES, SESSION_STATUS as S } from '../lib/constants'
-import { useSessionStore } from '../store/useSessionStore'
+import { useWakeLock } from '../hooks/useWakeLock'
+import { PHASE, ROUTES, SESSION_STATUS as S, WARNING_SEC } from '../lib/constants'
+import { announce } from '../lib/speaker'
+import { getSessionRoute, useSessionStore } from '../store/useSessionStore'
 
 export default function S40Player() {
   const navigate = useNavigate()
   const cur = useSessionStore((s) => s.current)
-  const start = useSessionStore((s) => s.start)
   const submitAnswer = useSessionStore((s) => s.submitAnswer)
   const endSession = useSessionStore((s) => s.endSession)
 
@@ -17,29 +18,38 @@ export default function S40Player() {
   const [feedback, setFeedback] = useState(null) // { question, correct, completed }
   const [timeUp, setTimeUp] = useState(false)
   const [confirmEnd, setConfirmEnd] = useState(false)
+  const [warn, setWarn] = useState(false)
 
   const status = cur?.status
-  const running = status === S.IN_PROGRESS
+  const running = status === S.IN_PROGRESS && cur?.phase === PHASE.QUIZ
+  useWakeLock(running)
 
-  // READY -> IN_PROGRESS
-  useEffect(() => {
-    if (status === S.READY) start()
-  }, [status, start])
-
-  // 1초마다 타이머 감소. 0이 되어 ENDED가 되면 종료 안내
+  // 1초마다 문제 시간 감소. 종료 직전 알림과 시간 종료를 여기서 처리한다
   useEffect(() => {
     if (!running) return
     const id = setInterval(() => {
-      useSessionStore.getState().tick()
-      if (useSessionStore.getState().current?.status === S.ENDED) setTimeUp(true)
+      const store = useSessionStore.getState()
+      const wasWarned = store.current?.warned
+      store.tick()
+      const next = useSessionStore.getState().current
+
+      if (!wasWarned && next?.warned) {
+        setWarn(true)
+        announce(`학습 종료까지 ${WARNING_SEC / 60}분 남았어요. 곧 끝나요.`)
+        if ('vibrate' in navigator) navigator.vibrate([200, 100, 200])
+        setTimeout(() => setWarn(false), 8000)
+      }
+      if (next?.status === S.ENDED) setTimeUp(true)
     }, 1000)
     return () => clearInterval(id)
   }, [running])
 
   if (!cur) return <Navigate to={ROUTES.HOME} replace />
-  if (status === S.READY) return null // start() 반영 직전
-  if (!feedback && !timeUp && (status === S.COMPLETED || status === S.ENDED)) {
-    return <Navigate to={ROUTES.HOME} replace />
+
+  const finished = status === S.COMPLETED || status === S.ENDED
+  if (!feedback && !timeUp && finished) return <Navigate to={ROUTES.HOME} replace />
+  if (!finished && cur.phase !== PHASE.QUIZ) {
+    return <Navigate to={getSessionRoute(cur)} replace />
   }
 
   const total = cur.questions.length
@@ -77,6 +87,12 @@ export default function S40Player() {
 
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col bg-slate-50 px-5 py-4">
+      {warn && (
+        <div className="fixed left-1/2 top-4 z-40 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 rounded-xl bg-amber-500 px-4 py-3 text-center text-sm font-semibold text-white shadow-lg">
+          곧 끝나요! 학습 종료까지 {WARNING_SEC / 60}분 남았어요.
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <button
           onClick={() => setConfirmEnd(true)}
@@ -84,7 +100,7 @@ export default function S40Player() {
         >
           ‹ 학습 종료
         </button>
-        <TimerBadge seconds={cur.remainingSec} />
+        <TimerBadge seconds={cur.quizRemainingSec} />
       </div>
 
       <div className="mt-2">
