@@ -5,6 +5,7 @@ import { zustandStorage, uid, wait } from '../lib/storage'
 import { generateUnitsAndSummary } from '../mocks/mockMaterial'
 
 const inflight = new Set()
+const baseName = (fileName) => fileName.replace(/\.[^.]+$/, '')
 
 export const useMaterialStore = create(
   persist(
@@ -69,11 +70,30 @@ export const useMaterialStore = create(
         allUnits: () =>
           get()
             .materials.filter((m) => m.status === M.READY)
-            .flatMap((m) =>
-              m.units.map((u) => ({ ...u, materialId: m.id, subjectId: m.subjectId })),
-            ),
+            .flatMap((m) => m.units.map((u) => ({ ...u, materialId: m.id, subjectId: m.subjectId }))),
       }
     },
-    { name: 'cs:materials', storage: createJSONStorage(() => zustandStorage) },
+    {
+      name: 'cs:materials',
+      version: 1,
+      // 예전에 4개 단원으로 나뉘어 저장된 자료를 하나로 합친다
+      migrate: (persisted) => ({
+        ...persisted,
+        materials: (persisted.materials ?? []).map((m) => ({
+          ...m,
+          units:
+            m.status === M.READY
+              ? [
+                  {
+                    id: m.units?.[0]?.id ?? m.id,
+                    title: baseName(m.fileName),
+                    summary: m.summary ?? '',
+                  },
+                ]
+              : [],
+        })),
+      }),
+      storage: createJSONStorage(() => zustandStorage),
+    },
   ),
 )
