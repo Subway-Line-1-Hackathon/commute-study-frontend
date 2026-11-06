@@ -2,8 +2,9 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import StatCard from '../components/StatCard'
 import TopBar from '../components/TopBar'
 import { MATERIAL_STATUS as M, ROUTES, SESSION_STATUS as S, WRONG_STATUS } from '../lib/constants'
+import { useAuthStore } from '../store/useAuthStore'
 import { useMaterialStore } from '../store/useMaterialStore'
-import { useSessionStore } from '../store/useSessionStore'
+import { getSessionRoute, useSessionStore } from '../store/useSessionStore'
 
 const formatDuration = (sec) => {
   const m = Math.floor(sec / 60)
@@ -24,16 +25,18 @@ export default function S50Summary() {
     (s) => s.wrongNotes.filter((n) => n.status === WRONG_STATUS.OPEN).length,
   )
   const materials = useMaterialStore((s) => s.materials)
+  const commute = useAuthStore((s) => s.commute)
 
-  const finished = cur && (cur.status === S.COMPLETED || cur.status === S.ENDED)
+  const finished =
+    cur && (cur.status === S.COMPLETED || cur.status === S.ENDED) && cur.questions.length > 0
   if (!finished) return <Navigate to={ROUTES.HOME} replace />
 
   const total = cur.questions.length
   const answered = cur.answers.length
   const correctCount = cur.answers.filter((a) => a.correct).length
   const wrongCount = answered - correctCount
-  const percent = Math.round((correctCount / total) * 100)
-  const elapsedSec = cur.totalSec ? Math.max(0, cur.totalSec - cur.remainingSec) : null
+  const percent = answered > 0 ? Math.round((correctCount / answered) * 100) : 0
+  const elapsedSec = Math.max(0, cur.plan.totalSec - cur.conceptRemainingSec - cur.quizRemainingSec)
 
   const wrongItems = cur.answers
     .filter((a) => !a.correct)
@@ -46,6 +49,17 @@ export default function S50Summary() {
     .find((u) => u.id === cur.unitId)
 
   const timeUp = cur.status === S.ENDED
+
+  // 같은 단원을 새 세션으로 다시 출발
+  const handleRetry = () => {
+    const store = useSessionStore.getState()
+    store.createSession({
+      unit: { id: cur.unitId, title: cur.unitTitle },
+      studyMin: commute?.studyMin ?? 20,
+    })
+    useSessionStore.getState().start()
+    navigate(getSessionRoute(useSessionStore.getState().current), { replace: true })
+  }
 
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col bg-slate-50 px-5 py-4">
@@ -73,7 +87,7 @@ export default function S50Summary() {
           value={`${wrongCount}개`}
           tone={wrongCount > 0 ? 'bad' : 'default'}
         />
-        {elapsedSec !== null && <StatCard label="걸린 시간" value={formatDuration(elapsedSec)} />}
+        <StatCard label="걸린 시간" value={formatDuration(elapsedSec)} />
       </div>
 
       {unit?.summary && (
@@ -112,10 +126,10 @@ export default function S50Summary() {
 
       <div className="mt-auto flex gap-3 pt-8">
         <button
-          onClick={() => navigate(`${ROUTES.SETUP}?unit=${cur.unitId}`)}
+          onClick={handleRetry}
           className="flex-1 rounded-xl border border-slate-300 bg-white py-3.5 font-semibold text-slate-700 active:bg-slate-50"
         >
-          다시 풀기
+          다시 학습
         </button>
         <button
           onClick={() => navigate(ROUTES.HOME, { replace: true })}
