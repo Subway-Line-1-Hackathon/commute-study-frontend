@@ -12,6 +12,7 @@ import S30Setup from '../pages/S30Setup'
 import S35Listen from '../pages/S35Listen'
 import S40Player from '../pages/S40Player'
 import S50Summary from '../pages/S50Summary'
+import S60Settings from '../pages/S60Settings'
 
 export default function AppRouter() {
   return (
@@ -19,79 +20,17 @@ export default function AppRouter() {
       <Route path={ROUTES.SPLASH} element={<S00Splash />} />
       <Route path={ROUTES.LOGIN} element={<S01Login />} />
 
-      <Route
-        path={ROUTES.NICKNAME}
-        element={
-          <RequireAuth>
-            <S02Nickname />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path={ROUTES.COMMUTE}
-        element={
-          <RequireAuth>
-            <S04Commute />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path={ROUTES.MATERIAL}
-        element={
-          <RequireAuth>
-            <S05Material />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path={ROUTES.WAITING}
-        element={
-          <RequireAuth>
-            <S10Waiting />
-          </RequireAuth>
-        }
-      />
+      <Route path={ROUTES.NICKNAME} element={<RequireAuth><S02Nickname /></RequireAuth>} />
+      <Route path={ROUTES.COMMUTE} element={<RequireAuth><S04Commute /></RequireAuth>} />
+      <Route path={ROUTES.MATERIAL} element={<RequireAuth><S05Material /></RequireAuth>} />
+      <Route path={ROUTES.WAITING} element={<RequireAuth><S10Waiting /></RequireAuth>} />
 
-      <Route
-        path={ROUTES.HOME}
-        element={
-          <RequireActive>
-            <S20Home />
-          </RequireActive>
-        }
-      />
-      <Route
-        path={ROUTES.LISTEN}
-        element={
-          <RequireActive>
-            <S35Listen />
-          </RequireActive>
-        }
-      />
-      <Route
-        path={ROUTES.SETUP}
-        element={
-          <RequireActive>
-            <S30Setup />
-          </RequireActive>
-        }
-      />
-      <Route
-        path={ROUTES.PLAYER}
-        element={
-          <RequireActive>
-            <S40Player />
-          </RequireActive>
-        }
-      />
-      <Route
-        path={ROUTES.SUMMARY}
-        element={
-          <RequireActive>
-            <S50Summary />
-          </RequireActive>
-        }
-      />
+      <Route path={ROUTES.HOME} element={<RequireActive><S20Home /></RequireActive>} />
+      <Route path={ROUTES.LISTEN} element={<RequireActive><S35Listen /></RequireActive>} />
+      <Route path={ROUTES.SETUP} element={<RequireActive><S30Setup /></RequireActive>} />
+      <Route path={ROUTES.PLAYER} element={<RequireActive><S40Player /></RequireActive>} />
+      <Route path={ROUTES.SUMMARY} element={<RequireActive><S50Summary /></RequireActive>} />
+      <Route path={ROUTES.SETTINGS} element={<RequireActive><S60Settings /></RequireActive>} />
 
       <Route path="*" element={<Navigate to={ROUTES.SPLASH} replace />} />
     </Routes>

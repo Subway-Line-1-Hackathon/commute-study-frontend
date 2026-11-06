@@ -31,4 +31,5 @@ export const ROUTES = {
   SETUP: '/study/setup',
   PLAYER: '/study/play',
   SUMMARY: '/study/summary',
+  SETTINGS: '/settings',
 }
