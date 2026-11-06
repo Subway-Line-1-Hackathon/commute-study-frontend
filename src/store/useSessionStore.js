@@ -8,6 +8,7 @@ import {
   WRONG_STATUS,
   QUESTION_TYPE as T,
 } from '../lib/constants'
+import { kstDateKey } from '../lib/date'
 import { getTimePlan } from '../lib/plan'
 import { zustandStorage, uid } from '../lib/storage'
 import { generateQuestions } from '../mocks/mockQuiz'
@@ -16,6 +17,38 @@ import { generateScript } from '../mocks/mockScript'
 const norm = (v) => String(v).trim().toLowerCase()
 const judge = (q, a) => (q.type === T.SHORT ? norm(q.answer) === norm(a) : q.answer === a)
 
+// 틀린 문제를 오답노트에 반영. 이미 있으면 OPEN으로 되돌리고 횟수만 올린다
+function upsertWrong(notes, q, cur, now) {
+  const exist = notes.find((n) => n.questionId === q.id)
+  if (exist) {
+    return notes.map((n) =>
+      n.id === exist.id
+        ? {
+            ...n,
+            status: WRONG_STATUS.OPEN,
+            wrongCount: n.wrongCount + 1,
+            lastWrongAt: now,
+            resolvedAt: null,
+          }
+        : n,
+    )
+  }
+  return [
+    ...notes,
+    {
+      id: uid(),
+      questionId: q.id,
+      unitId: cur.unitId,
+      unitTitle: cur.unitTitle,
+      question: q, // 다시 풀 수 있게 문제 전체를 저장
+      status: WRONG_STATUS.OPEN,
+      wrongCount: 1,
+      lastWrongAt: now,
+      resolvedAt: null,
+    },
+  ]
+}
+
 export const useSessionStore = create(
   persist(
     (set, get) => ({
@@ -23,14 +56,16 @@ export const useSessionStore = create(
       history: [],
       wrongNotes: [],
       unitProgress: {},
+      dailyStats: {}, // { 'YYYY-MM-DD': { answered, correct } } 한국 시간 기준
 
-      // READY. 20분 미만(개념 시간 0)이면 듣기 없이 문제 설정으로 시작
+      // 일반 학습 세션. 20분 미만(개념 시간 0)이면 듣기 없이 문제 설정으로 시작
       createSession: ({ unit, studyMin }) => {
         const plan = getTimePlan(studyMin)
         const reviewOnly = plan.conceptSec === 0
         set({
           current: {
             id: uid(),
+            mode: 'curriculum',
             unitId: unit.id,
             unitTitle: unit.title,
             plan,
@@ -43,6 +78,32 @@ export const useSessionStore = create(
             types: [],
             difficulty: null,
             questions: [],
+            answers: [],
+            status: S.READY,
+            startedAt: null,
+          },
+        })
+      },
+
+      // 오답 복습 세션: 개념 듣기 없이 학습 가능 시간 전체를 문제에 쓴다
+      createReviewSession: ({ questions, studyMin }) => {
+        const quizSec = studyMin * 60
+        set({
+          current: {
+            id: uid(),
+            mode: 'review',
+            unitId: 'review',
+            unitTitle: '오답 복습',
+            plan: { totalSec: quizSec, conceptSec: 0, quizSec, conceptRatio: 0 },
+            script: [],
+            listenIndex: 0,
+            phase: PHASE.QUIZ,
+            conceptRemainingSec: 0,
+            quizRemainingSec: quizSec,
+            warned: false,
+            types: [],
+            difficulty: null,
+            questions,
             answers: [],
             status: S.READY,
             startedAt: null,
@@ -95,34 +156,41 @@ export const useSessionStore = create(
         const q = cur.questions[idx]
         if (!q) return null
 
+        const isReview = cur.mode === 'review'
+        const now = Date.now()
         const correct = judge(q, value)
         const answers = [...cur.answers, { questionId: q.id, value, correct }]
         const isLast = idx === cur.questions.length - 1
 
+        // 오답노트: 틀리면 OPEN(+횟수), 복습에서 맞히면 RESOLVED
         let wrongNotes = get().wrongNotes
         if (!correct) {
-          wrongNotes = [
-            ...wrongNotes,
-            {
-              id: uid(),
-              questionId: q.id,
-              unitId: cur.unitId,
-              prompt: q.prompt,
-              answer: q.answer,
-              status: WRONG_STATUS.OPEN,
-            },
-          ]
+          wrongNotes = upsertWrong(wrongNotes, q, cur, now)
+        } else if (isReview) {
+          wrongNotes = wrongNotes.map((n) =>
+            n.questionId === q.id ? { ...n, status: WRONG_STATUS.RESOLVED, resolvedAt: now } : n,
+          )
+        }
+
+        // 하루 합산 정답률 기록 (복습 응답도 포함)
+        const key = kstDateKey(now)
+        const prev = get().dailyStats[key] ?? { answered: 0, correct: 0 }
+        const dailyStats = {
+          ...get().dailyStats,
+          [key]: { answered: prev.answered + 1, correct: prev.correct + (correct ? 1 : 0) },
         }
 
         const next = { ...cur, answers, status: isLast ? S.COMPLETED : S.IN_PROGRESS }
-        const patch = { current: next, wrongNotes }
+        const patch = { current: next, wrongNotes, dailyStats }
         if (isLast) {
-          patch.unitProgress = {
-            ...get().unitProgress,
-            [cur.unitId]: {
-              solved: answers.filter((a) => a.correct).length,
-              total: cur.questions.length,
-            },
+          if (!isReview) {
+            patch.unitProgress = {
+              ...get().unitProgress,
+              [cur.unitId]: {
+                solved: answers.filter((a) => a.correct).length,
+                total: cur.questions.length,
+              },
+            }
           }
           patch.history = [next, ...get().history]
         }
@@ -177,15 +245,21 @@ export const useSessionStore = create(
     }),
     {
       name: 'cs:session',
-      version: 2,
-      // 예전 구조의 세션은 버린다 (오답과 진도는 유지)
-      migrate: (persisted) => ({ ...persisted, current: null }),
+      version: 3,
+      // 예전 구조는 정리한다 (오답은 다시 풀 수 있는 형태가 아니라 비운다)
+      migrate: (persisted, version) => ({
+        ...persisted,
+        current: version < 2 ? null : persisted.current,
+        wrongNotes: [],
+        dailyStats: persisted.dailyStats ?? {},
+      }),
       storage: createJSONStorage(() => zustandStorage),
       partialize: (s) => ({
         current: s.current,
         history: s.history,
         wrongNotes: s.wrongNotes,
         unitProgress: s.unitProgress,
+        dailyStats: s.dailyStats,
       }),
     },
   ),

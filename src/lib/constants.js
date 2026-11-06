@@ -32,4 +32,6 @@ export const ROUTES = {
   PLAYER: '/study/play',
   SUMMARY: '/study/summary',
   SETTINGS: '/settings',
+  REVIEW: '/study/review',
+  WRONG_NOTES: '/wrong-notes',
 }
