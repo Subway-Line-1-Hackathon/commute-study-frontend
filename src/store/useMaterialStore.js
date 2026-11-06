@@ -70,7 +70,9 @@ export const useMaterialStore = create(
         allUnits: () =>
           get()
             .materials.filter((m) => m.status === M.READY)
-            .flatMap((m) => m.units.map((u) => ({ ...u, materialId: m.id, subjectId: m.subjectId }))),
+            .flatMap((m) =>
+              m.units.map((u) => ({ ...u, materialId: m.id, subjectId: m.subjectId })),
+            ),
       }
     },
     {
