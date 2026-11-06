@@ -88,7 +88,7 @@ export default function S40Player() {
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col bg-slate-50 px-5 py-4">
       {warn && (
-        <div className="fixed left-1/2 top-4 z-40 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 rounded-xl bg-amber-500 px-4 py-3 text-center text-sm font-semibold text-white shadow-lg">
+        <div className="fixed top-4 left-1/2 z-40 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 rounded-xl bg-amber-500 px-4 py-3 text-center text-sm font-semibold text-white shadow-lg">
           곧 끝나요! 학습 종료까지 {WARNING_SEC / 60}분 남았어요.
         </div>
       )}

@@ -24,7 +24,7 @@ export default function QuestionCard({ question, value, onChange, result }) {
       <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
         {TYPE_LABEL[question.type]}
       </span>
-      <h2 className="mt-3 text-lg font-semibold leading-relaxed text-slate-900">
+      <h2 className="mt-3 text-lg leading-relaxed font-semibold text-slate-900">
         {question.prompt}
       </h2>
 
