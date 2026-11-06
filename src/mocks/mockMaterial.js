@@ -1,11 +1,8 @@
 import { uid } from '../lib/storage'
 
+// 자료 하나가 곧 학습 항목이다. 단원으로 나누지 않는다.
 export function generateUnitsAndSummary(fileName) {
-  const base = fileName.replace(/\.[^.]+$/, '')
-  const units = ['1단원. 개요', '2단원. 핵심 개념', '3단원. 응용', '4단원. 정리'].map((title) => ({
-    id: uid(),
-    title,
-    summary: `${base}의 "${title}" 요약본 (Mock)`,
-  }))
-  return { units, summary: `${base} 전체 요약본 (Mock)` }
+  const title = fileName.replace(/\.[^.]+$/, '')
+  const summary = `${title}의 핵심 내용을 정리한 요약이에요. (Mock)`
+  return { units: [{ id: uid(), title, summary }], summary }
 }

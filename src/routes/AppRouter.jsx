@@ -2,27 +2,32 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { ROUTES } from '../lib/constants'
 import { RequireAuth, RequireActive } from './guards'
 import S00Splash from '../pages/S00Splash'
-import S10Waiting from '../pages/S10Waiting'
-import Stub from '../pages/Stub'
 import S01Login from '../pages/S01Login'
+import S02Nickname from '../pages/S02Nickname'
 import S04Commute from '../pages/S04Commute'
 import S05Material from '../pages/S05Material'
+import S10Waiting from '../pages/S10Waiting'
 import S20Home from '../pages/S20Home'
 import S30Setup from '../pages/S30Setup'
-import S02Nickname from '../pages/S02Nickname'
+import S32Review from '../pages/S32Review'
+import S35Listen from '../pages/S35Listen'
 import S40Player from '../pages/S40Player'
 import S50Summary from '../pages/S50Summary'
+import S52WrongNotes from '../pages/S52WrongNotes'
+import S60Settings from '../pages/S60Settings'
+
 export default function AppRouter() {
   return (
     <Routes>
       <Route path={ROUTES.SPLASH} element={<S00Splash />} />
       <Route path={ROUTES.LOGIN} element={<S01Login />} />
+
       <Route
-        path={ROUTES.PLAYER}
+        path={ROUTES.NICKNAME}
         element={
-          <RequireActive>
-            <S40Player />
-          </RequireActive>
+          <RequireAuth>
+            <S02Nickname />
+          </RequireAuth>
         }
       />
       <Route
@@ -59,6 +64,14 @@ export default function AppRouter() {
         }
       />
       <Route
+        path={ROUTES.LISTEN}
+        element={
+          <RequireActive>
+            <S35Listen />
+          </RequireActive>
+        }
+      />
+      <Route
         path={ROUTES.SETUP}
         element={
           <RequireActive>
@@ -67,10 +80,18 @@ export default function AppRouter() {
         }
       />
       <Route
+        path={ROUTES.REVIEW}
+        element={
+          <RequireActive>
+            <S32Review />
+          </RequireActive>
+        }
+      />
+      <Route
         path={ROUTES.PLAYER}
         element={
           <RequireActive>
-            <Stub name="S-40 학습 플레이어" />
+            <S40Player />
           </RequireActive>
         }
       />
@@ -83,11 +104,19 @@ export default function AppRouter() {
         }
       />
       <Route
-        path={ROUTES.NICKNAME}
+        path={ROUTES.WRONG_NOTES}
         element={
-          <RequireAuth>
-            <S02Nickname />
-          </RequireAuth>
+          <RequireActive>
+            <S52WrongNotes />
+          </RequireActive>
+        }
+      />
+      <Route
+        path={ROUTES.SETTINGS}
+        element={
+          <RequireActive>
+            <S60Settings />
+          </RequireActive>
         }
       />
 

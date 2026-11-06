@@ -7,7 +7,7 @@ import { useMaterialStore } from '../store/useMaterialStore'
 
 const LABEL = {
   [M.UPLOADED]: '업로드 완료',
-  [M.PROCESSING]: '단원과 요약본을 만드는 중...',
+  [M.PROCESSING]: '강의 요약을 만드는 중...',
   [M.READY]: '준비 완료',
 }
 

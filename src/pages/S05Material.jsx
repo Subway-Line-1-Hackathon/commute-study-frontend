@@ -104,9 +104,7 @@ export default function S05Material() {
         <br />
         등록해 주세요
       </h1>
-      <p className="mt-2 text-sm text-slate-500">
-        자료를 올리면 단원과 요약본이 자동으로 만들어져요.
-      </p>
+      <p className="mt-2 text-sm text-slate-500">자료를 올리면 강의 요약이 자동으로 만들어져요.</p>
 
       <div className="mt-6 flex gap-2">
         <input
