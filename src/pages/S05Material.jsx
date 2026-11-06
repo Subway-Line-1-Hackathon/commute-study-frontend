@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import Button from '../components/Button'
+import TextField from '../components/TextField'
 import TopBar from '../components/TopBar'
 import { MATERIAL_STATUS as M, ROUTES } from '../lib/constants'
 import { useMaterialStore } from '../store/useMaterialStore'
@@ -107,7 +109,7 @@ export default function S05Material() {
       <p className="mt-2 text-sm text-slate-500">자료를 올리면 강의 요약이 자동으로 만들어져요.</p>
 
       <div className="mt-6 flex gap-2">
-        <input
+        <TextField
           value={name}
           onChange={(e) => {
             setName(e.target.value)
@@ -116,7 +118,7 @@ export default function S05Material() {
           onKeyDown={(e) => e.key === 'Enter' && handleAddSubject()}
           maxLength={30}
           placeholder="과목명 (예: 머신러닝)"
-          className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-blue-200"
+          className="min-w-0 flex-1"
         />
         <button
           onClick={handleAddSubject}
@@ -148,13 +150,9 @@ export default function S05Material() {
             자료를 한 개 이상 올려야 다음으로 갈 수 있어요.
           </p>
         )}
-        <button
-          onClick={() => navigate(ROUTES.WAITING)}
-          disabled={!canNext}
-          className="w-full rounded-xl bg-blue-600 py-3.5 font-semibold text-white disabled:bg-slate-300"
-        >
+        <Button onClick={() => navigate(ROUTES.WAITING)} disabled={!canNext}>
           다음
-        </button>
+        </Button>
       </div>
     </div>
   )
