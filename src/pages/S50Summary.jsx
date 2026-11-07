@@ -1,7 +1,13 @@
 import { Navigate, useNavigate } from 'react-router-dom'
 import StatCard from '../components/StatCard'
 import TopBar from '../components/TopBar'
-import { MATERIAL_STATUS as M, ROUTES, SESSION_STATUS as S, WRONG_STATUS } from '../lib/constants'
+import {
+  MATERIAL_STATUS as M,
+  ROUTES,
+  SESSION_STATUS as S,
+  SOLVE_MODE,
+  WRONG_STATUS,
+} from '../lib/constants'
 import { useAuthStore } from '../store/useAuthStore'
 import { useMaterialStore } from '../store/useMaterialStore'
 import { getSessionRoute, useSessionStore } from '../store/useSessionStore'
@@ -49,6 +55,10 @@ export default function S50Summary() {
     .find((u) => u.id === cur.unitId)
 
   const timeUp = cur.status === S.ENDED
+  const isListen = cur.solveMode === SOLVE_MODE.LISTEN
+  const listened = cur.answers
+    .map((a) => cur.questions.find((q) => q.id === a.questionId))
+    .filter(Boolean)
 
   // 같은 단원을 새 세션으로 다시 출발
   const handleRetry = () => {
@@ -74,59 +84,86 @@ export default function S50Summary() {
 
       {timeUp && (
         <div className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
-          학습이 끝나서 {total}문제 중 {answered}문제를 풀었어요.
+          학습이 끝나서 {total}문제 중 {answered}문제를 {isListen ? '들었어요' : '풀었어요'}.
         </div>
       )}
 
-      <section className="mt-5 rounded-2xl bg-blue-600 p-6 text-center text-white">
-        <p className="text-sm opacity-80">정답률</p>
-        <p className="mt-1 text-5xl font-bold">{percent}%</p>
-        <p className="mt-2 text-sm">{getComment(percent)}</p>
-      </section>
+      {isListen ? (
+        <>
+          <section className="mt-5 rounded-2xl bg-blue-600 p-6 text-center text-white">
+            <p className="text-sm opacity-80">들은 문제</p>
+            <p className="mt-1 text-5xl font-bold">{answered}개</p>
+            <p className="mt-2 text-sm">걸린 시간 {formatDuration(elapsedSec)}</p>
+          </section>
 
-      <div className="mt-3 flex gap-3">
-        <StatCard label="정답" value={`${correctCount}개`} tone="good" />
-        <StatCard
-          label="오답"
-          value={`${wrongCount}개`}
-          tone={wrongCount > 0 ? 'bad' : 'default'}
-        />
-        <StatCard label="걸린 시간" value={formatDuration(elapsedSec)} />
-      </div>
+          <section className="mt-6">
+            <h2 className="mb-3 font-semibold text-slate-800">들은 문제 다시 보기</h2>
+            <ul className="space-y-3">
+              {listened.map((q) => (
+                <li key={q.id} className="rounded-xl bg-white p-4 shadow-sm">
+                  <p className="font-medium text-slate-900">{q.prompt}</p>
+                  <p className="mt-2 text-sm text-green-600">정답: {q.answer}</p>
+                  {q.explanation && (
+                    <p className="mt-2 text-xs leading-relaxed text-slate-500">{q.explanation}</p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
+        </>
+      ) : (
+        <>
+          <section className="mt-5 rounded-2xl bg-blue-600 p-6 text-center text-white">
+            <p className="text-sm opacity-80">정답률</p>
+            <p className="mt-1 text-5xl font-bold">{percent}%</p>
+            <p className="mt-2 text-sm">{getComment(percent)}</p>
+          </section>
 
-      {unit?.summary && (
-        <section className="mt-6 rounded-xl bg-white p-4 shadow-sm">
-          <h2 className="font-semibold text-slate-800">자료 요약</h2>
-          <p className="mt-2 text-sm leading-relaxed text-slate-600">{unit.summary}</p>
-        </section>
+          <div className="mt-3 flex gap-3">
+            <StatCard label="정답" value={`${correctCount}개`} tone="good" />
+            <StatCard
+              label="오답"
+              value={`${wrongCount}개`}
+              tone={wrongCount > 0 ? 'bad' : 'default'}
+            />
+            <StatCard label="걸린 시간" value={formatDuration(elapsedSec)} />
+          </div>
+
+          {unit?.summary && (
+            <section className="mt-6 rounded-xl bg-white p-4 shadow-sm">
+              <h2 className="font-semibold text-slate-800">자료 요약</h2>
+              <p className="mt-2 text-sm leading-relaxed text-slate-600">{unit.summary}</p>
+            </section>
+          )}
+
+          <section className="mt-6">
+            <h2 className="mb-3 font-semibold text-slate-800">틀린 문제</h2>
+            {wrongItems.length === 0 ? (
+              <p className="rounded-xl bg-white p-4 text-sm text-slate-500">
+                틀린 문제가 없어요. 완벽해요!
+              </p>
+            ) : (
+              <ul className="space-y-3">
+                {wrongItems.map(({ answer, question }) => (
+                  <li key={question.id} className="rounded-xl bg-white p-4 shadow-sm">
+                    <p className="font-medium text-slate-900">{question.prompt}</p>
+                    <p className="mt-2 text-sm text-red-500">내 답: {answer.value}</p>
+                    <p className="text-sm text-green-600">정답: {question.answer}</p>
+                    <p className="mt-2 text-xs leading-relaxed text-slate-500">
+                      {question.explanation}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {openWrongCount > 0 && (
+              <p className="mt-3 text-center text-xs text-slate-400">
+                오답 노트에 {openWrongCount}문제가 저장되어 있어요.
+              </p>
+            )}
+          </section>
+        </>
       )}
-
-      <section className="mt-6">
-        <h2 className="mb-3 font-semibold text-slate-800">틀린 문제</h2>
-        {wrongItems.length === 0 ? (
-          <p className="rounded-xl bg-white p-4 text-sm text-slate-500">
-            틀린 문제가 없어요. 완벽해요!
-          </p>
-        ) : (
-          <ul className="space-y-3">
-            {wrongItems.map(({ answer, question }) => (
-              <li key={question.id} className="rounded-xl bg-white p-4 shadow-sm">
-                <p className="font-medium text-slate-900">{question.prompt}</p>
-                <p className="mt-2 text-sm text-red-500">내 답: {answer.value}</p>
-                <p className="text-sm text-green-600">정답: {question.answer}</p>
-                <p className="mt-2 text-xs leading-relaxed text-slate-500">
-                  {question.explanation}
-                </p>
-              </li>
-            ))}
-          </ul>
-        )}
-        {openWrongCount > 0 && (
-          <p className="mt-3 text-center text-xs text-slate-400">
-            오답 노트에 {openWrongCount}문제가 저장되어 있어요.
-          </p>
-        )}
-      </section>
 
       <div className="mt-auto flex gap-3 pt-8">
         <button
