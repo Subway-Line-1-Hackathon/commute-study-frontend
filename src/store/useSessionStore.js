@@ -6,6 +6,7 @@ import {
   SESSION_STATUS as S,
   WARNING_SEC,
   WRONG_STATUS,
+  SOLVE_MODE,
   QUESTION_TYPE as T,
 } from '../lib/constants'
 import { kstDateKey } from '../lib/date'
@@ -138,12 +139,20 @@ export const useSessionStore = create(
         }),
 
       // 문제 설정 완료 -> 문제 풀이 시작
-      startQuiz: ({ types, difficulty, count }) => {
+      startQuiz: ({ solveMode = SOLVE_MODE.READ, types, difficulty, count }) => {
         const cur = get().current
         if (!cur || cur.phase !== PHASE.QUIZ_SETUP) return
         const questions = generateQuestions({ unitTitle: cur.unitTitle, types, count })
         set({
-          current: { ...cur, phase: PHASE.QUIZ, types, difficulty, questions, answers: [] },
+          current: {
+            ...cur,
+            phase: PHASE.QUIZ,
+            solveMode,
+            types,
+            difficulty,
+            questions,
+            answers: [],
+          },
         })
       },
 
@@ -196,6 +205,23 @@ export const useSessionStore = create(
         }
         set(patch)
         return { correct, completed: isLast, question: q }
+      },
+
+      // 듣고 풀기: 채점 없이 다음 문제로. 오답노트/정답률에는 넣지 않는다
+      advanceListen: () => {
+        const cur = get().current
+        if (!cur || cur.status !== S.IN_PROGRESS || cur.phase !== PHASE.QUIZ) return null
+        const idx = cur.answers.length
+        const q = cur.questions[idx]
+        if (!q) return null
+        const answers = [
+          ...cur.answers,
+          { questionId: q.id, value: null, correct: null, listened: true },
+        ]
+        const isLast = idx === cur.questions.length - 1
+        const next = { ...cur, answers, status: isLast ? S.COMPLETED : S.IN_PROGRESS }
+        set(isLast ? { current: next, history: [next, ...get().history] } : { current: next })
+        return { completed: isLast }
       },
 
       // 1초마다 호출. 듣기 중이면 개념 시간, 문제 풀이 중이면 문제 시간이 줄어든다

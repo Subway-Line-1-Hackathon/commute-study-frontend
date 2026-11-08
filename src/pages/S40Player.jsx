@@ -1,17 +1,26 @@
 import { useEffect, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import ConfirmModal from '../components/ConfirmModal'
+import ListenQuestion from '../components/ListenQuestion'
 import QuestionCard from '../components/QuestionCard'
 import TimerBadge from '../components/TimerBadge'
 import { useWakeLock } from '../hooks/useWakeLock'
-import { PHASE, ROUTES, SESSION_STATUS as S, WARNING_SEC } from '../lib/constants'
-import { announce } from '../lib/speaker'
+import {
+  PHASE,
+  QUESTION_TYPE as T,
+  ROUTES,
+  SESSION_STATUS as S,
+  SOLVE_MODE as M,
+  WARNING_SEC,
+} from '../lib/constants'
+import { announce, stopSpeaking } from '../lib/speaker'
 import { getSessionRoute, useSessionStore } from '../store/useSessionStore'
 
 export default function S40Player() {
   const navigate = useNavigate()
   const cur = useSessionStore((s) => s.current)
   const submitAnswer = useSessionStore((s) => s.submitAnswer)
+  const advanceListen = useSessionStore((s) => s.advanceListen)
   const endSession = useSessionStore((s) => s.endSession)
 
   const [value, setValue] = useState('')
@@ -19,10 +28,17 @@ export default function S40Player() {
   const [timeUp, setTimeUp] = useState(false)
   const [confirmEnd, setConfirmEnd] = useState(false)
   const [warn, setWarn] = useState(false)
+  const [paused, setPaused] = useState(false) // 듣고 풀기 일시정지
 
   const status = cur?.status
   const running = status === S.IN_PROGRESS && cur?.phase === PHASE.QUIZ
   useWakeLock(running)
+
+  const mode = cur?.solveMode ?? M.READ
+  const isListen = mode === M.LISTEN
+
+  // 화면을 떠나면 읽기를 멈춘다
+  useEffect(() => () => stopSpeaking(), [])
 
   // 1초마다 문제 시간 감소. 종료 직전 알림과 시간 종료를 여기서 처리한다
   useEffect(() => {
@@ -59,9 +75,10 @@ export default function S40Player() {
 
   const canSubmit = String(value).trim() !== ''
 
-  const handleSubmit = () => {
-    if (!canSubmit) return
-    const result = submitAnswer(value)
+  const handleSubmit = (v = value) => {
+    if (String(v).trim() === '') return
+    setValue(v)
+    const result = submitAnswer(v)
     if (!result) return
     setFeedback({
       question: result.question,
@@ -77,6 +94,12 @@ export default function S40Player() {
     }
     setFeedback(null)
     setValue('')
+  }
+
+  // 듣고 풀기: 정답까지 읽고 3초 뒤 다음 문제로
+  const handleListenDone = () => {
+    const result = advanceListen()
+    if (result?.completed) navigate(ROUTES.SUMMARY, { replace: true })
   }
 
   const handleEnd = () => {
@@ -119,13 +142,23 @@ export default function S40Player() {
       </div>
 
       <main className="mt-6 flex-1">
-        <QuestionCard
-          key={question.id}
-          question={question}
-          value={value}
-          onChange={setValue}
-          result={feedback}
-        />
+        {isListen ? (
+          <ListenQuestion
+            key={question.id}
+            question={question}
+            paused={paused || !running || confirmEnd}
+            onDone={handleListenDone}
+          />
+        ) : (
+          <QuestionCard
+            key={question.id}
+            question={question}
+            value={value}
+            onChange={setValue}
+            onSubmit={handleSubmit}
+            result={feedback}
+          />
+        )}
 
         {feedback && (
           <div
@@ -141,16 +174,27 @@ export default function S40Player() {
       </main>
 
       <div className="pt-6">
-        {feedback ? (
+        {isListen ? (
+          <button
+            onClick={() => setPaused((p) => !p)}
+            className="w-full rounded-xl border border-slate-300 bg-white py-3.5 font-semibold text-slate-700 active:bg-slate-50"
+          >
+            {paused ? '▶ 이어서 듣기' : '⏸ 잠시 멈추기'}
+          </button>
+        ) : feedback ? (
           <button
             onClick={handleNext}
             className="w-full rounded-xl bg-blue-600 py-3.5 font-semibold text-white active:bg-blue-700"
           >
             {feedback.completed ? '결과 보기' : '다음 문제'}
           </button>
+        ) : question.type === T.OX ? (
+          <p className="py-3.5 text-center text-sm text-slate-400">
+            카드를 밀거나 O/X를 눌러 답해 주세요
+          </p>
         ) : (
           <button
-            onClick={handleSubmit}
+            onClick={() => handleSubmit()}
             disabled={!canSubmit}
             className="w-full rounded-xl bg-blue-600 py-3.5 font-semibold text-white disabled:bg-slate-300"
           >
@@ -173,7 +217,7 @@ export default function S40Player() {
       {timeUp && (
         <ConfirmModal
           title="학습 시간이 끝났어요"
-          message={`${total}문제 중 ${answered}문제를 풀었어요.`}
+          message={`${total}문제 중 ${answered}문제를 ${isListen ? '들었어요' : '풀었어요'}.`}
           confirmLabel="결과 보기"
           onConfirm={() => navigate(ROUTES.SUMMARY, { replace: true })}
         />

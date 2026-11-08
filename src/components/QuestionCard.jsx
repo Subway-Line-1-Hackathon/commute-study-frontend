@@ -1,4 +1,5 @@
 import { QUESTION_TYPE as T } from '../lib/constants'
+import SwipeCard from './SwipeCard'
 
 const TYPE_LABEL = { [T.OX]: 'O/X', [T.MCQ]: '객관식', [T.SHORT]: '단답형' }
 
@@ -13,13 +14,16 @@ function optionClass(opt, { value, locked, answer }) {
   return `${base} border-slate-300 bg-white text-slate-700 active:bg-slate-50`
 }
 
+// 눈으로 풀기용 문제 카드
 // value: 현재 선택/입력값, result: 제출 후 { correct } (제출 전에는 null)
-export default function QuestionCard({ question, value, onChange, result }) {
+// onSubmit(v): O/X처럼 고르는 즉시 제출하는 경우 사용
+export default function QuestionCard({ question, value, onChange, onSubmit, result }) {
   const locked = Boolean(result)
   const isOX = question.type === T.OX
+  const swipe = isOX && !locked
   const options = isOX ? ['O', 'X'] : (question.choices ?? [])
 
-  return (
+  const card = (
     <div className="rounded-2xl bg-white p-5 shadow-sm">
       <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
         {TYPE_LABEL[question.type]}
@@ -28,15 +32,30 @@ export default function QuestionCard({ question, value, onChange, result }) {
         {question.prompt}
       </h2>
 
+      {swipe && (
+        <p className="mt-6 flex justify-between text-sm font-semibold">
+          <span className="text-red-500">← X</span>
+          <span className="text-slate-400">밀어서 답하기</span>
+          <span className="text-green-600">O →</span>
+        </p>
+      )}
+    </div>
+  )
+
+  return (
+    <div>
+      {swipe ? <SwipeCard onSwipe={(v) => onSubmit?.(v)}>{card}</SwipeCard> : card}
+
       <div className="mt-5">
         {question.type === T.SHORT ? (
           <input
             value={value}
             onChange={(e) => onChange(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && !locked && onSubmit?.()}
             disabled={locked}
             autoFocus
             placeholder="정답을 입력하세요"
-            className={`w-full rounded-xl border px-4 py-3.5 text-lg outline-none focus:ring-2 ${
+            className={`w-full rounded-xl border bg-white px-4 py-3.5 text-lg outline-none focus:ring-2 ${
               !locked
                 ? 'border-slate-300 focus:ring-blue-200'
                 : result.correct
@@ -51,7 +70,8 @@ export default function QuestionCard({ question, value, onChange, result }) {
                 key={opt}
                 type="button"
                 disabled={locked}
-                onClick={() => onChange(opt)}
+                // O/X는 누르는 즉시 제출, 객관식은 고른 뒤 제출 버튼
+                onClick={() => (isOX ? onSubmit?.(opt) : onChange(opt))}
                 className={`${optionClass(opt, { value, locked, answer: question.answer })} ${
                   isOX ? 'text-center text-2xl' : 'text-left'
                 }`}

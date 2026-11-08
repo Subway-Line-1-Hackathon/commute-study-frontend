@@ -13,6 +13,13 @@ export const SESSION_STATUS = {
 export const PHASE = { LISTEN: 'LISTEN', QUIZ_SETUP: 'QUIZ_SETUP', QUIZ: 'QUIZ' }
 export const WRONG_STATUS = { OPEN: 'OPEN', RESOLVED: 'RESOLVED' }
 export const QUESTION_TYPE = { OX: 'OX', MCQ: 'MCQ', SHORT: 'SHORT' }
+// 문제 푸는 방식: 눈으로 풀기(화면) / 듣고 풀기(음성)
+export const SOLVE_MODE = { READ: 'READ', LISTEN: 'LISTEN' }
+// 방식마다 고를 수 있는 문제 양식
+export const SOLVE_MODE_TYPES = {
+  READ: [QUESTION_TYPE.OX, QUESTION_TYPE.SHORT, QUESTION_TYPE.MCQ],
+  LISTEN: [QUESTION_TYPE.OX, QUESTION_TYPE.SHORT],
+}
 export const DIFFICULTY = { EASY: 'EASY', NORMAL: 'NORMAL', HARD: 'HARD' }
 
 export const COMMUTE = { MIN: 10, MAX: 120, STEP: 5, DEFAULT: 50, REVIEW_ONLY_BELOW: 20 }
