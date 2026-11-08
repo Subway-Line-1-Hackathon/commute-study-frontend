@@ -6,7 +6,6 @@ import { useAuthStore } from '../store/useAuthStore'
 import Button from '../components/Button'
 import MinuteStepper from '../components/MinuteStepper'
 import TextField from '../components/TextField'
-import BackButton from '../components/BackButton'
 import Screen from '../layouts/Screen'
 import ScreenTitle from '../layouts/ScreenTitle'
 
@@ -38,11 +37,7 @@ export default function S04Commute() {
   )
 
   return (
-    <Screen bottomCta={bottomCta}>
-      <div className="relative -top-1 -mt-11 flex h-11 items-center">
-        <BackButton to={ROUTES.NICKNAME} />
-      </div>
-
+    <Screen back={ROUTES.NICKNAME} bottomCta={bottomCta}>
       <ScreenTitle title="통학 시간을 알려주세요" />
       <p className="mt-2 text-caption text-muted">
         <span className="text-danger">*</span> 표시는 필수 입력

@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
-import BackButton from '../components/BackButton'
 import Button from '../components/Button'
 import ConfirmModal from '../components/ConfirmModal'
 import UnitItem from '../components/UnitItem'
@@ -83,11 +82,7 @@ export default function S11UnitPreview() {
   )
 
   return (
-    <Screen bottomCta={bottomCta}>
-      <div className="relative -top-1 -mt-11 flex h-11 items-center">
-        <BackButton />
-      </div>
-
+    <Screen back bottomCta={bottomCta}>
       <ScreenTitle title={`단원 ${units.length}개로 나눴어요`} />
 
       <span className="mt-3 self-start rounded-full bg-success-soft px-2.5 py-1 text-label text-success">
