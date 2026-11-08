@@ -1,12 +1,52 @@
 export const isSpeechSupported = () => typeof window !== 'undefined' && 'speechSynthesis' in window
 
+// 기기에 있는 한국어 목소리 중 자연스러운 것을 먼저 고른다 (앞에 있을수록 우선)
+const VOICE_PREFERENCE = [
+  /SunHi.*Natural|Natural.*SunHi/i, // Edge
+  /InJoon.*Natural|Natural.*InJoon/i, // Edge
+  /Natural|Online/i, // 그 밖의 Microsoft 고품질 목소리
+  /Yuna.*(Premium|Enhanced)|(Premium|Enhanced).*Yuna/i, // iOS/macOS 고품질
+  /Google/i, // Chrome
+  /Yuna/i, // iOS/macOS 기본
+]
+
+let cachedVoice
+
+function pickVoice() {
+  const voices = window.speechSynthesis
+    .getVoices()
+    .filter((v) => v.lang?.replace('_', '-').toLowerCase().startsWith('ko'))
+  if (voices.length === 0) return null
+  for (const re of VOICE_PREFERENCE) {
+    const found = voices.find((v) => re.test(v.name))
+    if (found) return found
+  }
+  return voices.find((v) => v.localService) ?? voices[0]
+}
+
+// 목소리 목록은 늦게 불러와지는 브라우저가 많아서, 바뀌면 다시 고른다
+if (isSpeechSupported()) {
+  cachedVoice = pickVoice()
+  window.speechSynthesis.addEventListener?.('voiceschanged', () => {
+    cachedVoice = pickVoice()
+  })
+}
+
+// 모든 발화는 여기서 만든다
+function makeUtterance(text, rate = 1) {
+  const u = new SpeechSynthesisUtterance(text)
+  if (!cachedVoice) cachedVoice = pickVoice()
+  if (cachedVoice) u.voice = cachedVoice
+  u.lang = cachedVoice?.lang ?? 'ko-KR'
+  u.rate = rate
+  return u
+}
+
 // 한 번만 말하는 안내 (예: "곧 끝나요")
 export function announce(text) {
   if (!isSpeechSupported()) return
   window.speechSynthesis.cancel()
-  const u = new SpeechSynthesisUtterance(text)
-  u.lang = 'ko-KR'
-  window.speechSynthesis.speak(u)
+  window.speechSynthesis.speak(makeUtterance(text))
 }
 
 export function createSpeaker({ onIndex, onFinish } = {}) {
@@ -31,9 +71,7 @@ export function createSpeaker({ onIndex, onFinish } = {}) {
     index = i
     if (onIndex) onIndex(i)
     const myToken = token
-    const u = new SpeechSynthesisUtterance(segments[i].text)
-    u.lang = 'ko-KR'
-    u.rate = rate
+    const u = makeUtterance(segments[i].text, rate)
     u.onend = () => {
       if (playing && myToken === token) speak(i + 1)
     }
@@ -93,9 +131,7 @@ export function speak(text, { onEnd, rate = 1 } = {}) {
     }
   }
   window.speechSynthesis.cancel()
-  const u = new SpeechSynthesisUtterance(text)
-  u.lang = 'ko-KR'
-  u.rate = rate
+  const u = makeUtterance(text, rate)
   u.onend = done
   u.onerror = done
   // cancel 직후 바로 speak하면 무시되는 브라우저가 있어 잠깐 기다린다
