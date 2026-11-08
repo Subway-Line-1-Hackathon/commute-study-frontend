@@ -2,7 +2,7 @@ import { COMMUTE } from './constants'
 
 export const isValidCommute = (m) => Number.isInteger(m) && m >= COMMUTE.MIN && m <= COMMUTE.MAX
 
-export const calcStudyMinutes = (oneWayMin) => Math.floor(oneWayMin * COMMUTE.RATIO)
+export const clampCommute = (m) => Math.min(COMMUTE.MAX, Math.max(COMMUTE.MIN, m))
 
 export const isReviewOnly = (studyMin) => studyMin < COMMUTE.REVIEW_ONLY_BELOW
 

@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import Button from '../components/Button'
+import TextField from '../components/TextField'
 import TopBar from '../components/TopBar'
 import { NICKNAME_RULE, ROUTES } from '../lib/constants'
 import { validateNickname } from '../lib/nickname'
@@ -33,17 +35,15 @@ export default function S02Nickname() {
       <p className="mt-2 text-sm text-slate-500">통학 학습에서 사용할 이름이에요.</p>
 
       <div className="mt-10">
-        <label className="mb-2 block text-sm font-medium text-slate-700">닉네임</label>
-        <input
+        <TextField
+          label="닉네임"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleNext()}
           maxLength={NICKNAME_RULE.MAX}
           placeholder="예: 통학러"
           autoFocus
-          className={`w-full rounded-xl border px-4 py-3.5 text-lg outline-none focus:ring-2 ${
-            error ? 'border-red-400 focus:ring-red-200' : 'border-slate-300 focus:ring-blue-200'
-          }`}
+          invalid={!!error}
         />
         <div className="mt-2 flex justify-between text-sm">
           <span className="text-red-500">{error}</span>
@@ -54,13 +54,9 @@ export default function S02Nickname() {
       </div>
 
       <div className="mt-auto pt-10">
-        <button
-          onClick={handleNext}
-          disabled={!valid}
-          className="w-full rounded-xl bg-blue-600 py-3.5 font-semibold text-white disabled:bg-slate-300"
-        >
+        <Button onClick={handleNext} disabled={!valid}>
           다음
-        </button>
+        </Button>
       </div>
     </div>
   )
