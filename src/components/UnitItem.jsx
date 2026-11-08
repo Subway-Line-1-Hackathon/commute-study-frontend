@@ -20,7 +20,7 @@ export default function UnitItem({ number, unit, checkable = false, checked = fa
   )
 
   if (!checkable) {
-    return <li className="rounded-xl border border-line bg-surface px-4 py-3.5">{content}</li>
+    return <li className="rounded-xl border-2 border-line bg-surface px-4 py-3.5">{content}</li>
   }
 
   return (
@@ -29,12 +29,12 @@ export default function UnitItem({ number, unit, checkable = false, checked = fa
         type="button"
         onClick={onToggle}
         aria-pressed={checked}
-        className={`flex w-full items-center gap-3 rounded-xl border bg-surface px-4 py-3.5 text-left ${
+        className={`flex w-full items-center gap-3 rounded-xl border-2 bg-surface px-4 py-3.5 text-left ${
           checked ? 'border-primary' : 'border-line'
         }`}
       >
         <span
-          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 text-caption text-white ${
+          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-[2.5px] text-caption text-white ${
             checked ? 'border-primary bg-primary' : 'border-primary bg-surface'
           }`}
         >
