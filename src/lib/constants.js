@@ -39,6 +39,7 @@ export const ROUTES = {
   COMMUTE: '/onboarding/commute',
   SUBJECT_NEW: '/subjects/new',
   MATERIAL_UPLOAD: '/materials/upload',
+  UNIT_PREVIEW: '/materials/units',
   HOME: '/home',
   LISTEN: '/study/listen',
   SETUP: '/study/setup',

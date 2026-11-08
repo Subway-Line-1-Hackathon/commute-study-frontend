@@ -1,10 +1,19 @@
 import { uid } from '../lib/storage'
 
-// 자료 하나가 곧 학습 항목이다. 단원으로 나누지 않는다.
+const MOCK_UNIT_TITLES = ['개념 정리', '핵심 원리', '응용과 예제']
+
 export function generateUnitsAndSummary(fileName) {
   const title = fileName.replace(/\.[^.]+$/, '')
   const summary = `${title}의 핵심 내용을 정리한 요약이에요. (Mock)`
-  return { units: [{ id: uid(), title, summary }], summary }
+
+  const units = MOCK_UNIT_TITLES.map((unitTitle, index) => ({
+    id: uid(),
+    title: `${title} ${unitTitle}`,
+    summary: `${title} ${unitTitle} 요약이에요. (Mock)`,
+    pages: 10 + index * 6,
+  }))
+
+  return { units, summary }
 }
 
 export const MOCK_FAIL_MESSAGE = '글자를 인식하지 못했어요. 글자가 선명한 파일로 다시 올려주세요.'

@@ -177,7 +177,7 @@ export default function S10Waiting() {
           </p>
         )}
         <Button
-          onClick={() => navigate(ROUTES.HOME, { state: { focusSubjectId: subject.id } })}
+          onClick={() => navigate(`${ROUTES.UNIT_PREVIEW}?subjectId=${subject.id}`)}
           disabled={!hasReady}
         >
           단원 목록 보러 가기

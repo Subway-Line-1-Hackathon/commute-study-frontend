@@ -8,6 +8,7 @@ import S02Nickname from '../pages/S02Nickname'
 import S04Commute from '../pages/S04Commute'
 import S05Material from '../pages/S05Material'
 import S10Waiting from '../pages/S10Waiting'
+import S11UnitPreview from '../pages/S11UnitPreview'
 import S20Home from '../pages/S20Home'
 import S30Setup from '../pages/S30Setup'
 import S32Review from '../pages/S32Review'
@@ -53,6 +54,14 @@ export default function AppRouter() {
           element={
             <RequireActive>
               <S10Waiting />
+            </RequireActive>
+          }
+        />
+        <Route
+          path={ROUTES.UNIT_PREVIEW}
+          element={
+            <RequireActive>
+              <S11UnitPreview />
             </RequireActive>
           }
         />
