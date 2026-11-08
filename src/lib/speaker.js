@@ -73,3 +73,36 @@ export function createSpeaker({ onIndex, onFinish } = {}) {
     },
   }
 }
+
+export function stopSpeaking() {
+  if (isSpeechSupported()) window.speechSynthesis.cancel()
+}
+
+// 한 문장을 읽고 끝나면 onEnd. 반환값으로 취소(취소하면 onEnd는 부르지 않음)
+export function speak(text, { onEnd, rate = 1 } = {}) {
+  let cancelled = false
+  const done = () => {
+    if (!cancelled) onEnd?.()
+  }
+  if (!isSpeechSupported()) {
+    // 음성을 못 읽는 브라우저: 글자 수로 읽는 시간을 대략 기다린다
+    const id = setTimeout(done, Math.max(1500, text.length * 120))
+    return () => {
+      cancelled = true
+      clearTimeout(id)
+    }
+  }
+  window.speechSynthesis.cancel()
+  const u = new SpeechSynthesisUtterance(text)
+  u.lang = 'ko-KR'
+  u.rate = rate
+  u.onend = done
+  u.onerror = done
+  // cancel 직후 바로 speak하면 무시되는 브라우저가 있어 잠깐 기다린다
+  const id = setTimeout(() => !cancelled && window.speechSynthesis.speak(u), 80)
+  return () => {
+    cancelled = true
+    clearTimeout(id)
+    window.speechSynthesis.cancel()
+  }
+}
