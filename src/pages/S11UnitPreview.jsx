@@ -1,34 +1,71 @@
 import { useState } from 'react'
-import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import Button from '../components/Button'
 import ConfirmModal from '../components/ConfirmModal'
-import UnitItem from '../components/UnitItem'
+import MaterialGroup from '../components/MaterialGroup'
 import Screen from '../layouts/Screen'
 import ScreenTitle from '../layouts/ScreenTitle'
-import { COMMUTE, MATERIAL_STATUS as M, ROUTES } from '../lib/constants'
+import { COMMUTE, ROUTES, UPLOAD } from '../lib/constants'
 import { useAuthStore } from '../store/useAuthStore'
-import { useMaterialStore } from '../store/useMaterialStore'
+import { getRecentUnits, useMaterialStore } from '../store/useMaterialStore'
 import { getSessionRoute, useSessionStore } from '../store/useSessionStore'
+
+function groupByMaterial(units, materials) {
+  const groups = []
+  for (const unit of units) {
+    let group = groups.find((g) => g.materialId === unit.materialId)
+    if (!group) {
+      const material = materials.find((m) => m.id === unit.materialId)
+      group = {
+        materialId: unit.materialId,
+        fileName: material?.fileName ?? '',
+        subjectName: unit.subjectName,
+        units: [],
+      }
+      groups.push(group)
+    }
+    group.units.push(unit)
+  }
+  return groups
+}
 
 export default function S11UnitPreview() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [params] = useSearchParams()
   const subjectId = params.get('subjectId')
+  const newMaterialIds = location.state?.newMaterialIds ?? []
 
-  const subject = useMaterialStore((s) => s.subjects.find((item) => item.id === subjectId))
+  const subjects = useMaterialStore((s) => s.subjects)
   const materials = useMaterialStore((s) => s.materials)
   const studyMin = useAuthStore((s) => s.commute?.studyMin ?? COMMUTE.DEFAULT)
 
+  const units = getRecentUnits(materials, subjects)
+  const newUnits = units.filter((unit) => newMaterialIds.includes(unit.materialId))
+  const oldUnits = units.filter((unit) => !newMaterialIds.includes(unit.materialId))
+  const newGroups = groupByMaterial(newUnits, materials)
+  const oldGroups = groupByMaterial(oldUnits, materials)
+
   const [selectedIds, setSelectedIds] = useState([])
   const [confirmRestart, setConfirmRestart] = useState(false)
+  const [openIds, setOpenIds] = useState(() => {
+    if (newMaterialIds.length > 0) {
+      return newMaterialIds
+    }
+    if (oldGroups.length > 0) {
+      return [oldGroups[0].materialId]
+    }
+    return []
+  })
 
-  if (!subject) {
-    return <Navigate to={ROUTES.HOME} replace />
-  }
-
-  const readyMaterials = materials.filter((m) => m.subjectId === subjectId && m.status === M.READY)
-  const units = readyMaterials.flatMap((m) => m.units)
   const selectedUnits = units.filter((unit) => selectedIds.includes(unit.id))
+
+  let title = '공부할 단원을 골라요'
+  let description = `최근 자료 ${UPLOAD.MAX_VISIBLE}개에서 나온 단원이에요.`
+  if (newUnits.length > 0) {
+    title = `단원 ${newUnits.length}개로 나눴어요`
+    description = '이전 자료 단원도 같이 고를 수 있어요.'
+  }
 
   const toggleUnit = (unitId) => {
     if (selectedIds.includes(unitId)) {
@@ -38,18 +75,38 @@ export default function S11UnitPreview() {
     }
   }
 
+  const toggleOpen = (materialId) => {
+    if (openIds.includes(materialId)) {
+      setOpenIds(openIds.filter((id) => id !== materialId))
+    } else {
+      setOpenIds([...openIds, materialId])
+    }
+  }
+
+  const toggleAll = (group) => {
+    const groupIds = group.units.map((unit) => unit.id)
+    const allSelected = groupIds.every((id) => selectedIds.includes(id))
+
+    if (allSelected) {
+      setSelectedIds(selectedIds.filter((id) => !groupIds.includes(id)))
+    } else {
+      const added = groupIds.filter((id) => !selectedIds.includes(id))
+      setSelectedIds([...selectedIds, ...added])
+    }
+  }
+
   const startSession = () => {
     const first = selectedUnits[0]
-    let title = first.title
+    let sessionTitle = first.title
     if (selectedUnits.length > 1) {
-      title = `${first.title} 외 ${selectedUnits.length - 1}개`
+      sessionTitle = `${first.title} 외 ${selectedUnits.length - 1}개`
     }
 
     const store = useSessionStore.getState()
     if (store.getResumable()) {
       store.endSession()
     }
-    store.createSession({ unit: { ...first, title }, studyMin })
+    store.createSession({ unit: { ...first, title: sessionTitle }, studyMin })
     store.start()
     navigate(getSessionRoute(useSessionStore.getState().current))
   }
@@ -66,16 +123,36 @@ export default function S11UnitPreview() {
     startSession()
   }
 
+  const handleUploadMore = () => {
+    if (subjectId) {
+      navigate(`${ROUTES.MATERIAL_UPLOAD}?subjectId=${subjectId}`)
+    } else {
+      navigate(ROUTES.SUBJECT_NEW)
+    }
+  }
+
+  const renderGroups = (groups) => (
+    <ul className="space-y-3">
+      {groups.map((group) => (
+        <MaterialGroup
+          key={group.materialId}
+          group={group}
+          open={openIds.includes(group.materialId)}
+          onToggleOpen={() => toggleOpen(group.materialId)}
+          selectedIds={selectedIds}
+          onToggleUnit={toggleUnit}
+          onToggleAll={() => toggleAll(group)}
+        />
+      ))}
+    </ul>
+  )
+
   const bottomCta = (
     <>
       <Button onClick={handleCreate} disabled={selectedUnits.length === 0}>
         문제 생성하기
       </Button>
-      <Button
-        variant="secondary"
-        onClick={() => navigate(`${ROUTES.MATERIAL_UPLOAD}?subjectId=${subjectId}`)}
-        className="mt-3"
-      >
+      <Button variant="secondary" onClick={handleUploadMore} className="mt-3">
         다른 자료 올리기
       </Button>
     </>
@@ -83,24 +160,29 @@ export default function S11UnitPreview() {
 
   return (
     <Screen back bottomCta={bottomCta}>
-      <ScreenTitle title={`단원 ${units.length}개로 나눴어요`} />
+      <ScreenTitle title={title} description={description} />
 
-      <span className="mt-3 self-start rounded-full bg-success-soft px-2.5 py-1 text-label text-success">
-        READY
-      </span>
+      {units.length === 0 && (
+        <p className="mt-6 rounded-xl bg-surface p-4 text-caption text-muted">
+          아직 준비된 단원이 없어요.
+        </p>
+      )}
 
-      <ul className="mt-6 space-y-3">
-        {units.map((unit, index) => (
-          <UnitItem
-            key={unit.id}
-            number={index + 1}
-            unit={unit}
-            checkable
-            checked={selectedIds.includes(unit.id)}
-            onToggle={() => toggleUnit(unit.id)}
-          />
-        ))}
-      </ul>
+      {newGroups.length > 0 && (
+        <section className="mt-6">
+          <h2 className="mb-3 text-caption font-bold text-muted">방금 올린 자료</h2>
+          {renderGroups(newGroups)}
+        </section>
+      )}
+
+      {oldGroups.length > 0 && (
+        <section className="mt-6">
+          {newGroups.length > 0 && (
+            <h2 className="mb-3 text-caption font-bold text-muted">이전 자료</h2>
+          )}
+          {renderGroups(oldGroups)}
+        </section>
+      )}
 
       {confirmRestart && (
         <ConfirmModal

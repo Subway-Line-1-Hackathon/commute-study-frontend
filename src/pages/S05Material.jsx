@@ -10,15 +10,13 @@ import { useMaterialStore } from '../store/useMaterialStore'
 
 export default function S05Material() {
   const navigate = useNavigate()
-  const subjects = useMaterialStore((s) => s.subjects)
   const addSubject = useMaterialStore((s) => s.addSubject)
 
   const [name, setName] = useState('')
   const [examDate, setExamDate] = useState('')
 
   const trimmed = name.trim()
-  const duplicated = subjects.some((s) => s.name === trimmed)
-  const valid = trimmed.length > 0 && trimmed.length <= SUBJECT_NAME.MAX && !duplicated
+  const valid = trimmed.length > 0 && trimmed.length <= SUBJECT_NAME.MAX
 
   const save = () => {
     if (!valid) return
@@ -48,15 +46,11 @@ export default function S05Material() {
             onChange={(e) => setName(e.target.value)}
             maxLength={SUBJECT_NAME.MAX}
             placeholder="예: 자료구조"
-            invalid={duplicated}
             autoFocus
           />
-          <div className="mt-2 flex justify-between text-caption">
-            <span className="text-danger">{duplicated ? '이미 등록된 과목이에요.' : ''}</span>
-            <span className="text-muted">
-              {trimmed.length}/{SUBJECT_NAME.MAX}
-            </span>
-          </div>
+          <p className="mt-2 text-right text-caption text-muted">
+            {trimmed.length}/{SUBJECT_NAME.MAX}
+          </p>
         </div>
 
         <TextField

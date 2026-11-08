@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import { MATERIAL_STATUS as M } from '../lib/constants'
+import { MATERIAL_STATUS as M, UPLOAD } from '../lib/constants'
 import { zustandStorage, uid, wait } from '../lib/storage'
 import { generateUnitsAndSummary, MOCK_FAIL_MESSAGE, shouldMockFail } from '../mocks/mockMaterial'
 
@@ -60,16 +60,29 @@ export const useMaterialStore = create(
           return subject
         },
 
-        uploadMaterial: (subjectId, file) => {
+        uploadMaterial: (subjectId, files) => {
           const id = uid()
+          const first = files[0]
+
+          let fileName = first.name
+          if (files.length > 1) {
+            fileName = `${first.name} 외 ${files.length - 1}장`
+          }
+
+          let fileSize = 0
+          for (const file of files) {
+            fileSize += file.size
+          }
+
           set((s) => ({
             materials: [
               ...s.materials,
               {
                 id,
                 subjectId,
-                fileName: file.name,
-                fileSize: file.size,
+                fileName,
+                fileSize,
+                pageCount: files.length,
                 status: M.UPLOADING,
                 progress: 0,
                 errorMessage: null,
@@ -131,3 +144,26 @@ export const useMaterialStore = create(
     },
   ),
 )
+
+export function getRecentMaterials(materials) {
+  const newestFirst = [...materials].sort((a, b) => b.createdAt - a.createdAt)
+  return newestFirst.slice(0, UPLOAD.MAX_VISIBLE)
+}
+
+export function getRecentUnits(materials, subjects) {
+  const recentReady = getRecentMaterials(materials).filter((m) => m.status === M.READY)
+
+  const units = []
+  for (const material of recentReady) {
+    const subject = subjects.find((s) => s.id === material.subjectId)
+    for (const unit of material.units) {
+      units.push({
+        ...unit,
+        materialId: material.id,
+        subjectId: material.subjectId,
+        subjectName: subject?.name ?? '',
+      })
+    }
+  }
+  return units
+}

@@ -1,4 +1,11 @@
-export default function UnitItem({ number, unit, checkable = false, checked = false, onToggle }) {
+export default function UnitItem({
+  number,
+  unit,
+  showSubject = true,
+  checkable = false,
+  checked = false,
+  onToggle,
+}) {
   const meta = []
 
   if (unit.pages) {
@@ -12,6 +19,9 @@ export default function UnitItem({ number, unit, checkable = false, checked = fa
   const content = (
     <div className="min-w-0">
       <p className="truncate text-body font-bold text-ink">
+        {showSubject && unit.subjectName && (
+          <span className="text-primary">[{unit.subjectName}] </span>
+        )}
         {number}. {unit.title}
       </p>
 

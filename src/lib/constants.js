@@ -50,4 +50,11 @@ export const ROUTES = {
   WRONG_NOTES: '/wrong-notes',
 }
 export const SUBJECT_NAME = { MAX: 20 }
-export const UPLOAD = { MAX_MB: 30, MAX_PER_SUBJECT: 5, EXTENSIONS: ['pdf', 'pptx', 'png'] }
+export const UPLOAD = {
+  MAX_MB: 30,
+  MAX_PER_UPLOAD: 5,
+  MAX_VISIBLE: 10,
+  MAX_DOC_PAGES: 100,
+  MAX_PNG_PAGES: 20,
+  EXTENSIONS: ['pdf', 'pptx', 'png'],
+}
