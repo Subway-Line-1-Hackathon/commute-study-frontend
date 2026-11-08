@@ -99,6 +99,7 @@ export default function S10Waiting() {
   const subject = subjects.find((s) => s.id === params.get('subjectId')) ?? subjects.at(-1)
   const materials = allMaterials.filter((m) => m.subjectId === subject?.id)
   const room = UPLOAD.MAX_PER_SUBJECT - materials.length
+  const hasReady = materials.some((m) => m.status === M.READY)
 
   useEffect(() => {
     resumePending()
@@ -170,14 +171,26 @@ export default function S10Waiting() {
       )}
 
       <div className="mt-auto pt-10">
-        {materials.length > 0 && (
+        {materials.length > 0 && !hasReady && (
           <p className="mb-2 text-center text-xs text-slate-500">
-            처리는 몇 분 걸릴 수 있어요. 홈에서 기다려도 괜찮아요.
+            분석이 끝나면 단원 목록을 볼 수 있어요. 몇 분 걸릴 수 있어요.
           </p>
         )}
-        <Button onClick={() => navigate(ROUTES.HOME)} disabled={materials.length === 0}>
-          홈으로
+        <Button
+          onClick={() => navigate(ROUTES.HOME, { state: { focusSubjectId: subject.id } })}
+          disabled={!hasReady}
+        >
+          단원 목록 보러 가기
         </Button>
+        {materials.length > 0 && !hasReady && (
+          <button
+            type="button"
+            onClick={() => navigate(ROUTES.HOME)}
+            className="mt-3 w-full py-2 text-sm text-slate-500"
+          >
+            홈에서 기다릴게요
+          </button>
+        )}
       </div>
     </div>
   )

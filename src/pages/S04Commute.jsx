@@ -26,7 +26,7 @@ export default function S04Commute() {
     if (!valid) return
     saveCommute({ studyMin: minutes, departure, arrival })
     activate()
-    navigate(ROUTES.SUBJECT_NEW, { replace: true })
+    navigate(ROUTES.HOME, { replace: true })
   }
 
   return (

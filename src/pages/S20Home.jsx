@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import ConfirmModal from '../components/ConfirmModal'
 import ResumeModal from '../components/ResumeModal'
 import TopBar from '../components/TopBar'
@@ -16,6 +16,7 @@ const toMin = (sec) => Math.round(sec / 60)
 
 export default function S20Home() {
   const navigate = useNavigate()
+  const focusSubjectId = useLocation().state?.focusSubjectId
   const user = useAuthStore((s) => s.user)
   const commute = useAuthStore((s) => s.commute)
   const subjects = useMaterialStore((s) => s.subjects)
@@ -46,6 +47,14 @@ export default function S20Home() {
     )
     return { subject, units, pending }
   })
+  const hasUnits = sections.some((s) => s.units.length > 0)
+
+  useEffect(() => {
+    if (!focusSubjectId) return
+    document
+      .getElementById(`subject-${focusSubjectId}`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [focusSubjectId])
 
   const handleResume = () => navigate(getSessionRoute(resumable))
 
@@ -97,23 +106,36 @@ export default function S20Home() {
             )}
           </div>
         )}
+
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <button
+            onClick={() =>
+              document.getElementById('study-list')?.scrollIntoView({ behavior: 'smooth' })
+            }
+            disabled={!hasUnits}
+            className="h-13 rounded-button bg-primary font-semibold text-white active:brightness-95 disabled:opacity-40"
+          >
+            학습하기
+          </button>
+          <button
+            onClick={() => navigate(ROUTES.SUBJECT_NEW)}
+            className="h-13 rounded-button border border-primary bg-surface font-semibold text-primary active:bg-background"
+          >
+            새 파일 업로드
+          </button>
+        </div>
       </header>
 
-      <main className="space-y-6 px-5 pt-6">
+      <main id="study-list" className="scroll-mt-4 space-y-6 px-5 pt-6">
         {subjects.length === 0 && (
-          <div className="rounded-xl bg-white p-6 text-center">
-            <p className="text-sm text-slate-500">아직 등록된 과목이 없어요.</p>
-            <button
-              onClick={() => navigate(ROUTES.SUBJECT_NEW)}
-              className="mt-3 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white"
-            >
-              과목 등록하기
-            </button>
-          </div>
+          <p className="rounded-xl bg-white p-6 text-center text-sm text-slate-500">
+            아직 올린 자료가 없어요.
+            <br />새 파일 업로드로 첫 자료를 올려 보세요.
+          </p>
         )}
 
         {sections.map(({ subject, units, pending }) => (
-          <section key={subject.id}>
+          <section key={subject.id} id={`subject-${subject.id}`} className="scroll-mt-4">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="font-semibold text-slate-800">{subject.name}</h2>
               <button
@@ -160,13 +182,6 @@ export default function S20Home() {
             </p>
           </div>
           <span className="text-slate-400">›</span>
-        </button>
-
-        <button
-          onClick={() => navigate(ROUTES.SUBJECT_NEW)}
-          className="w-full rounded-xl border border-dashed border-slate-300 py-3 text-sm font-medium text-slate-500 active:bg-slate-100"
-        >
-          + 과목 추가
         </button>
       </main>
 
