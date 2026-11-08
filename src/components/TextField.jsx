@@ -8,7 +8,7 @@ export default function TextField({
   const input = (
     <input
       {...props}
-      className={`h-13 w-full rounded-xl border bg-surface px-3.5 outline-none focus:ring-2 ${
+      className={`h-13 w-full rounded-xl border bg-surface px-3.5 outline-none placeholder:text-placeholder placeholder:text-muted focus:ring-2 ${
         invalid ? 'border-danger focus:ring-danger/20' : 'border-line focus:ring-primary/20'
       } ${className}`}
     />
