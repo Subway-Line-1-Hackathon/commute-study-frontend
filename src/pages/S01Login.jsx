@@ -14,10 +14,10 @@ export default function S01Login() {
     const auth = useAuthStore.getState()
     navigate(getEntryRoute({ auth }), { replace: true })
   }
-  const footer = <Button onClick={handleGoogleLogin}>Google로 계속하기</Button>
+  const bottomCta = <Button onClick={handleGoogleLogin}>Google로 계속하기</Button>
 
   return (
-    <Screen footer={footer}>
+    <Screen bottomCta={bottomCta}>
       <img src={logo} alt="통학 AI 학습" className="h-14 w-14" />
 
       <div className="mt-5">

@@ -30,7 +30,7 @@ export default function S02Nickname() {
     navigate(ROUTES.LOGIN, { replace: true })
   }
 
-  const footer = (
+  const bottomCta = (
     <>
       <Button onClick={handleNext} disabled={!valid}>
         다음
@@ -43,7 +43,7 @@ export default function S02Nickname() {
   )
 
   return (
-    <Screen footer={footer}>
+    <Screen bottomCta={bottomCta}>
       <ScreenTitle
         title={'반가워요!\n닉네임을 정해주세요'}
         description="통학 학습에서 사용할 이름이에요."
