@@ -18,7 +18,7 @@ export default function S01Login() {
 
   return (
     <Screen footer={footer}>
-      <img src={logo} alt="통학 AI 학습" className="mt-10 h-14 w-14" />
+      <img src={logo} alt="통학 AI 학습" className="h-14 w-14" />
 
       <div className="mt-5">
         <ScreenTitle

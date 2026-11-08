@@ -18,9 +18,9 @@ export default function TextField({
 
   return (
     <label className="block">
-      <span className="mb-2 block text-sm font-medium text-slate-700">
+      <span className="mb-2 block text-caption font-bold text-ink">
         {label}
-        {required && <span className="ml-0.5 text-red-500">*</span>}
+        {required && <span className="ml-0.5 text-danger">*</span>}
       </span>
       {input}
     </label>
