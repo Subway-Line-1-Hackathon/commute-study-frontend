@@ -48,6 +48,7 @@ export const ROUTES = {
   SETTINGS: '/settings',
   REVIEW: '/study/review',
   WRONG_NOTES: '/wrong-notes',
+  REPORT: '/report',
 }
 export const SUBJECT_NAME = { MAX: 20 }
 export const UPLOAD = {
