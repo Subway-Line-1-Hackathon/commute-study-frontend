@@ -31,14 +31,14 @@ export default function S04Commute() {
     activate()
     navigate(ROUTES.HOME, { replace: true })
   }
-  const footer = (
+  const bottomCta = (
     <Button onClick={handleNext} disabled={!valid}>
       다음
     </Button>
   )
 
   return (
-    <Screen footer={footer}>
+    <Screen bottomCta={bottomCta}>
       <div className="relative -top-1 -mt-11 flex h-11 items-center">
         <BackButton to={ROUTES.NICKNAME} />
       </div>
