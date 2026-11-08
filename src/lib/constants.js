@@ -3,7 +3,13 @@ export const AUTH_STATUS = {
   AUTHENTICATED: 'AUTHENTICATED',
   ACTIVE: 'ACTIVE',
 }
-export const MATERIAL_STATUS = { UPLOADED: 'UPLOADED', PROCESSING: 'PROCESSING', READY: 'READY' }
+export const MATERIAL_STATUS = {
+  UPLOADING: 'UPLOADING',
+  UPLOADED: 'UPLOADED',
+  PROCESSING: 'PROCESSING',
+  READY: 'READY',
+  FAILED: 'FAILED',
+}
 export const SESSION_STATUS = {
   READY: 'READY',
   IN_PROGRESS: 'IN_PROGRESS',
@@ -31,8 +37,8 @@ export const ROUTES = {
   LOGIN: '/login',
   NICKNAME: '/onboarding/nickname',
   COMMUTE: '/onboarding/commute',
-  MATERIAL: '/onboarding/material',
-  WAITING: '/onboarding/waiting',
+  SUBJECT_NEW: '/subjects/new',
+  MATERIAL_UPLOAD: '/materials/upload',
   HOME: '/home',
   LISTEN: '/study/listen',
   SETUP: '/study/setup',
@@ -42,3 +48,5 @@ export const ROUTES = {
   REVIEW: '/study/review',
   WRONG_NOTES: '/wrong-notes',
 }
+export const SUBJECT_NAME = { MAX: 20 }
+export const UPLOAD = { MAX_MB: 30, MAX_PER_SUBJECT: 5, EXTENSIONS: ['pdf', 'pptx', 'png'] }

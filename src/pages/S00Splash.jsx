@@ -10,9 +10,8 @@ export default function S00Splash() {
   useEffect(() => {
     const t = setTimeout(() => {
       const auth = useAuthStore.getState()
-      const { materials, subjects, resumePending } = useMaterialStore.getState()
-      resumePending() // 새로고침으로 끊긴 업로드 처리 이어서 진행
-      navigate(getEntryRoute({ auth, materials, subjects }), { replace: true })
+      useMaterialStore.getState().resumePending()
+      navigate(getEntryRoute({ auth }), { replace: true })
     }, 800)
     return () => clearTimeout(t)
   }, [navigate])

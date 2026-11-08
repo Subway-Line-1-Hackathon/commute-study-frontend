@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import ConfirmModal from '../components/ConfirmModal'
 import ResumeModal from '../components/ResumeModal'
 import TopBar from '../components/TopBar'
@@ -16,6 +16,7 @@ const toMin = (sec) => Math.round(sec / 60)
 
 export default function S20Home() {
   const navigate = useNavigate()
+  const focusSubjectId = useLocation().state?.focusSubjectId
   const user = useAuthStore((s) => s.user)
   const commute = useAuthStore((s) => s.commute)
   const subjects = useMaterialStore((s) => s.subjects)
@@ -41,9 +42,20 @@ export default function S20Home() {
   const sections = subjects.map((subject) => {
     const subjectMaterials = materials.filter((m) => m.subjectId === subject.id)
     const units = subjectMaterials.filter((m) => m.status === M.READY).flatMap((m) => m.units)
-    const pending = subjectMaterials.some((m) => m.status !== M.READY)
+    const pending = subjectMaterials.some((m) =>
+      [M.UPLOADING, M.UPLOADED, M.PROCESSING].includes(m.status),
+    )
     return { subject, units, pending }
   })
+  const hasUnits = sections.some((s) => s.units.length > 0)
+  const isFirst = materials.length === 0
+
+  useEffect(() => {
+    if (!focusSubjectId) return
+    document
+      .getElementById(`subject-${focusSubjectId}`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [focusSubjectId])
 
   const handleResume = () => navigate(getSessionRoute(resumable))
 
@@ -83,24 +95,65 @@ export default function S20Home() {
         )}
 
         {reviewOnly && (
-          <div className="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
-            학습 가능 시간이 20분 미만이라 <b>복습 퀴즈만 이용 가능</b>해요.
-            {openCount > 0 && (
+          <p className="mt-3 rounded-xl bg-warning-soft p-3 text-sm text-warning">
+            학습 가능 시간이 20분 미만이라 <b>오답 복습만 할 수 있어요.</b>
+            {openCount === 0 && ' 아직 복습할 문제가 없어요.'}
+          </p>
+        )}
+
+        {isFirst ? (
+          <button
+            onClick={() => navigate(ROUTES.SUBJECT_NEW)}
+            className="mt-4 flex w-full flex-col items-center gap-1 rounded-2xl border-2 border-dashed border-primary/40 bg-background px-4 py-8 active:brightness-95"
+          >
+            <span className="text-lg font-bold text-primary">첫 자료 올리기</span>
+            <span className="text-sm text-muted">
+              강의 자료를 올리면 통학 시간에 맞춘 학습을 만들어 드려요
+            </span>
+          </button>
+        ) : (
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            {reviewOnly ? (
               <button
                 onClick={() => navigate(ROUTES.REVIEW)}
-                className="mt-2 w-full rounded-lg bg-amber-500 py-2 font-semibold text-white active:bg-amber-600"
+                disabled={openCount === 0}
+                className="h-13 rounded-button bg-primary font-semibold text-white active:brightness-95 disabled:opacity-40"
               >
-                오답 복습 시작 ({openCount}문제)
+                오답 복습하기
+              </button>
+            ) : (
+              <button
+                onClick={() =>
+                  document.getElementById('study-list')?.scrollIntoView({ behavior: 'smooth' })
+                }
+                disabled={!hasUnits}
+                className="h-13 rounded-button bg-primary font-semibold text-white active:brightness-95 disabled:opacity-40"
+              >
+                학습하기
               </button>
             )}
+            <button
+              onClick={() => navigate(ROUTES.SUBJECT_NEW)}
+              className="h-13 rounded-button border border-primary bg-surface font-semibold text-primary active:bg-background"
+            >
+              새 파일 업로드
+            </button>
           </div>
         )}
       </header>
 
-      <main className="space-y-6 px-5 pt-6">
+      <main id="study-list" className="scroll-mt-4 space-y-6 px-5 pt-6">
         {sections.map(({ subject, units, pending }) => (
-          <section key={subject.id}>
-            <h2 className="mb-3 font-semibold text-slate-800">{subject.name}</h2>
+          <section key={subject.id} id={`subject-${subject.id}`} className="scroll-mt-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="font-semibold text-slate-800">{subject.name}</h2>
+              <button
+                onClick={() => navigate(`${ROUTES.MATERIAL_UPLOAD}?subjectId=${subject.id}`)}
+                className="text-sm font-medium text-primary"
+              >
+                + 자료
+              </button>
+            </div>
 
             {units.length === 0 && (
               <p className="rounded-xl bg-white p-4 text-sm text-slate-400">
@@ -138,13 +191,6 @@ export default function S20Home() {
             </p>
           </div>
           <span className="text-slate-400">›</span>
-        </button>
-
-        <button
-          onClick={() => navigate(ROUTES.MATERIAL)}
-          className="w-full rounded-xl border border-dashed border-slate-300 py-3 text-sm font-medium text-slate-500 active:bg-slate-100"
-        >
-          + 과목, 자료 추가
         </button>
       </main>
 

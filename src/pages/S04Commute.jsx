@@ -12,6 +12,7 @@ export default function S04Commute() {
   const navigate = useNavigate()
   const saved = useAuthStore((s) => s.commute)
   const saveCommute = useAuthStore((s) => s.saveCommute)
+  const activate = useAuthStore((s) => s.activate)
 
   const [departure, setDeparture] = useState(saved?.departure ?? '')
   const [arrival, setArrival] = useState(saved?.arrival ?? '')
@@ -24,7 +25,8 @@ export default function S04Commute() {
   const handleNext = () => {
     if (!valid) return
     saveCommute({ studyMin: minutes, departure, arrival })
-    navigate(ROUTES.MATERIAL)
+    activate()
+    navigate(ROUTES.HOME, { replace: true })
   }
 
   return (
