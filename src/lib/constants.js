@@ -22,7 +22,7 @@ export const SOLVE_MODE_TYPES = {
 }
 export const DIFFICULTY = { EASY: 'EASY', NORMAL: 'NORMAL', HARD: 'HARD' }
 
-export const COMMUTE = { MIN: 5, MAX: 180, RATIO: 0.7, REVIEW_ONLY_BELOW: 20 }
+export const COMMUTE = { MIN: 10, MAX: 120, STEP: 5, DEFAULT: 50, REVIEW_ONLY_BELOW: 20 }
 export const NICKNAME_RULE = { MIN: 2, MAX: 10 }
 export const WARNING_SEC = 180 // 문제 풀이 종료 3분 전에 "곧 끝나요" 알림
 

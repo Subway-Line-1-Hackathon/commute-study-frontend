@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import BackButton from '../components/BackButton'
+import MinuteStepper from '../components/MinuteStepper'
+import TextField from '../components/TextField'
 import { COMMUTE, NICKNAME_RULE, ROUTES } from '../lib/constants'
 import { validateNickname } from '../lib/nickname'
 import { getTimePlan } from '../lib/plan'
-import { calcStudyMinutes, isValidCommute } from '../lib/time'
+import { isValidCommute } from '../lib/time'
 import { useAuthStore } from '../store/useAuthStore'
 
 const toMin = (sec) => Math.round(sec / 60)
@@ -18,7 +20,7 @@ export default function S60Settings() {
   const logout = useAuthStore((s) => s.logout)
 
   const [nickname, setNickname] = useState(user?.nickname ?? '')
-  const [commuteInput, setCommuteInput] = useState(commute ? String(commute.oneWayMin) : '')
+  const [commuteInput, setCommuteInput] = useState(String(commute?.studyMin ?? COMMUTE.DEFAULT))
   const [nicknameSaved, setNicknameSaved] = useState(false)
   const [commuteSaved, setCommuteSaved] = useState(false)
 
@@ -31,9 +33,8 @@ export default function S60Settings() {
   const minutes = commuteInput === '' ? null : Number(commuteInput)
   const commuteValid = minutes !== null && isValidCommute(minutes)
   const commuteError = minutes !== null && !commuteValid
-  const studyMin = commuteValid ? calcStudyMinutes(minutes) : null
-  const plan = commuteValid ? getTimePlan(studyMin) : null
-  const commuteChanged = minutes !== (commute?.oneWayMin ?? null)
+  const plan = commuteValid ? getTimePlan(minutes) : null
+  const commuteChanged = minutes !== (commute?.studyMin ?? null)
   const canSaveCommute = commuteValid && commuteChanged
 
   const handleSaveNickname = () => {
@@ -44,7 +45,7 @@ export default function S60Settings() {
 
   const handleSaveCommute = () => {
     if (!canSaveCommute) return
-    saveCommute(minutes)
+    saveCommute({ ...commute, studyMin: minutes })
     setCommuteSaved(true)
   }
 
@@ -61,26 +62,18 @@ export default function S60Settings() {
       <section className="mt-6 rounded-2xl bg-white p-5 shadow-sm">
         <h2 className="font-semibold text-slate-800">통학 시간</h2>
         <p className="mt-1 text-xs text-slate-500">
-          편도 이동 시간의 70%가 학습 시간이 돼요. 바꾼 시간은 다음 학습부터 적용돼요.
+          입력한 시간이 그대로 학습 시간이 돼요. 바꾼 시간은 다음 학습부터 적용돼요.
         </p>
 
-        <div className="mt-4 flex items-center gap-3">
-          <input
-            type="number"
-            inputMode="numeric"
+        <div className="mt-4">
+          <MinuteStepper
+            label="예상 소요 시간"
             value={commuteInput}
-            onChange={(e) => {
-              setCommuteInput(e.target.value)
+            onChange={(v) => {
+              setCommuteInput(v)
               setCommuteSaved(false)
             }}
-            placeholder="예: 50"
-            className={`w-full rounded-xl border px-4 py-3 text-lg outline-none focus:ring-2 ${
-              commuteError
-                ? 'border-red-400 focus:ring-red-200'
-                : 'border-slate-300 focus:ring-blue-200'
-            }`}
           />
-          <span className="shrink-0 text-slate-600">분</span>
         </div>
         {commuteError && (
           <p className="mt-2 text-sm text-red-500">
@@ -91,7 +84,7 @@ export default function S60Settings() {
         {plan && (
           <div className="mt-3 rounded-xl bg-blue-50 p-3 text-sm text-slate-700">
             <p>
-              학습 가능 시간 <b className="text-blue-600">{studyMin}분</b>
+              학습 가능 시간 <b className="text-blue-600">{minutes}분</b>
             </p>
             {plan.conceptSec > 0 ? (
               <p className="mt-1 text-xs text-slate-500">
@@ -116,7 +109,7 @@ export default function S60Settings() {
 
       <section className="mt-4 rounded-2xl bg-white p-5 shadow-sm">
         <h2 className="font-semibold text-slate-800">닉네임</h2>
-        <input
+        <TextField
           value={nickname}
           onChange={(e) => {
             setNickname(e.target.value)
@@ -124,11 +117,8 @@ export default function S60Settings() {
           }}
           maxLength={NICKNAME_RULE.MAX}
           placeholder="닉네임"
-          className={`mt-3 w-full rounded-xl border px-4 py-3 text-lg outline-none focus:ring-2 ${
-            nicknameError
-              ? 'border-red-400 focus:ring-red-200'
-              : 'border-slate-300 focus:ring-blue-200'
-          }`}
+          invalid={!!nicknameError}
+          className="mt-3"
         />
         <p className="mt-2 min-h-5 text-sm text-red-500">{nicknameError}</p>
         <button
