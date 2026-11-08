@@ -41,7 +41,9 @@ export default function S20Home() {
   const sections = subjects.map((subject) => {
     const subjectMaterials = materials.filter((m) => m.subjectId === subject.id)
     const units = subjectMaterials.filter((m) => m.status === M.READY).flatMap((m) => m.units)
-    const pending = subjectMaterials.some((m) => m.status !== M.READY)
+    const pending = subjectMaterials.some((m) =>
+      [M.UPLOADING, M.UPLOADED, M.PROCESSING].includes(m.status),
+    )
     return { subject, units, pending }
   })
 
@@ -98,9 +100,29 @@ export default function S20Home() {
       </header>
 
       <main className="space-y-6 px-5 pt-6">
+        {subjects.length === 0 && (
+          <div className="rounded-xl bg-white p-6 text-center">
+            <p className="text-sm text-slate-500">아직 등록된 과목이 없어요.</p>
+            <button
+              onClick={() => navigate(ROUTES.SUBJECT_NEW)}
+              className="mt-3 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white"
+            >
+              과목 등록하기
+            </button>
+          </div>
+        )}
+
         {sections.map(({ subject, units, pending }) => (
           <section key={subject.id}>
-            <h2 className="mb-3 font-semibold text-slate-800">{subject.name}</h2>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="font-semibold text-slate-800">{subject.name}</h2>
+              <button
+                onClick={() => navigate(`${ROUTES.MATERIAL_UPLOAD}?subjectId=${subject.id}`)}
+                className="text-sm font-medium text-primary"
+              >
+                + 자료
+              </button>
+            </div>
 
             {units.length === 0 && (
               <p className="rounded-xl bg-white p-4 text-sm text-slate-400">
@@ -141,10 +163,10 @@ export default function S20Home() {
         </button>
 
         <button
-          onClick={() => navigate(ROUTES.MATERIAL)}
+          onClick={() => navigate(ROUTES.SUBJECT_NEW)}
           className="w-full rounded-xl border border-dashed border-slate-300 py-3 text-sm font-medium text-slate-500 active:bg-slate-100"
         >
-          + 과목, 자료 추가
+          + 과목 추가
         </button>
       </main>
 

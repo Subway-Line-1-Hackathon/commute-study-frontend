@@ -1,16 +1,13 @@
 import { useNavigate } from 'react-router-dom'
 import { getEntryRoute } from '../lib/entryRoute'
 import { useAuthStore } from '../store/useAuthStore'
-import { useMaterialStore } from '../store/useMaterialStore'
 
 export default function S01Login() {
   const navigate = useNavigate()
 
   const handleGoogleLogin = () => {
     useAuthStore.getState().loginWithGoogle()
-    const auth = useAuthStore.getState()
-    const { materials, subjects } = useMaterialStore.getState()
-    navigate(getEntryRoute({ auth, materials, subjects }), { replace: true })
+    navigate(getEntryRoute({ auth: useAuthStore.getState() }), { replace: true })
   }
 
   return (

@@ -2,10 +2,11 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { MATERIAL_STATUS as M } from '../lib/constants'
 import { zustandStorage, uid, wait } from '../lib/storage'
-import { generateUnitsAndSummary } from '../mocks/mockMaterial'
+import { generateUnitsAndSummary, MOCK_FAIL_MESSAGE, shouldMockFail } from '../mocks/mockMaterial'
 
 const inflight = new Set()
 const baseName = (fileName) => fileName.replace(/\.[^.]+$/, '')
+let uploadQueue = Promise.resolve()
 
 export const useMaterialStore = create(
   persist(
@@ -18,25 +19,43 @@ export const useMaterialStore = create(
         inflight.add(id)
         try {
           const cur = get().materials.find((m) => m.id === id)
-          if (!cur || cur.status === M.READY) return
+          if (!cur || (cur.status !== M.UPLOADED && cur.status !== M.PROCESSING)) return
           if (cur.status === M.UPLOADED) {
             await wait(2000, 3000)
             patch(id, { status: M.PROCESSING })
           }
           await wait(2000, 3000)
           const latest = get().materials.find((m) => m.id === id)
-          patch(id, { status: M.READY, ...generateUnitsAndSummary(latest.fileName) })
+          if (shouldMockFail(latest.fileName) && !latest.retried) {
+            patch(id, { status: M.FAILED, errorMessage: MOCK_FAIL_MESSAGE })
+            return
+          }
+          patch(id, {
+            status: M.READY,
+            errorMessage: null,
+            ...generateUnitsAndSummary(latest.fileName),
+          })
         } finally {
           inflight.delete(id)
         }
+      }
+
+      const upload = async (id) => {
+        for (let progress = 10; progress <= 100; progress += 10) {
+          await wait(120, 200)
+          if (!get().materials.some((m) => m.id === id)) return
+          patch(id, { progress })
+        }
+        patch(id, { status: M.UPLOADED, progress: null })
+        advance(id)
       }
 
       return {
         subjects: [],
         materials: [],
 
-        addSubject: (name) => {
-          const subject = { id: uid(), name: name.trim() }
+        addSubject: (name, examDate = null) => {
+          const subject = { id: uid(), name: name.trim(), examDate: examDate || null }
           set((s) => ({ subjects: [...s.subjects, subject] }))
           return subject
         },
@@ -50,21 +69,34 @@ export const useMaterialStore = create(
                 id,
                 subjectId,
                 fileName: file.name,
-                status: M.UPLOADED,
+                fileSize: file.size,
+                status: M.UPLOADING,
+                progress: 0,
+                errorMessage: null,
+                retried: false,
                 units: [],
                 summary: null,
                 createdAt: Date.now(),
               },
             ],
           }))
-          advance(id)
+          uploadQueue = uploadQueue.then(() => upload(id)).catch(() => {})
           return id
         },
 
-        resumePending: () =>
+        retryMaterial: (id) => {
+          const cur = get().materials.find((m) => m.id === id)
+          if (!cur || cur.status !== M.FAILED || cur.retried) return
+          patch(id, { status: M.PROCESSING, retried: true, errorMessage: null })
+          advance(id)
+        },
+
+        resumePending: () => {
+          set((s) => ({ materials: s.materials.filter((m) => m.status !== M.UPLOADING) }))
           get()
-            .materials.filter((m) => m.status !== M.READY)
-            .forEach((m) => advance(m.id)),
+            .materials.filter((m) => m.status === M.UPLOADED || m.status === M.PROCESSING)
+            .forEach((m) => advance(m.id))
+        },
 
         hasReadyMaterial: () => get().materials.some((m) => m.status === M.READY),
         allUnits: () =>

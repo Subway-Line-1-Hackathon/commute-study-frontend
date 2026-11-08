@@ -39,19 +39,19 @@ export default function AppRouter() {
         }
       />
       <Route
-        path={ROUTES.MATERIAL}
+        path={ROUTES.SUBJECT_NEW}
         element={
-          <RequireAuth>
+          <RequireActive>
             <S05Material />
-          </RequireAuth>
+          </RequireActive>
         }
       />
       <Route
-        path={ROUTES.WAITING}
+        path={ROUTES.MATERIAL_UPLOAD}
         element={
-          <RequireAuth>
+          <RequireActive>
             <S10Waiting />
-          </RequireAuth>
+          </RequireActive>
         }
       />
 
