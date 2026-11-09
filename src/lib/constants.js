@@ -39,6 +39,7 @@ export const ROUTES = {
   COMMUTE: '/onboarding/commute',
   SUBJECT_NEW: '/subjects/new',
   MATERIAL_UPLOAD: '/materials/upload',
+  UNIT_PREVIEW: '/materials/units',
   HOME: '/home',
   LISTEN: '/study/listen',
   SETUP: '/study/setup',
@@ -47,6 +48,14 @@ export const ROUTES = {
   SETTINGS: '/settings',
   REVIEW: '/study/review',
   WRONG_NOTES: '/wrong-notes',
+  REPORT: '/report',
 }
 export const SUBJECT_NAME = { MAX: 20 }
-export const UPLOAD = { MAX_MB: 30, MAX_PER_SUBJECT: 5, EXTENSIONS: ['pdf', 'pptx', 'png'] }
+export const UPLOAD = {
+  MAX_MB: 30,
+  MAX_PER_UPLOAD: 5,
+  MAX_VISIBLE: 10,
+  MAX_DOC_PAGES: 100,
+  MAX_PNG_PAGES: 20,
+  EXTENSIONS: ['pdf', 'pptx', 'png'],
+}

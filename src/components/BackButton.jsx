@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 
-export default function BackButton({ to, label = '뒤로' }) {
+export default function BackButton({ to }) {
   const navigate = useNavigate()
 
   const handleClick = () => {
@@ -11,11 +11,12 @@ export default function BackButton({ to, label = '뒤로' }) {
 
   return (
     <button
+      type="button"
       onClick={handleClick}
-      className="flex items-center gap-1 py-2 text-sm font-medium text-slate-600 active:text-slate-900"
+      aria-label="뒤로"
+      className="-ml-3 flex h-11 w-11 items-center justify-center text-[2rem] leading-none text-muted active:text-ink"
     >
-      <span className="text-lg leading-none">‹</span>
-      {label}
+      ‹
     </button>
   )
 }

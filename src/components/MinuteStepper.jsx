@@ -9,21 +9,23 @@ export default function MinuteStepper({ label, value, onChange, required = false
   const step = (delta) => onChange(String(clampCommute(base + delta)))
 
   return (
-    <div className="rounded-xl border border-slate-300 p-4">
-      <p className="text-sm text-slate-500">
+    <div className="rounded-xl border border-line bg-surface p-4">
+      <p className="text-caption text-muted">
         {label}
-        {required && <span className="ml-0.5 text-red-500">*</span>}
+        {required && <span className="ml-0.5 text-danger">*</span>}
       </p>
+
       <div className="mt-2 flex items-center justify-between gap-3">
         <button
           type="button"
           onClick={() => step(-COMMUTE.STEP)}
           disabled={minutes !== null && minutes <= COMMUTE.MIN}
           aria-label={`${COMMUTE.STEP}분 줄이기`}
-          className="h-11 w-11 shrink-0 rounded-full border border-slate-300 text-xl text-slate-600 active:bg-slate-50 disabled:opacity-40"
+          className="h-11 w-11 shrink-0 rounded-full border border-line bg-surface text-xl text-ink active:bg-background disabled:opacity-40"
         >
           −
         </button>
+
         <div className="flex items-baseline justify-center gap-1">
           <input
             type="text"
@@ -32,16 +34,18 @@ export default function MinuteStepper({ label, value, onChange, required = false
             value={value}
             onChange={(e) => onChange(e.target.value.replace(/\D/g, ''))}
             aria-label={label}
-            className="w-20 bg-transparent text-center text-3xl font-bold text-slate-900 outline-none"
+            style={{ width: `${Math.max(value.length, 1)}ch` }}
+            className="bg-transparent text-center text-title text-ink outline-none"
           />
-          <span className="text-2xl font-bold text-slate-900">분</span>
+          <span className="text-title text-ink">분</span>
         </div>
+
         <button
           type="button"
           onClick={() => step(COMMUTE.STEP)}
           disabled={minutes !== null && minutes >= COMMUTE.MAX}
           aria-label={`${COMMUTE.STEP}분 늘리기`}
-          className="h-11 w-11 shrink-0 rounded-full border border-slate-300 text-xl text-slate-600 active:bg-slate-50 disabled:opacity-40"
+          className="h-11 w-11 shrink-0 rounded-full border border-line bg-surface text-xl text-ink active:bg-background disabled:opacity-40"
         >
           +
         </button>
