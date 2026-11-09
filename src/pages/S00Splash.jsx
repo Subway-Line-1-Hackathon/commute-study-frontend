@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getEntryRoute } from '../lib/entryRoute'
+import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../store/useAuthStore'
 import { useMaterialStore } from '../store/useMaterialStore'
 import mascot from '../assets/mascot-default.png'
@@ -9,13 +10,27 @@ export default function S00Splash() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    const timer = setTimeout(() => {
+    let cancelled = false
+
+    // 구글 로그인 후 이 화면으로 돌아오면 getSession이 URL의 code를 세션으로 바꿔 준다
+    const checkSession = async () => {
+      if (!supabase) return
+      const { data } = await supabase.auth.getSession()
+      useAuthStore.getState().applySession(data.session)
+    }
+
+    const minDelay = new Promise((resolve) => setTimeout(resolve, 800))
+
+    Promise.all([checkSession(), minDelay]).then(() => {
+      if (cancelled) return
       const auth = useAuthStore.getState()
       useMaterialStore.getState().resumePending()
       navigate(getEntryRoute({ auth }), { replace: true })
-    }, 800)
+    })
 
-    return () => clearTimeout(timer)
+    return () => {
+      cancelled = true
+    }
   }, [navigate])
 
   return (
