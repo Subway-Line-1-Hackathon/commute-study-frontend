@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { AUTH_STATUS, COMMUTE, ROUTES } from '../lib/constants'
+import { getMe, saveSettings } from '../lib/endpoints'
 import { zustandStorage } from '../lib/storage'
 import { supabase } from '../lib/supabase'
 import { clampCommute, isValidCommute } from '../lib/time'
@@ -64,6 +65,50 @@ export const useAuthStore = create(
         if (!isValidCommute(studyMin)) return false
         set({ commute: { studyMin, departure: departure.trim(), arrival: arrival.trim() } })
         return true
+      },
+
+      // 닉네임과 통학 설정을 서버에 저장하고 store에도 반영한다.
+      // 서버는 닉네임과 통학 시간을 한 번에 받는다. Mock 모드면 store에만 저장한다
+      saveProfile: async ({ nickname, studyMin, departure = '', arrival = '' }) => {
+        if (!isValidCommute(studyMin)) return false
+        let savedMin = studyMin
+        if (supabase) {
+          const res = await saveSettings({
+            nickname: nickname.trim(),
+            oneWayMin: studyMin,
+            fromStation: departure.trim() || undefined,
+            toStation: arrival.trim() || undefined,
+          })
+          savedMin = res?.studyMin ?? studyMin
+        }
+        set((s) => ({
+          user: { ...s.user, nickname: nickname.trim() },
+          commute: { studyMin: savedMin, departure: departure.trim(), arrival: arrival.trim() },
+        }))
+        return true
+      },
+
+      // 서버의 내 정보로 닉네임·통학 설정·온보딩 상태를 맞춘다. 처음 부르면 서버가 사용자를 만든다
+      syncMe: async () => {
+        if (!supabase) return
+        const me = await getMe()
+        const settings = me?.settings
+        set((s) => {
+          const activated = me?.status === AUTH_STATUS.ACTIVE
+          const patch = {
+            status: activated ? AUTH_STATUS.ACTIVE : AUTH_STATUS.AUTHENTICATED,
+            activated,
+            user: { ...s.user, nickname: me?.nickname ?? s.user?.nickname },
+          }
+          if (settings) {
+            patch.commute = {
+              studyMin: settings.studyMin ?? settings.oneWayMin,
+              departure: settings.fromStation ?? '',
+              arrival: settings.toStation ?? '',
+            }
+          }
+          return patch
+        })
       },
 
       activate: () => set({ status: AUTH_STATUS.ACTIVE, activated: true }),

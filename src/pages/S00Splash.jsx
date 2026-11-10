@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { ApiError } from '../lib/api'
 import { getEntryRoute } from '../lib/entryRoute'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../store/useAuthStore'
@@ -17,6 +18,19 @@ export default function S00Splash() {
       if (!supabase) return
       const { data } = await supabase.auth.getSession()
       useAuthStore.getState().applySession(data.session)
+      if (!data.session) return
+
+      // 서버의 닉네임·통학 설정·과목을 가져온다. 실패하면 기기에 저장된 값으로 계속한다
+      try {
+        await Promise.all([
+          useAuthStore.getState().syncMe(),
+          useMaterialStore.getState().syncSubjects(),
+        ])
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) {
+          useAuthStore.getState().logout()
+        }
+      }
     }
 
     const minDelay = new Promise((resolve) => setTimeout(resolve, 800))

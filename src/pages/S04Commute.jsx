@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { errorMessage } from '../lib/api'
 import { COMMUTE, ROUTES } from '../lib/constants'
 import { isReviewOnly, isValidCommute } from '../lib/time'
 import { useAuthStore } from '../store/useAuthStore'
@@ -12,8 +13,12 @@ import ScreenTitle from '../layouts/ScreenTitle'
 export default function S04Commute() {
   const navigate = useNavigate()
   const saved = useAuthStore((s) => s.commute)
-  const saveCommute = useAuthStore((s) => s.saveCommute)
+  const nickname = useAuthStore((s) => s.user?.nickname ?? '')
+  const saveProfile = useAuthStore((s) => s.saveProfile)
   const activate = useAuthStore((s) => s.activate)
+
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
 
   const [departure, setDeparture] = useState(saved?.departure ?? '')
   const [arrival, setArrival] = useState(saved?.arrival ?? '')
@@ -24,16 +29,26 @@ export default function S04Commute() {
   const showError = minutes !== null && !valid
   const showReviewOnly = valid && isReviewOnly(minutes)
 
-  const handleNext = () => {
-    if (!valid) return
-    saveCommute({ studyMin: minutes, departure, arrival })
-    activate()
-    navigate(ROUTES.HOME, { replace: true })
+  const handleNext = async () => {
+    if (!valid || saving) return
+    setSaving(true)
+    setSaveError('')
+    try {
+      await saveProfile({ nickname, studyMin: minutes, departure, arrival })
+      activate()
+      navigate(ROUTES.HOME, { replace: true })
+    } catch (err) {
+      setSaveError(errorMessage(err, '저장하지 못했어요. 잠시 후 다시 시도해 주세요.'))
+      setSaving(false)
+    }
   }
   const bottomCta = (
-    <Button onClick={handleNext} disabled={!valid}>
-      다음
-    </Button>
+    <>
+      {saveError && <p className="mb-2 text-center text-caption text-danger">{saveError}</p>}
+      <Button onClick={handleNext} disabled={!valid || saving}>
+        다음
+      </Button>
+    </>
   )
 
   return (

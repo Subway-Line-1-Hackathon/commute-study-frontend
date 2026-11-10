@@ -4,6 +4,7 @@ import Button from '../components/Button'
 import TextField from '../components/TextField'
 import Screen from '../layouts/Screen'
 import ScreenTitle from '../layouts/ScreenTitle'
+import { errorMessage } from '../lib/api'
 import { ROUTES, SUBJECT_NAME } from '../lib/constants'
 import { kstDateKey } from '../lib/date'
 import { useMaterialStore } from '../store/useMaterialStore'
@@ -18,16 +19,29 @@ export default function S05Material() {
   const trimmed = name.trim()
   const valid = trimmed.length > 0 && trimmed.length <= SUBJECT_NAME.MAX
 
-  const save = () => {
-    if (!valid) return
-    const subject = addSubject(trimmed, examDate)
-    navigate(`${ROUTES.MATERIAL_UPLOAD}?subjectId=${subject.id}`, { replace: true })
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+
+  const save = async () => {
+    if (!valid || saving) return
+    setSaving(true)
+    setSaveError('')
+    try {
+      const subject = await addSubject(trimmed, examDate)
+      navigate(`${ROUTES.MATERIAL_UPLOAD}?subjectId=${subject.id}`, { replace: true })
+    } catch (err) {
+      setSaveError(errorMessage(err, '과목을 등록하지 못했어요. 잠시 후 다시 시도해 주세요.'))
+      setSaving(false)
+    }
   }
 
   const bottomCta = (
-    <Button onClick={save} disabled={!valid}>
-      등록하고 자료 올리기
-    </Button>
+    <>
+      {saveError && <p className="mb-2 text-center text-caption text-danger">{saveError}</p>}
+      <Button onClick={save} disabled={!valid || saving}>
+        등록하고 자료 올리기
+      </Button>
+    </>
   )
 
   return (

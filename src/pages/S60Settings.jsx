@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import BackButton from '../components/BackButton'
 import MinuteStepper from '../components/MinuteStepper'
 import TextField from '../components/TextField'
+import { errorMessage } from '../lib/api'
 import { COMMUTE, NICKNAME_RULE, ROUTES } from '../lib/constants'
 import { validateNickname } from '../lib/nickname'
 import { getTimePlan } from '../lib/plan'
@@ -15,9 +16,10 @@ export default function S60Settings() {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
   const commute = useAuthStore((s) => s.commute)
-  const saveNickname = useAuthStore((s) => s.saveNickname)
-  const saveCommute = useAuthStore((s) => s.saveCommute)
+  const saveProfile = useAuthStore((s) => s.saveProfile)
   const logout = useAuthStore((s) => s.logout)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
 
   const [nickname, setNickname] = useState(user?.nickname ?? '')
   const [commuteInput, setCommuteInput] = useState(String(commute?.studyMin ?? COMMUTE.DEFAULT))
@@ -37,16 +39,34 @@ export default function S60Settings() {
   const commuteChanged = minutes !== (commute?.studyMin ?? null)
   const canSaveCommute = commuteValid && commuteChanged
 
+  // 서버는 닉네임과 통학 시간을 함께 저장하므로, 바꾸지 않은 쪽은 저장된 값을 같이 보낸다
+  const save = async (profile, onSaved) => {
+    setSaving(true)
+    setSaveError('')
+    try {
+      await saveProfile({
+        nickname: user?.nickname ?? '',
+        studyMin: commute?.studyMin ?? COMMUTE.DEFAULT,
+        departure: commute?.departure ?? '',
+        arrival: commute?.arrival ?? '',
+        ...profile,
+      })
+      onSaved()
+    } catch (err) {
+      setSaveError(errorMessage(err, '저장하지 못했어요. 잠시 후 다시 시도해 주세요.'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const handleSaveNickname = () => {
-    if (!canSaveNickname) return
-    saveNickname(nickname)
-    setNicknameSaved(true)
+    if (!canSaveNickname || saving) return
+    save({ nickname }, () => setNicknameSaved(true))
   }
 
   const handleSaveCommute = () => {
-    if (!canSaveCommute) return
-    saveCommute({ ...commute, studyMin: minutes })
-    setCommuteSaved(true)
+    if (!canSaveCommute || saving) return
+    save({ studyMin: minutes }, () => setCommuteSaved(true))
   }
 
   const handleLogout = () => {
@@ -129,6 +149,8 @@ export default function S60Settings() {
           {nicknameSaved ? '저장했어요' : '닉네임 저장'}
         </button>
       </section>
+
+      {saveError && <p className="mt-4 text-center text-sm text-red-500">{saveError}</p>}
 
       <div className="mt-auto pt-8">
         <button
