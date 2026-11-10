@@ -1,3 +1,9 @@
+// 브라우저 내장 TTS(Web Speech API, speechSynthesis)로 글을 소리 내어 읽는 유틸
+// - announce: 짧은 안내 한 번
+// - createSpeaker: 여러 문단을 이어 읽는 플레이어 (개념 듣기 화면)
+// - speak: 한 문장 읽고 끝나면 콜백 (듣고 풀기 화면)
+
+// 이 브라우저가 음성 읽기를 지원하는지
 export const isSpeechSupported = () => typeof window !== 'undefined' && 'speechSynthesis' in window
 
 // 기기에 있는 한국어 목소리 중 자연스러운 것을 먼저 고른다 (앞에 있을수록 우선)
@@ -10,8 +16,9 @@ const VOICE_PREFERENCE = [
   /Yuna/i, // iOS/macOS 기본
 ]
 
-let cachedVoice
+let cachedVoice // 한 번 고른 목소리를 저장해 두고 재사용
 
+// 한국어 목소리 중 VOICE_PREFERENCE 순서대로 가장 먼저 맞는 것을 고른다. 없으면 기기 내장 목소리
 function pickVoice() {
   const voices = window.speechSynthesis
     .getVoices()
@@ -49,10 +56,14 @@ export function announce(text) {
   window.speechSynthesis.speak(makeUtterance(text))
 }
 
+// 문단 목록을 하나씩 이어서 읽는 플레이어를 만든다
+// - onIndex(i): i번째 문단을 읽기 시작할 때 (화면 하이라이트, 진행 저장용)
+// - onFinish(): 마지막 문단까지 다 읽었을 때
+// 사용: const sp = createSpeaker({...}); sp.load(segments); sp.play()
 export function createSpeaker({ onIndex, onFinish } = {}) {
-  let segments = []
-  let index = 0
-  let rate = 1
+  let segments = [] // 읽을 문단 [{ text }]
+  let index = 0 // 지금 문단 번호
+  let rate = 1 // 읽기 속도 (1 = 보통)
   let playing = false
   let token = 0 // 취소된 발화가 뒤늦게 다음 문단을 읽지 않도록 구분
 
@@ -61,6 +72,7 @@ export function createSpeaker({ onIndex, onFinish } = {}) {
     if (isSpeechSupported()) window.speechSynthesis.cancel()
   }
 
+  // i번째 문단을 읽고, 다 읽으면 자동으로 다음 문단을 읽는다
   const speak = (i) => {
     cancel()
     if (i >= segments.length) {
@@ -82,6 +94,7 @@ export function createSpeaker({ onIndex, onFinish } = {}) {
   }
 
   return {
+    // 읽을 문단과 시작 위치를 정한다 (재생은 play에서)
     load(list, startIndex = 0) {
       segments = list
       index = startIndex
@@ -99,10 +112,12 @@ export function createSpeaker({ onIndex, onFinish } = {}) {
       playing = false
       cancel()
     },
+    // 속도를 바꾸면 지금 문단을 새 속도로 처음부터 다시 읽는다
     setRate(r) {
       rate = r
       if (playing) speak(index)
     },
+    // i번째 문단으로 이동 (이전/다음 문단 버튼). 범위 밖이면 처음/끝으로 맞춘다
     seek(i) {
       if (segments.length === 0) return
       index = Math.max(0, Math.min(i, segments.length - 1))
@@ -112,6 +127,7 @@ export function createSpeaker({ onIndex, onFinish } = {}) {
   }
 }
 
+// 지금 나오는 모든 음성을 멈춘다 (화면을 떠날 때 등)
 export function stopSpeaking() {
   if (isSpeechSupported()) window.speechSynthesis.cancel()
 }

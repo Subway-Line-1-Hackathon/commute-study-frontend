@@ -8,6 +8,8 @@ import TextField from '../components/TextField'
 import Screen from '../layouts/Screen'
 import ScreenTitle from '../layouts/ScreenTitle'
 
+// S02 닉네임 입력 (온보딩 1단계)
+// 여기서는 store에만 저장하고, 서버에는 다음 화면(통학 시간)에서 함께 저장한다
 export default function S02Nickname() {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
@@ -16,6 +18,7 @@ export default function S02Nickname() {
 
   const [input, setInput] = useState(user?.nickname ?? '')
 
+  // 입력할 때마다 바로 검사한다. 아직 아무것도 안 썼으면 에러를 보여주지 않는다
   const error = input ? validateNickname(input) : ''
   const valid = input.trim() !== '' && error === ''
 

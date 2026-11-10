@@ -3,6 +3,7 @@ import { ROUTES } from '../lib/constants'
 import { useAuthStore } from '../store/useAuthStore'
 import BackButton from './BackButton'
 
+// 화면 상단 바: 왼쪽 뒤로가기(backTo가 있을 때), 오른쪽 설정·로그아웃 버튼
 export default function TopBar({ backTo, showLogout = true, showSettings = false }) {
   const navigate = useNavigate()
   const logout = useAuthStore((s) => s.logout)

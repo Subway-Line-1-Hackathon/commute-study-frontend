@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import BackButton from '../components/BackButton'
 import { ROUTES } from '../lib/constants'
@@ -5,21 +6,28 @@ import { getOpenNotes, pickReviewNotes } from '../lib/review'
 import { useAuthStore } from '../store/useAuthStore'
 import { useSessionStore } from '../store/useSessionStore'
 
+// S32 오답 복습 미리보기: 학습 시간 안에 풀 수 있는 오답을 골라 보여주고 '복습 출발'로 문제 설정(S30)에 간다
 export default function S32Review() {
   const navigate = useNavigate()
   const commute = useAuthStore((s) => s.commute)
   const wrongNotes = useSessionStore((s) => s.wrongNotes)
 
   const studyMin = commute?.studyMin ?? 20
-  const open = getOpenNotes(wrongNotes)
+  const open = getOpenNotes(wrongNotes) // 아직 못 맞힌 오답
+  // 화면에 보여줄 예상 목록 (실제 출제는 세션을 만들 때 다시 정해진다)
   const { picked, usedSec } = pickReviewNotes(open, studyMin * 60)
 
+  // 들어올 때 서버 오답노트로 갱신
+  useEffect(() => {
+    useSessionStore
+      .getState()
+      .syncWrongNotes()
+      .catch(() => {})
+  }, [])
+
+  // 문제 설정 화면으로. 실제 문제는 세션을 만들 때 정해진다
   const handleStart = () => {
-    const store = useSessionStore.getState()
-    if (store.getResumable()) store.endSession()
-    store.createReviewSession({ questions: picked.map((n) => n.question), studyMin })
-    useSessionStore.getState().start()
-    navigate(ROUTES.PLAYER)
+    navigate(ROUTES.SETUP, { state: { draft: { source: 'wrongNotes', unitTitle: '오답 복습' } } })
   }
 
   return (
@@ -55,6 +63,7 @@ export default function S32Review() {
           </p>
 
           <ul className="mt-4 space-y-2">
+            {/* 앞의 5문제만 미리 보여준다 */}
             {picked.slice(0, 5).map((n) => (
               <li key={n.id} className="rounded-xl bg-white p-3 shadow-sm">
                 <p className="text-xs text-slate-400">

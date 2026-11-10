@@ -1,3 +1,4 @@
+// 화면 상단 큰 제목과 설명 문구. title 안의 \n은 줄바꿈으로 보인다 (whitespace-pre-line)
 export default function ScreenTitle({ title, description }) {
   return (
     <div>

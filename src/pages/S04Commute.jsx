@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { errorMessage } from '../lib/api'
 import { COMMUTE, ROUTES } from '../lib/constants'
 import { isReviewOnly, isValidCommute } from '../lib/time'
 import { useAuthStore } from '../store/useAuthStore'
@@ -9,31 +10,48 @@ import TextField from '../components/TextField'
 import Screen from '../layouts/Screen'
 import ScreenTitle from '../layouts/ScreenTitle'
 
+// S04 통학 시간 입력 (온보딩 2단계, 마지막)
+// '다음'을 누르면 닉네임+통학 설정을 서버에 저장하고 ACTIVE 상태가 되어 홈으로 간다
 export default function S04Commute() {
   const navigate = useNavigate()
   const saved = useAuthStore((s) => s.commute)
-  const saveCommute = useAuthStore((s) => s.saveCommute)
+  const nickname = useAuthStore((s) => s.user?.nickname ?? '')
+  const saveProfile = useAuthStore((s) => s.saveProfile)
   const activate = useAuthStore((s) => s.activate)
+
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
 
   const [departure, setDeparture] = useState(saved?.departure ?? '')
   const [arrival, setArrival] = useState(saved?.arrival ?? '')
+  // 이전에 저장한 값이 있으면 그 값으로, 없으면 기본 50분으로 시작
   const [input, setInput] = useState(String(saved?.studyMin ?? COMMUTE.DEFAULT))
 
   const minutes = input === '' ? null : Number(input)
   const valid = minutes !== null && isValidCommute(minutes)
-  const showError = minutes !== null && !valid
-  const showReviewOnly = valid && isReviewOnly(minutes)
+  const showError = minutes !== null && !valid // 범위 밖 숫자 입력
+  const showReviewOnly = valid && isReviewOnly(minutes) // 20분 미만 안내
 
-  const handleNext = () => {
-    if (!valid) return
-    saveCommute({ studyMin: minutes, departure, arrival })
-    activate()
-    navigate(ROUTES.HOME, { replace: true })
+  const handleNext = async () => {
+    if (!valid || saving) return
+    setSaving(true)
+    setSaveError('')
+    try {
+      await saveProfile({ nickname, studyMin: minutes, departure, arrival })
+      activate()
+      navigate(ROUTES.HOME, { replace: true })
+    } catch (err) {
+      setSaveError(errorMessage(err, '저장하지 못했어요. 잠시 후 다시 시도해 주세요.'))
+      setSaving(false)
+    }
   }
   const bottomCta = (
-    <Button onClick={handleNext} disabled={!valid}>
-      다음
-    </Button>
+    <>
+      {saveError && <p className="mb-2 text-center text-caption text-danger">{saveError}</p>}
+      <Button onClick={handleNext} disabled={!valid || saving}>
+        다음
+      </Button>
+    </>
   )
 
   return (

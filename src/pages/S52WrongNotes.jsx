@@ -1,21 +1,46 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import BackButton from '../components/BackButton'
 import SegmentedToggle from '../components/SegmentedToggle'
+import { useExplanation } from '../hooks/useExplanation'
 import { QUESTION_TYPE as T, ROUTES, WRONG_STATUS } from '../lib/constants'
 import { WRONG_LIMIT, getOpenNotes, getResolvedNotes } from '../lib/review'
 import { useSessionStore } from '../store/useSessionStore'
 
+// S52 오답노트 탭: 미해결/해결 탭으로 나눠 틀린 문제를 보여주고, '정답 보기'로 정답·해설을 펼친다
+
 const TYPE_LABEL = { [T.OX]: 'O/X', [T.MCQ]: '객관식', [T.SHORT]: '단답형' }
 
+// 타임스탬프 -> "11. 10." 같은 월·일 표시
 const formatDate = (ts) =>
   new Date(ts).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })
+
+// 정답·해설. 서버 오답노트에는 정답이 없어서 해설을 조회한다
+function AnswerDetail({ question }) {
+  const { explanation, loaded } = useExplanation(question)
+  return (
+    <div className="mt-2 rounded-lg bg-slate-50 p-3 text-sm">
+      {question.answer && <p className="font-semibold text-green-600">정답: {question.answer}</p>}
+      <p className="mt-1 text-xs leading-relaxed text-slate-500">
+        {explanation ?? (loaded ? '해설이 없어요.' : '해설을 불러오고 있어요…')}
+      </p>
+    </div>
+  )
+}
 
 export default function S52WrongNotes() {
   const navigate = useNavigate()
   const wrongNotes = useSessionStore((s) => s.wrongNotes)
-  const [tab, setTab] = useState(WRONG_STATUS.OPEN)
-  const [shownIds, setShownIds] = useState([])
+  const [tab, setTab] = useState(WRONG_STATUS.OPEN) // 지금 보는 탭
+  const [shownIds, setShownIds] = useState([]) // '정답 보기'를 펼친 오답 id
+
+  // 들어올 때 서버 오답노트로 갱신
+  useEffect(() => {
+    useSessionStore
+      .getState()
+      .syncWrongNotes()
+      .catch(() => {})
+  }, [])
 
   const open = getOpenNotes(wrongNotes)
   const resolved = getResolvedNotes(wrongNotes)
@@ -26,6 +51,7 @@ export default function S52WrongNotes() {
     { value: WRONG_STATUS.RESOLVED, label: `해결 ${resolved.length}` },
   ]
 
+  // 정답 펼치기/접기
   const toggleAnswer = (id) =>
     setShownIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
 
@@ -60,7 +86,7 @@ export default function S52WrongNotes() {
             <li key={n.id} className="rounded-xl bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between text-xs text-slate-400">
                 <span>
-                  {TYPE_LABEL[n.question.type]} · {n.unitTitle}
+                  {[TYPE_LABEL[n.question.type], n.unitTitle].filter(Boolean).join(' · ')}
                 </span>
                 <span>
                   {tab === WRONG_STATUS.OPEN
@@ -76,14 +102,8 @@ export default function S52WrongNotes() {
               >
                 {shown ? '정답 숨기기' : '정답 보기'}
               </button>
-              {shown && (
-                <div className="mt-2 rounded-lg bg-slate-50 p-3 text-sm">
-                  <p className="font-semibold text-green-600">정답: {n.question.answer}</p>
-                  <p className="mt-1 text-xs leading-relaxed text-slate-500">
-                    {n.question.explanation}
-                  </p>
-                </div>
-              )}
+              {/* 펼쳤을 때만 그려서, 해설 조회도 이때 처음 일어난다 */}
+              {shown && <AnswerDetail question={n.question} />}
             </li>
           )
         })}

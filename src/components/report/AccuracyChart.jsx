@@ -1,3 +1,8 @@
+// 정답률 추이 꺾은선 그래프 (라이브러리 없이 SVG로 직접 그림)
+// trend: [{ label: '월', accuracy: 0~100 }]
+// SVG 좌표는 아래로 갈수록 y가 커지므로, 정답률이 높을수록 y가 작아지게(위로) 계산한다
+
+// 그래프 크기와 여백 (viewBox 단위라 실제 화면에서는 폭에 맞게 늘어난다)
 const WIDTH = 300
 const HEIGHT = 140
 const PAD_X = 16
@@ -8,6 +13,7 @@ export default function AccuracyChart({ trend }) {
   const lastIndex = trend.length - 1
   const plotHeight = HEIGHT - PAD_TOP - PAD_BOTTOM
 
+  // 점 사이 가로 간격. 점이 하나면 가운데에 찍는다
   let step = 0
   if (trend.length > 1) {
     step = (WIDTH - PAD_X * 2) / (trend.length - 1)
@@ -22,7 +28,9 @@ export default function AccuracyChart({ trend }) {
     return { ...item, x, y }
   })
 
+  // SVG path 문자열: 첫 점은 M(이동), 나머지는 L(선 긋기). 예: "M16,50 L83,40 L150,30"
   const path = points.map((p, index) => `${index === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ')
+  // 스크린리더용 설명 문구
   const summary = trend.map((item) => `${item.label} ${item.accuracy}%`).join(', ')
 
   return (

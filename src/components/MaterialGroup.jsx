@@ -1,5 +1,10 @@
+import { isUnitPreparing } from '../lib/constants'
 import UnitItem from './UnitItem'
 
+// 단원 선택 화면의 접고 펼 수 있는 묶음 (자료 또는 과목 하나 = 묶음 하나)
+// - group: { key, title, subjectName, units, isNew } (useMaterialStore의 getUnitGroups 결과)
+// - open/onToggleOpen: 펼침 상태 / selectedIds, onToggleUnit, onToggleAll: 단원 체크 상태
+// 상태는 부모(화면)가 가지고 있고, 이 컴포넌트는 보여주기만 한다
 export default function MaterialGroup({
   group,
   open,
@@ -8,8 +13,10 @@ export default function MaterialGroup({
   onToggleUnit,
   onToggleAll,
 }) {
-  const selectedCount = group.units.filter((unit) => selectedIds.includes(unit.id)).length
-  const allSelected = selectedCount === group.units.length
+  // 문제 준비 중인 단원은 전체 선택에서도 뺀다
+  const selectable = group.units.filter((unit) => !isUnitPreparing(unit))
+  const selectedCount = selectable.filter((unit) => selectedIds.includes(unit.id)).length
+  const allSelected = selectable.length > 0 && selectedCount === selectable.length
 
   let arrow = '▸'
   if (open) {
@@ -26,8 +33,10 @@ export default function MaterialGroup({
         >
           <span className="text-muted">{arrow}</span>
           <span className="min-w-0">
-            <span className="block text-caption font-bold text-primary">{group.subjectName}</span>
-            <span className="block truncate text-body font-bold text-ink">{group.fileName}</span>
+            {group.subjectName && (
+              <span className="block text-caption font-bold text-primary">{group.subjectName}</span>
+            )}
+            <span className="block truncate text-body font-bold text-ink">{group.title}</span>
           </span>
         </button>
 
@@ -38,7 +47,8 @@ export default function MaterialGroup({
           <button
             type="button"
             onClick={onToggleAll}
-            className="text-caption font-bold text-primary"
+            disabled={selectable.length === 0}
+            className="text-caption font-bold text-primary disabled:opacity-40"
           >
             {allSelected ? '전체 해제' : '전체 선택'}
           </button>
