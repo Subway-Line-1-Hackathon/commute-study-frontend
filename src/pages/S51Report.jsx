@@ -10,10 +10,12 @@ import ScreenTitle from '../layouts/ScreenTitle'
 import { ROUTES } from '../lib/constants'
 import { getFeedback, getHeadline } from '../lib/report'
 
+// S51 리포트 탭: 최근 정답률 그래프, 오늘 학습 시간·정답률·오답 수, AI 피드백
+// 계산은 hooks/useReport.js와 lib/report.js에서 한다
 export default function S51Report() {
   const navigate = useNavigate()
   const report = useReport()
-  const hasRecord = report.trend.length > 0
+  const hasRecord = report.trend.length > 0 // 한 번이라도 푼 기록이 있어야 그래프·피드백을 보여준다
 
   const bottomCta = (
     <Button onClick={() => navigate(ROUTES.REVIEW)} disabled={report.openWrongCount === 0}>

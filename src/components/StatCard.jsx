@@ -1,3 +1,4 @@
+// 숫자 하나를 보여주는 작은 통계 칸. tone: default(검정) | good(초록) | bad(빨강)
 export default function StatCard({ label, value, tone = 'default' }) {
   const toneClass = {
     default: 'text-slate-900',

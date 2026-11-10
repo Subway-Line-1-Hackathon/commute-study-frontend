@@ -14,6 +14,11 @@ export default defineConfig(({ mode }) => {
           target:
             env.VITE_API_PROXY_TARGET || 'https://commute-study-backend-production.up.railway.app',
           changeOrigin: true,
+          // PUT/POST에는 브라우저가 Origin(localhost)을 붙이는데, 백엔드가 이를 CORS 위반(403)으로 막는다.
+          // 서버끼리 전달하는 요청이므로 Origin을 지워서 보낸다
+          configure: (proxy) => {
+            proxy.on('proxyReq', (proxyReq) => proxyReq.removeHeader('origin'))
+          },
         },
       },
     },

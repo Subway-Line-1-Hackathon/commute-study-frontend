@@ -1,3 +1,5 @@
+// 앱을 다시 열었을 때 진행 중이던 학습이 있으면 띄우는 "이어서 할까요?" 팝업
+// message는 useSessionStore의 resumeMessage(cur)로 만든다
 export default function ResumeModal({ message, onResume, onDiscard }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">

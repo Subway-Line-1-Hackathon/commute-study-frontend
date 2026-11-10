@@ -8,10 +8,13 @@ import { MATERIAL_STATUS as M, ROUTES, UPLOAD } from '../lib/constants'
 import { pickFiles } from '../lib/pickFiles'
 import { getRecentMaterials, useMaterialStore } from '../store/useMaterialStore'
 
+// S10 자료 업로드 + 분석 대기
+// 파일을 고르면 업로드가 시작되고, 카드에서 업로드 -> 분석 중 -> 준비 완료 상태를 보여준다
+// 하나라도 준비되면 '단원 목록 보러 가기'가 켜진다. 주소의 ?subjectId=로 어느 과목인지 받는다
 export default function S10Waiting() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
-  const fileRef = useRef(null)
+  const fileRef = useRef(null) // 숨겨 둔 <input type="file">. 큰 버튼을 누르면 이걸 대신 클릭한다
 
   const subjects = useMaterialStore((s) => s.subjects)
   const allMaterials = useMaterialStore((s) => s.materials)
@@ -19,14 +22,16 @@ export default function S10Waiting() {
   const retryMaterial = useMaterialStore((s) => s.retryMaterial)
   const resumePending = useMaterialStore((s) => s.resumePending)
 
-  const [errors, setErrors] = useState([])
-  const [uploadedIds, setUploadedIds] = useState([])
+  const [errors, setErrors] = useState([]) // 파일 검사 에러 문구
+  const [uploadedIds, setUploadedIds] = useState([]) // 이 화면에서 이번에 올린 자료 id
 
+  // 주소의 과목을 찾고, 없으면 가장 최근 과목
   const subject = subjects.find((s) => s.id === params.get('subjectId')) ?? subjects.at(-1)
-  const materials = allMaterials.filter((m) => uploadedIds.includes(m.id))
-  const room = UPLOAD.MAX_PER_UPLOAD - materials.length
+  const materials = allMaterials.filter((m) => uploadedIds.includes(m.id)) // 이번에 올린 자료만 표시
+  const room = UPLOAD.MAX_PER_UPLOAD - materials.length // 더 올릴 수 있는 개수
   const hasReady = materials.some((m) => m.status === M.READY)
 
+  // 자료가 이미 꽉 차 있으면, 새로 올릴 때 목록에서 밀려날 가장 오래된 자료를 안내한다
   const recent = getRecentMaterials(allMaterials)
   let oldestVisible = null
   if (allMaterials.length >= UPLOAD.MAX_VISIBLE) {
@@ -37,13 +42,15 @@ export default function S10Waiting() {
     resumePending()
   }, [resumePending])
 
+  // 과목이 하나도 없으면 과목 등록부터
   if (!subject) {
     return <Navigate to={ROUTES.SUBJECT_NEW} replace />
   }
 
+  // 파일 선택창에서 파일을 고르면: 검사 -> 묶음별로 업로드 시작 -> 이번 업로드 목록에 추가
   const handleFiles = (e) => {
     const picked = Array.from(e.target.files || [])
-    e.target.value = ''
+    e.target.value = '' // 같은 파일을 다시 골라도 onChange가 불리도록 비운다
 
     const { groups, errors: nextErrors } = pickFiles(picked, room)
 
@@ -65,6 +72,7 @@ export default function S10Waiting() {
       )}
       <Button
         onClick={() =>
+          // state로 방금 올린 자료 id를 넘겨서 단원 화면에서 '방금 올린 자료'로 따로 보여준다
           navigate(`${ROUTES.UNIT_PREVIEW}?subjectId=${subject.id}`, {
             state: { newMaterialIds: uploadedIds },
           })

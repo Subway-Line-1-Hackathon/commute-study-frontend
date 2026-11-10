@@ -1,3 +1,5 @@
+// 라우트 가드: 로그인/온보딩 상태에 따라 화면 진입을 막고 맞는 화면으로 돌려보낸다
+// 상태는 useAuthStore.status 하나로 판단한다 (ANONYMOUS -> AUTHENTICATED -> ACTIVE)
 import { Navigate } from 'react-router-dom'
 import { AUTH_STATUS, ROUTES } from '../lib/constants'
 import { getEntryRoute } from '../lib/entryRoute'
