@@ -2,9 +2,9 @@ import { WRONG_STATUS } from './constants'
 import { kstDateKey } from './date'
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
-const TREND_DAYS = 5
+export const TREND_DAYS = 5
 
-function dayLabel(dateKey) {
+export function dayLabel(dateKey) {
   if (dateKey === kstDateKey()) {
     return '오늘'
   }

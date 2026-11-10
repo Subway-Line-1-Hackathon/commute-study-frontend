@@ -9,6 +9,7 @@ export const MATERIAL_STATUS = {
   PROCESSING: 'PROCESSING',
   READY: 'READY',
   FAILED: 'FAILED',
+  EXPIRED: 'EXPIRED', // 서버 보관 기간이 지남
 }
 export const SESSION_STATUS = {
   READY: 'READY',
@@ -17,6 +18,9 @@ export const SESSION_STATUS = {
   ENDED: 'ENDED',
 }
 export const PHASE = { LISTEN: 'LISTEN', QUIZ_SETUP: 'QUIZ_SETUP', QUIZ: 'QUIZ' }
+// 단원 문제 생성 상태. PREPARING이면 세션을 만들 수 없다 (CATEGORY_NOT_READY)
+export const QUESTION_STATUS = { PREPARING: 'PREPARING' }
+export const isUnitPreparing = (unit) => unit?.questionStatus === QUESTION_STATUS.PREPARING
 export const WRONG_STATUS = { OPEN: 'OPEN', RESOLVED: 'RESOLVED' }
 export const QUESTION_TYPE = { OX: 'OX', MCQ: 'MCQ', SHORT: 'SHORT' }
 // 문제 푸는 방식: 눈으로 풀기(화면) / 듣고 풀기(음성)

@@ -46,7 +46,7 @@ export default function S35Listen() {
   const running = cur?.status === S.IN_PROGRESS && cur?.phase === PHASE.LISTEN
   useWakeLock(running)
 
-  // 1초마다 개념 시간 감소. 0이 되면 스토어가 문제 설정 단계로 바꾼다
+  // 1초마다 개념 시간 감소. 0이 되면 스토어가 문제 풀이 단계로 바꾼다
   useEffect(() => {
     if (!running) return
     const id = setInterval(() => useSessionStore.getState().tick(), 1000)
@@ -88,13 +88,13 @@ export default function S35Listen() {
     speaker.stop()
     setConfirm(null)
     skipListening()
-    navigate(ROUTES.SETUP, { replace: true })
+    navigate(ROUTES.PLAYER, { replace: true })
   }
 
   const handleEnd = () => {
     speaker.stop()
     setConfirm(null)
-    endSession()
+    endSession('QUIT')
     navigate(ROUTES.HOME, { replace: true })
   }
 
@@ -125,7 +125,7 @@ export default function S35Listen() {
             <span>
               문단 {index + 1} / {script.length}
             </span>
-            {seg && <span>자료 {seg.sourcePage}쪽</span>}
+            {seg?.sourcePage != null && <span>자료 {seg.sourcePage}쪽</span>}
           </div>
           <p className="mt-4 text-lg leading-relaxed text-slate-900">{seg?.text}</p>
         </div>

@@ -1,3 +1,4 @@
+import { isUnitPreparing } from '../lib/constants'
 import UnitItem from './UnitItem'
 
 export default function MaterialGroup({
@@ -8,8 +9,10 @@ export default function MaterialGroup({
   onToggleUnit,
   onToggleAll,
 }) {
-  const selectedCount = group.units.filter((unit) => selectedIds.includes(unit.id)).length
-  const allSelected = selectedCount === group.units.length
+  // 문제 준비 중인 단원은 전체 선택에서도 뺀다
+  const selectable = group.units.filter((unit) => !isUnitPreparing(unit))
+  const selectedCount = selectable.filter((unit) => selectedIds.includes(unit.id)).length
+  const allSelected = selectable.length > 0 && selectedCount === selectable.length
 
   let arrow = '▸'
   if (open) {
@@ -26,8 +29,10 @@ export default function MaterialGroup({
         >
           <span className="text-muted">{arrow}</span>
           <span className="min-w-0">
-            <span className="block text-caption font-bold text-primary">{group.subjectName}</span>
-            <span className="block truncate text-body font-bold text-ink">{group.fileName}</span>
+            {group.subjectName && (
+              <span className="block text-caption font-bold text-primary">{group.subjectName}</span>
+            )}
+            <span className="block truncate text-body font-bold text-ink">{group.title}</span>
           </span>
         </button>
 
@@ -38,7 +43,8 @@ export default function MaterialGroup({
           <button
             type="button"
             onClick={onToggleAll}
-            className="text-caption font-bold text-primary"
+            disabled={selectable.length === 0}
+            className="text-caption font-bold text-primary disabled:opacity-40"
           >
             {allSelected ? '전체 해제' : '전체 선택'}
           </button>

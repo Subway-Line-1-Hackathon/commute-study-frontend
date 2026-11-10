@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useExplanation } from '../hooks/useExplanation'
 import { QUESTION_TYPE as T } from '../lib/constants'
 import { speak } from '../lib/speaker'
 
@@ -14,6 +15,13 @@ export default function ListenQuestion({ question, paused, onDone }) {
   const [stage, setStage] = useState('question') // 'question' | 'answer'
   const [showText, setShowText] = useState(false)
   const onDoneRef = useRef(onDone)
+  // 서버 단답형은 정답이 오지 않아서 해설을 대신 읽는다
+  const { explanation } = useExplanation(question)
+  const explanationRef = useRef(explanation)
+
+  useEffect(() => {
+    explanationRef.current = explanation
+  }, [explanation])
 
   useEffect(() => {
     onDoneRef.current = onDone
@@ -23,10 +31,12 @@ export default function ListenQuestion({ question, paused, onDone }) {
   useEffect(() => {
     if (paused) return
     let timer
-    const text =
-      stage === 'question'
-        ? `${KIND[question.type]}. ${question.prompt}`
-        : `정답은 ${sayAnswer(question.answer)}입니다.`
+    let text = `${KIND[question.type]}. ${question.prompt}`
+    if (stage === 'answer') {
+      if (question.answer) text = `정답은 ${sayAnswer(question.answer)}입니다.`
+      else if (explanationRef.current) text = `해설입니다. ${explanationRef.current}`
+      else text = '정답은 화면에서 확인해 주세요.'
+    }
     const cancel = speak(text, {
       onEnd: () => {
         timer = setTimeout(
@@ -76,11 +86,13 @@ export default function ListenQuestion({ question, paused, onDone }) {
       >
         {revealed ? (
           <>
-            <p className="text-sm">정답</p>
-            <p className="mt-1 text-2xl font-bold">{question.answer}</p>
-            {question.explanation && (
-              <p className="mt-2 text-sm opacity-80">{question.explanation}</p>
+            {question.answer && (
+              <>
+                <p className="text-sm">정답</p>
+                <p className="mt-1 text-2xl font-bold">{question.answer}</p>
+              </>
             )}
+            {explanation && <p className="mt-2 text-sm opacity-80">{explanation}</p>}
           </>
         ) : (
           <p className="text-center text-sm">잠시 후 정답을 알려 드려요</p>

@@ -1,16 +1,16 @@
+// progress: { percent, label } | null
 export default function UnitCard({ unit, progress, disabled, onStart }) {
-  const percent = progress ? Math.round((progress.solved / progress.total) * 100) : 0
+  const percent = progress?.percent ?? 0
+  let status = '아직 시작하지 않았어요'
+  if (unit.questionStatus === 'PREPARING') status = '문제를 준비하고 있어요'
+  else if (progress) status = progress.label
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h4 className="truncate font-medium text-slate-900">{unit.title}</h4>
-          <p className="mt-1 text-xs text-slate-500">
-            {progress
-              ? `최근 결과 ${progress.solved}/${progress.total} 정답`
-              : '아직 시작하지 않았어요'}
-          </p>
+          <p className="mt-1 text-xs text-slate-500">{status}</p>
         </div>
         <button
           onClick={onStart}

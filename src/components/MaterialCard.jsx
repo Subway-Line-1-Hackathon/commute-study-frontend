@@ -6,6 +6,7 @@ const BADGE = {
   [M.PROCESSING]: { label: '분석 중', cls: 'bg-warning-soft text-warning' },
   [M.READY]: { label: '준비 완료', cls: 'bg-success-soft text-success' },
   [M.FAILED]: { label: '실패', cls: 'bg-danger-soft text-danger' },
+  [M.EXPIRED]: { label: '보관 만료', cls: 'bg-background text-muted' },
 }
 
 function formatSize(bytes) {
@@ -20,8 +21,10 @@ export default function MaterialCard({ material, onRetry }) {
   const badge = BADGE[status]
 
   let badgeLabel = badge.label
-  if (status === M.UPLOADING) {
-    badgeLabel = `${badge.label} ${material.progress ?? 0}%`
+  // 서버 업로드는 진행률을 알 수 없어서 %를 빼고 막대만 움직인다
+  const knownProgress = material.progress != null
+  if (status === M.UPLOADING && knownProgress) {
+    badgeLabel = `${badge.label} ${material.progress}%`
   }
 
   let info = formatSize(material.fileSize)
@@ -44,8 +47,8 @@ export default function MaterialCard({ material, onRetry }) {
       {status === M.UPLOADING && (
         <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-background">
           <div
-            className="h-full rounded-full bg-primary transition-all"
-            style={{ width: `${material.progress ?? 0}%` }}
+            className={`h-full rounded-full bg-primary transition-all ${knownProgress ? '' : 'animate-pulse'}`}
+            style={{ width: `${knownProgress ? material.progress : 100}%` }}
           />
         </div>
       )}
@@ -59,10 +62,14 @@ export default function MaterialCard({ material, onRetry }) {
 
       {status === M.READY && <p className="mt-3 text-caption text-muted">학습할 준비가 됐어요</p>}
 
+      {status === M.EXPIRED && (
+        <p className="mt-3 text-caption text-muted">보관 기간이 지나 원본 자료가 정리됐어요</p>
+      )}
+
       {status === M.FAILED && (
         <div className="mt-3 flex items-center justify-between gap-3">
           <p className="text-caption text-danger">
-            {material.retried
+            {material.retried && !material.uploadFailed
               ? '다시 시도해도 처리하지 못했어요. 다른 파일로 올려 주세요.'
               : material.errorMessage}
           </p>

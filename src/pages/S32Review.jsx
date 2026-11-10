@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import BackButton from '../components/BackButton'
 import { ROUTES } from '../lib/constants'
@@ -14,12 +15,16 @@ export default function S32Review() {
   const open = getOpenNotes(wrongNotes)
   const { picked, usedSec } = pickReviewNotes(open, studyMin * 60)
 
+  useEffect(() => {
+    useSessionStore
+      .getState()
+      .syncWrongNotes()
+      .catch(() => {})
+  }, [])
+
+  // 문제 설정 화면으로. 실제 문제는 세션을 만들 때 정해진다
   const handleStart = () => {
-    const store = useSessionStore.getState()
-    if (store.getResumable()) store.endSession()
-    store.createReviewSession({ questions: picked.map((n) => n.question), studyMin })
-    useSessionStore.getState().start()
-    navigate(ROUTES.PLAYER)
+    navigate(ROUTES.SETUP, { state: { draft: { source: 'wrongNotes', unitTitle: '오답 복습' } } })
   }
 
   return (

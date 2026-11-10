@@ -1,19 +1,17 @@
 import { useState } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import Chip from '../components/Chip'
-import ConfirmModal from '../components/ConfirmModal'
 import SegmentedToggle from '../components/SegmentedToggle'
-import TimerBadge from '../components/TimerBadge'
+import { errorMessage } from '../lib/api'
 import {
+  COMMUTE,
   DIFFICULTY,
-  PHASE,
   QUESTION_TYPE as T,
   ROUTES,
-  SESSION_STATUS as S,
   SOLVE_MODE as M,
   SOLVE_MODE_TYPES,
 } from '../lib/constants'
-import { recommendCount } from '../lib/plan'
+import { useAuthStore } from '../store/useAuthStore'
 import { getSessionRoute, useSessionStore } from '../store/useSessionStore'
 
 const TYPE_LABEL = {
@@ -46,36 +44,22 @@ const DIFFICULTY_OPTIONS = [
   { value: DIFFICULTY.HARD, label: '어려움' },
 ]
 
-const COUNT_OPTIONS = [
-  { value: 5, label: '5문제' },
-  { value: 10, label: '10문제' },
-  { value: 15, label: '15문제' },
-  { value: 20, label: '20문제' },
-]
-
+// 출발 전 문제 설정. 단원 선택(S-11)·홈·오답 복습에서 draft를 받아 온다
+// draft: { source: 'categories'|'wrongNotes', categoryIds, unitId, unitTitle, subjectId }
 export default function S30Setup() {
   const navigate = useNavigate()
-  const cur = useSessionStore((s) => s.current)
-  const startQuiz = useSessionStore((s) => s.startQuiz)
-  const endSession = useSessionStore((s) => s.endSession)
+  const draft = useLocation().state?.draft
+  const studyMin = useAuthStore((s) => s.commute?.studyMin ?? COMMUTE.DEFAULT)
 
   const [mode, setMode] = useState(null) // 먼저 푸는 방식을 고른다
   const [types, setTypes] = useState([])
   const [difficulty, setDifficulty] = useState(DIFFICULTY.NORMAL)
-  const [count, setCount] = useState(5)
-  const [confirmEnd, setConfirmEnd] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [error, setError] = useState('')
 
-  if (
-    !cur ||
-    cur.phase !== PHASE.QUIZ_SETUP ||
-    cur.status === S.COMPLETED ||
-    cur.status === S.ENDED
-  ) {
-    return <Navigate to={getSessionRoute(cur)} replace />
-  }
+  if (!draft) return <Navigate to={ROUTES.HOME} replace />
 
-  const recommended = recommendCount(types, cur.quizRemainingSec)
-  const heard = cur.plan.conceptSec > 0
+  const title = draft.source === 'wrongNotes' ? '오답 복습' : draft.unitTitle
 
   const toggleType = (value) => {
     setTypes((prev) => (prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value]))
@@ -86,49 +70,53 @@ export default function S30Setup() {
     setTypes(DEFAULT_TYPES[value])
   }
 
-  const handleStart = () => {
-    if (!mode || types.length === 0) return
-    startQuiz({ solveMode: mode, types, difficulty, count })
-    navigate(ROUTES.PLAYER, { replace: true })
+  // 세션 생성(문제가 모자라면 서버가 AI로 만들어서 최대 1분 걸릴 수 있다) -> 출발
+  const handleStart = async () => {
+    if (!mode || types.length === 0 || creating) return
+    setCreating(true)
+    setError('')
+    try {
+      const cur = await useSessionStore
+        .getState()
+        .createSession({ draft, solveMode: mode, types, difficulty, studyMin })
+      navigate(getSessionRoute(cur), { replace: true })
+    } catch (err) {
+      setError(errorMessage(err, '문제를 만들지 못했어요. 잠시 후 다시 시도해 주세요.'))
+      setCreating(false)
+    }
   }
-
-  const handleEnd = () => {
-    setConfirmEnd(false)
-    endSession()
-    navigate(ROUTES.HOME, { replace: true })
-  }
-
-  const endModal = confirmEnd && (
-    <ConfirmModal
-      title="학습을 그만할까요?"
-      message="그만하면 이어서 할 수 없어요."
-      confirmLabel="그만하기"
-      cancelLabel="계속하기"
-      onConfirm={handleEnd}
-      onCancel={() => setConfirmEnd(false)}
-    />
-  )
 
   const header = (
     <div className="flex items-center justify-between">
       <button
-        onClick={() => (mode ? setMode(null) : setConfirmEnd(true))}
+        onClick={() => (mode ? setMode(null) : navigate(-1))}
+        disabled={creating}
         className="py-2 text-sm text-slate-500 active:text-slate-800"
       >
-        {mode ? '‹ 방식 다시 고르기' : '‹ 그만하기'}
+        {mode ? '‹ 방식 다시 고르기' : '‹ 뒤로'}
       </button>
-      <TimerBadge seconds={cur.quizRemainingSec} />
+      <span className="text-sm text-slate-500">학습 {studyMin}분</span>
     </div>
   )
+
+  if (creating) {
+    return (
+      <div className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center bg-white px-5 py-4 text-center">
+        <span className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
+        <p className="mt-6 text-lg font-semibold text-slate-900">문제를 준비하고 있어요</p>
+        <p className="mt-2 text-sm text-slate-500">
+          문제가 모자라면 새로 만들어서 최대 1분 정도 걸릴 수 있어요.
+        </p>
+      </div>
+    )
+  }
 
   // 1단계: 푸는 방식 선택
   if (!mode) {
     return (
       <div className="mx-auto flex min-h-screen max-w-md flex-col bg-white px-5 py-4">
         {header}
-        <p className="mt-2 text-sm text-slate-500">
-          {heard ? '개념 듣기가 끝났어요' : '문제 풀이'} · {cur.unitTitle}
-        </p>
+        <p className="mt-2 text-sm text-slate-500">출발 전 준비 · {title}</p>
         <h1 className="text-2xl font-bold text-slate-900">어떻게 풀까요?</h1>
 
         <div className="mt-8 space-y-3">
@@ -152,8 +140,6 @@ export default function S30Setup() {
             </button>
           ))}
         </div>
-
-        {endModal}
       </div>
     )
   }
@@ -170,7 +156,7 @@ export default function S30Setup() {
       {header}
 
       <p className="mt-2 text-sm text-slate-500">
-        {modeTitle} · {cur.unitTitle}
+        {modeTitle} · {title}
       </p>
       <h1 className="text-2xl font-bold text-slate-900">어떤 문제를 풀까요?</h1>
 
@@ -197,28 +183,20 @@ export default function S30Setup() {
         <SegmentedToggle options={DIFFICULTY_OPTIONS} value={difficulty} onChange={setDifficulty} />
       </section>
 
-      <section className="mt-8">
-        <h2 className="mb-3 font-semibold text-slate-800">문제 수</h2>
-        <SegmentedToggle options={COUNT_OPTIONS} value={count} onChange={setCount} />
-        {types.length > 0 && (
-          <p className="mt-2 text-xs text-slate-500">
-            남은 시간으로는 약 {recommended}문제를 풀 수 있어요.
-            {count > recommended && ' 시간이 끝나면 풀지 못한 문제는 건너뛰어요.'}
-          </p>
-        )}
-      </section>
+      <p className="mt-8 text-xs text-slate-500">
+        문제 수는 학습 시간 {studyMin}분에 맞춰 정해져요.
+      </p>
 
       <div className="mt-auto pt-10">
+        {error && <p className="mb-2 text-center text-sm text-red-500">{error}</p>}
         <button
           onClick={handleStart}
           disabled={types.length === 0}
           className="w-full rounded-xl bg-blue-600 py-3.5 font-semibold text-white disabled:bg-slate-300"
         >
-          문제 풀기 시작
+          출발하기
         </button>
       </div>
-
-      {endModal}
     </div>
   )
 }

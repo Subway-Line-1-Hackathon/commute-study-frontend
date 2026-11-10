@@ -4,6 +4,7 @@ import ConfirmModal from '../components/ConfirmModal'
 import ListenQuestion from '../components/ListenQuestion'
 import QuestionCard from '../components/QuestionCard'
 import TimerBadge from '../components/TimerBadge'
+import { useExplanation } from '../hooks/useExplanation'
 import { useWakeLock } from '../hooks/useWakeLock'
 import {
   PHASE,
@@ -20,11 +21,14 @@ export default function S40Player() {
   const navigate = useNavigate()
   const cur = useSessionStore((s) => s.current)
   const submitAnswer = useSessionStore((s) => s.submitAnswer)
+  const selfJudge = useSessionStore((s) => s.selfJudge)
   const advanceListen = useSessionStore((s) => s.advanceListen)
   const endSession = useSessionStore((s) => s.endSession)
 
   const [value, setValue] = useState('')
-  const [feedback, setFeedback] = useState(null) // { question, correct, completed }
+  const [feedback, setFeedback] = useState(null) // { question, correct, reason, completed }
+  const [judging, setJudging] = useState(false) // 단답형 서버 판정 중
+  const [selfCheck, setSelfCheck] = useState(null) // AI 판정이 늦을 때 { question, value }
   const [timeUp, setTimeUp] = useState(false)
   const [confirmEnd, setConfirmEnd] = useState(false)
   const [warn, setWarn] = useState(false)
@@ -70,21 +74,37 @@ export default function S40Player() {
 
   const total = cur.questions.length
   const answered = cur.answers.length
-  const question = feedback ? feedback.question : cur.questions[answered]
+  const question = feedback?.question ?? selfCheck?.question ?? cur.questions[answered]
   if (!question) return <Navigate to={ROUTES.HOME} replace />
 
-  const canSubmit = String(value).trim() !== ''
+  const canSubmit = String(value).trim() !== '' && !judging
 
-  const handleSubmit = (v = value) => {
-    if (String(v).trim() === '') return
-    setValue(v)
-    const result = submitAnswer(v)
-    if (!result) return
+  const showResult = (result) =>
     setFeedback({
       question: result.question,
       correct: result.correct,
+      reason: result.reason ?? null,
       completed: result.completed,
     })
+
+  const handleSubmit = async (v = value) => {
+    if (String(v).trim() === '' || judging) return
+    setValue(v)
+    setJudging(true)
+    const result = await submitAnswer(v)
+    setJudging(false)
+    if (!result) return
+    if (result.needsSelfJudge) {
+      setSelfCheck({ question: result.question, value: v })
+      return
+    }
+    showResult(result)
+  }
+
+  const handleSelfJudge = (correct) => {
+    const result = selfJudge(selfCheck.value, correct)
+    setSelfCheck(null)
+    if (result) showResult(result)
   }
 
   const handleNext = () => {
@@ -104,7 +124,7 @@ export default function S40Player() {
 
   const handleEnd = () => {
     setConfirmEnd(false)
-    endSession()
+    endSession('QUIT')
     navigate(ROUTES.HOME, { replace: true })
   }
 
@@ -160,17 +180,17 @@ export default function S40Player() {
           />
         )}
 
-        {feedback && (
-          <div
-            className={`mt-4 rounded-xl p-4 ${
-              feedback.correct ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
-            }`}
-          >
-            <p className="font-semibold">{feedback.correct ? '정답이에요!' : '아쉬워요'}</p>
-            {!feedback.correct && <p className="mt-1 text-sm">정답: {feedback.question.answer}</p>}
-            <p className="mt-2 text-sm opacity-80">{feedback.question.explanation}</p>
-          </div>
+        {judging && <p className="mt-4 text-center text-sm text-slate-500">채점하고 있어요…</p>}
+
+        {selfCheck && (
+          <SelfJudge
+            question={selfCheck.question}
+            value={selfCheck.value}
+            onJudge={handleSelfJudge}
+          />
         )}
+
+        {feedback && <Feedback feedback={feedback} />}
       </main>
 
       <div className="pt-6">
@@ -181,7 +201,7 @@ export default function S40Player() {
           >
             {paused ? '▶ 이어서 듣기' : '⏸ 잠시 멈추기'}
           </button>
-        ) : feedback ? (
+        ) : selfCheck ? null : feedback ? (
           <button
             onClick={handleNext}
             className="w-full rounded-xl bg-blue-600 py-3.5 font-semibold text-white active:bg-blue-700"
@@ -222,6 +242,50 @@ export default function S40Player() {
           onConfirm={() => navigate(ROUTES.SUMMARY, { replace: true })}
         />
       )}
+    </div>
+  )
+}
+
+// 채점 결과. 해설이 없으면(서버 단답형) 서버에서 조회한다
+function Feedback({ feedback }) {
+  const { question, correct, reason } = feedback
+  const { explanation } = useExplanation(question)
+  return (
+    <div
+      className={`mt-4 rounded-xl p-4 ${correct ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}
+    >
+      <p className="font-semibold">{correct ? '정답이에요!' : '아쉬워요'}</p>
+      {!correct && question.answer && <p className="mt-1 text-sm">정답: {question.answer}</p>}
+      {reason && <p className="mt-1 text-sm">{reason}</p>}
+      {explanation && <p className="mt-2 text-sm opacity-80">{explanation}</p>}
+    </div>
+  )
+}
+
+// AI 판정이 늦거나 실패했을 때: 해설을 보여주고 맞음/틀림을 직접 고른다
+function SelfJudge({ question, value, onJudge }) {
+  const { explanation } = useExplanation(question)
+  return (
+    <div className="mt-4 rounded-xl bg-amber-50 p-4 text-amber-900">
+      <p className="font-semibold">자동 채점이 늦어지고 있어요</p>
+      <p className="mt-1 text-sm">내 답: {value}</p>
+      {question.answer && <p className="mt-1 text-sm">정답: {question.answer}</p>}
+      {explanation && <p className="mt-2 text-sm opacity-80">{explanation}</p>}
+      <p className="mt-3 text-sm">내 답이 맞았나요?</p>
+      <div className="mt-2 grid grid-cols-2 gap-3">
+        <button
+          onClick={() => onJudge(true)}
+          className="rounded-xl bg-green-600 py-3 font-semibold text-white active:bg-green-700"
+        >
+          맞았어요
+        </button>
+        <button
+          onClick={() => onJudge(false)}
+          className="rounded-xl bg-red-500 py-3 font-semibold text-white active:bg-red-600"
+        >
+          틀렸어요
+        </button>
+      </div>
     </div>
   )
 }

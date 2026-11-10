@@ -1,18 +1,31 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import ConfirmModal from '../components/ConfirmModal'
 import ResumeModal from '../components/ResumeModal'
 import TopBar from '../components/TopBar'
 import UnitCard from '../components/UnitCard'
 import { MATERIAL_STATUS as M, ROUTES } from '../lib/constants'
-import { getTimePlan } from '../lib/plan'
 import { getOpenNotes } from '../lib/review'
+import { supabase } from '../lib/supabase'
 import { isReviewOnly } from '../lib/time'
 import { useAuthStore } from '../store/useAuthStore'
-import { useMaterialStore } from '../store/useMaterialStore'
+import { getSubjectUnits, useMaterialStore } from '../store/useMaterialStore'
 import { getSessionRoute, resumeMessage, useSessionStore } from '../store/useSessionStore'
 
-const toMin = (sec) => Math.round(sec / 60)
+// 단원 진도 표시. 서버는 진도(0~1)·정답률을 주고, Mock은 마지막 결과를 쓴다
+function unitProgressOf(unit, unitProgress) {
+  if (supabase) {
+    if (!unit.progress && unit.accuracy == null) return null
+    const percent = Math.round((unit.progress ?? 0) * 100)
+    const label = unit.accuracy != null ? `정답률 ${Math.round(unit.accuracy * 100)}%` : '진행 중'
+    return { percent, label }
+  }
+  const p = unitProgress[unit.id]
+  if (!p) return null
+  return {
+    percent: Math.round((p.solved / p.total) * 100),
+    label: `최근 결과 ${p.solved}/${p.total} 정답`,
+  }
+}
 
 export default function S20Home() {
   const navigate = useNavigate()
@@ -21,6 +34,7 @@ export default function S20Home() {
   const commute = useAuthStore((s) => s.commute)
   const subjects = useMaterialStore((s) => s.subjects)
   const materials = useMaterialStore((s) => s.materials)
+  const categories = useMaterialStore((s) => s.categories)
   const unitProgress = useSessionStore((s) => s.unitProgress)
   const openCount = useSessionStore((s) => getOpenNotes(s.wrongNotes).length)
   const endSession = useSessionStore((s) => s.endSession)
@@ -28,27 +42,36 @@ export default function S20Home() {
 
   // 홈에 들어온 시점에 IN_PROGRESS 세션이 있으면 이어하기 팝업 노출
   const [resumable, setResumable] = useState(() => useSessionStore.getState().getResumable())
-  const [departUnit, setDepartUnit] = useState(null)
 
   const studyMin = commute?.studyMin ?? 20
   const reviewOnly = isReviewOnly(studyMin)
-  const plan = getTimePlan(studyMin)
 
-  const departMessage =
-    plan.conceptSec > 0
-      ? `개념 듣기 ${toMin(plan.conceptSec)}분 + 문제 풀이 ${toMin(plan.quizSec)}분, 총 ${studyMin}분이에요. 이어폰을 준비하고 출발해요.`
-      : `학습 가능 시간이 짧아서 문제 풀이 ${toMin(plan.quizSec)}분으로 진행해요.`
+  // 서버의 단원 진도·오답노트·진행 중 세션을 맞추고, 못 보낸 답안을 보낸다
+  useEffect(() => {
+    if (!supabase) return
+    const session = useSessionStore.getState()
+    session.flushAttempts()
+    useMaterialStore
+      .getState()
+      .syncCategories()
+      .then(() => session.syncWrongNotes())
+      .catch(() => {})
+    session
+      .syncCurrent()
+      .then(() => setResumable(useSessionStore.getState().getResumable()))
+      .catch(() => {})
+  }, [])
 
   const sections = subjects.map((subject) => {
     const subjectMaterials = materials.filter((m) => m.subjectId === subject.id)
-    const units = subjectMaterials.filter((m) => m.status === M.READY).flatMap((m) => m.units)
+    const units = getSubjectUnits({ materials, categories }, subject.id)
     const pending = subjectMaterials.some((m) =>
       [M.UPLOADING, M.UPLOADED, M.PROCESSING].includes(m.status),
     )
     return { subject, units, pending }
   })
   const hasUnits = sections.some((s) => s.units.length > 0)
-  const isFirst = materials.length === 0
+  const isFirst = materials.length === 0 && !hasUnits
 
   useEffect(() => {
     if (!focusSubjectId) return
@@ -60,18 +83,21 @@ export default function S20Home() {
   const handleResume = () => navigate(getSessionRoute(resumable))
 
   const handleDiscard = () => {
-    endSession() // IN_PROGRESS -> ENDED
+    endSession('QUIT') // IN_PROGRESS -> ENDED
     clearCurrent()
     setResumable(null)
   }
 
-  // 출발: 세션을 만들고 시작한 뒤, 단계에 맞는 화면으로 이동
-  const handleDepart = () => {
-    const store = useSessionStore.getState()
-    if (store.getResumable()) store.endSession()
-    store.createSession({ unit: departUnit, studyMin })
-    useSessionStore.getState().start()
-    navigate(getSessionRoute(useSessionStore.getState().current))
+  // 출발 준비: 문제 설정 화면에서 유형·난이도를 고르고 세션을 만든다
+  const handleDepart = (unit) => {
+    const draft = {
+      source: 'categories',
+      categoryIds: unit.categoryId != null ? [unit.categoryId] : [],
+      unitId: unit.id,
+      unitTitle: unit.title,
+      subjectId: unit.subjectId,
+    }
+    navigate(ROUTES.SETUP, { state: { draft } })
   }
 
   return (
@@ -165,14 +191,14 @@ export default function S20Home() {
 
             <div className="space-y-3">
               {units.map((unit) => {
-                const progress = unitProgress[unit.id]
+                const progress = unitProgressOf(unit, unitProgress)
                 return (
                   <UnitCard
                     key={unit.id}
                     unit={unit}
                     progress={progress}
-                    disabled={reviewOnly && !progress}
-                    onStart={() => setDepartUnit(unit)}
+                    disabled={(reviewOnly && !progress) || unit.questionStatus === 'PREPARING'}
+                    onStart={() => handleDepart(unit)}
                   />
                 )
               })}
@@ -199,17 +225,6 @@ export default function S20Home() {
           message={resumeMessage(resumable)}
           onResume={handleResume}
           onDiscard={handleDiscard}
-        />
-      )}
-
-      {departUnit && (
-        <ConfirmModal
-          title={`${departUnit.title} 출발할까요?`}
-          message={departMessage}
-          confirmLabel="출발"
-          cancelLabel="취소"
-          onConfirm={handleDepart}
-          onCancel={() => setDepartUnit(null)}
         />
       )}
     </div>
