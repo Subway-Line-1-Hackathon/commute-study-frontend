@@ -1,0 +1,24 @@
+@layer base {
+  body {
+    background-color: var(--color-background);
+    color: var(--color-ink);
+    word-break: keep-all;
+    overflow-wrap: break-word;
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+}

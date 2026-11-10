@@ -1,46 +1,142 @@
-import { useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { MATERIAL_STATUS as M, ROUTES } from '../lib/constants'
-import { useAuthStore } from '../store/useAuthStore'
-import { useMaterialStore } from '../store/useMaterialStore'
-
-const LABEL = {
-  [M.UPLOADED]: '업로드 완료',
-  [M.PROCESSING]: '단원과 요약본을 만드는 중...',
-  [M.READY]: '준비 완료',
-}
+import { useEffect, useRef, useState } from 'react'
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
+import Button from '../components/Button'
+import MaterialCard from '../components/MaterialCard'
+import Screen from '../layouts/Screen'
+import ScreenTitle from '../layouts/ScreenTitle'
+import { MATERIAL_STATUS as M, ROUTES, UPLOAD } from '../lib/constants'
+import { pickFiles } from '../lib/pickFiles'
+import { getRecentMaterials, useMaterialStore } from '../store/useMaterialStore'
 
 export default function S10Waiting() {
   const navigate = useNavigate()
-  const materials = useMaterialStore((s) => s.materials)
-  const resumePending = useMaterialStore((s) => s.resumePending)
-  const activate = useAuthStore((s) => s.activate)
+  const [params] = useSearchParams()
+  const fileRef = useRef(null)
 
-  const allReady = materials.length > 0 && materials.every((m) => m.status === M.READY)
+  const subjects = useMaterialStore((s) => s.subjects)
+  const allMaterials = useMaterialStore((s) => s.materials)
+  const uploadMaterial = useMaterialStore((s) => s.uploadMaterial)
+  const retryMaterial = useMaterialStore((s) => s.retryMaterial)
+  const resumePending = useMaterialStore((s) => s.resumePending)
+
+  const [errors, setErrors] = useState([])
+  const [uploadedIds, setUploadedIds] = useState([])
+
+  const subject = subjects.find((s) => s.id === params.get('subjectId')) ?? subjects.at(-1)
+  const materials = allMaterials.filter((m) => uploadedIds.includes(m.id))
+  const room = UPLOAD.MAX_PER_UPLOAD - materials.length
+  const hasReady = materials.some((m) => m.status === M.READY)
+
+  const recent = getRecentMaterials(allMaterials)
+  let oldestVisible = null
+  if (allMaterials.length >= UPLOAD.MAX_VISIBLE) {
+    oldestVisible = recent[recent.length - 1]
+  }
 
   useEffect(() => {
     resumePending()
   }, [resumePending])
 
-  useEffect(() => {
-    if (allReady) {
-      activate()
-      navigate(ROUTES.HOME, { replace: true })
+  if (!subject) {
+    return <Navigate to={ROUTES.SUBJECT_NEW} replace />
+  }
+
+  const handleFiles = (e) => {
+    const picked = Array.from(e.target.files || [])
+    e.target.value = ''
+
+    const { groups, errors: nextErrors } = pickFiles(picked, room)
+
+    const newIds = []
+    for (const group of groups) {
+      newIds.push(uploadMaterial(subject.id, group))
     }
-  }, [allReady, activate, navigate])
+
+    setUploadedIds([...uploadedIds, ...newIds])
+    setErrors(nextErrors)
+  }
+
+  const bottomCta = (
+    <>
+      {materials.length > 0 && !hasReady && (
+        <p className="mb-2 text-center text-caption text-muted">
+          분석이 끝나면 단원 목록을 볼 수 있어요. 몇 분 걸릴 수 있어요.
+        </p>
+      )}
+      <Button
+        onClick={() =>
+          navigate(`${ROUTES.UNIT_PREVIEW}?subjectId=${subject.id}`, {
+            state: { newMaterialIds: uploadedIds },
+          })
+        }
+        disabled={!hasReady}
+      >
+        단원 목록 보러 가기
+      </Button>
+      {materials.length > 0 && !hasReady && (
+        <Button
+          variant="secondary"
+          onClick={() => navigate(ROUTES.HOME)}
+          className="mt-3 text-caption"
+        >
+          홈에서 기다릴게요
+        </Button>
+      )}
+    </>
+  )
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-6 p-6">
-      <div className="h-12 w-12 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
-      <p className="text-lg font-semibold">자료를 준비하고 있어요</p>
-      <ul className="w-full space-y-2">
-        {materials.map((m) => (
-          <li key={m.id} className="flex justify-between rounded-lg bg-slate-100 px-4 py-3 text-sm">
-            <span className="truncate">{m.fileName}</span>
-            <span className="ml-3 shrink-0 text-slate-600">{LABEL[m.status]}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <Screen back bottomCta={bottomCta}>
+      <ScreenTitle
+        title="학습 자료를 올려 주세요"
+        description={`${subject.name} · 이번 업로드 ${materials.length}/${UPLOAD.MAX_PER_UPLOAD}`}
+      />
+
+      <button
+        type="button"
+        onClick={() => fileRef.current?.click()}
+        disabled={room <= 0}
+        className="mt-6 flex flex-col items-center gap-1 rounded-xl border-2 border-dashed border-primary/40 bg-surface px-4 py-8 text-center active:bg-background disabled:opacity-40"
+      >
+        <span className="text-body font-bold text-primary">파일 선택</span>
+        <span className="text-caption text-muted">
+          PDF · PPTX · PNG · 파일당 최대 {UPLOAD.MAX_MB}MB
+        </span>
+        <span className="text-caption text-muted">
+          PDF·PPT {UPLOAD.MAX_DOC_PAGES}쪽, PNG {UPLOAD.MAX_PNG_PAGES}장까지
+        </span>
+      </button>
+      <input
+        ref={fileRef}
+        type="file"
+        multiple
+        accept={UPLOAD.EXTENSIONS.map((ext) => `.${ext}`).join(',')}
+        onChange={handleFiles}
+        className="hidden"
+      />
+
+      {oldestVisible && (
+        <p className="mt-3 rounded-xl bg-warning-soft px-4 py-3 text-caption text-warning">
+          자료는 최근 {UPLOAD.MAX_VISIBLE}개까지 보여요. 새로 올리면 '{oldestVisible.fileName}'부터
+          목록에서 정리돼요. 틀린 문제는 오답노트에 그대로 남아요.
+        </p>
+      )}
+
+      {errors.length > 0 && (
+        <ul className="mt-3 space-y-1 rounded-xl bg-danger-soft px-4 py-3 text-caption text-danger">
+          {errors.map((message) => (
+            <li key={message}>{message}</li>
+          ))}
+        </ul>
+      )}
+
+      {materials.length > 0 && (
+        <ul className="mt-4 space-y-3">
+          {materials.map((m) => (
+            <MaterialCard key={m.id} material={m} onRetry={retryMaterial} />
+          ))}
+        </ul>
+      )}
+    </Screen>
   )
 }

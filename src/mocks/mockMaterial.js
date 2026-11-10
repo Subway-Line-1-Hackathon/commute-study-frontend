@@ -1,11 +1,20 @@
 import { uid } from '../lib/storage'
 
+const MOCK_UNIT_TITLES = ['개념 정리', '핵심 원리', '응용과 예제']
+
 export function generateUnitsAndSummary(fileName) {
-  const base = fileName.replace(/\.[^.]+$/, '')
-  const units = ['1단원. 개요', '2단원. 핵심 개념', '3단원. 응용', '4단원. 정리'].map((title) => ({
+  const title = fileName.replace(/\.[^.]+$/, '')
+  const summary = `${title}의 핵심 내용을 정리한 요약이에요. (Mock)`
+
+  const units = MOCK_UNIT_TITLES.map((unitTitle, index) => ({
     id: uid(),
-    title,
-    summary: `${base}의 "${title}" 요약본 (Mock)`,
+    title: `${title} ${unitTitle}`,
+    summary: `${title} ${unitTitle} 요약이에요. (Mock)`,
+    pages: 10 + index * 6,
   }))
-  return { units, summary: `${base} 전체 요약본 (Mock)` }
+
+  return { units, summary }
 }
+
+export const MOCK_FAIL_MESSAGE = '글자를 인식하지 못했어요. 글자가 선명한 파일로 다시 올려주세요.'
+export const shouldMockFail = (fileName) => /fail|실패/i.test(fileName)

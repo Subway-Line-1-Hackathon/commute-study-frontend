@@ -1,0 +1,32 @@
+@theme {
+  --color-primary: #2457f5;
+  --color-background: #f4f6fb;
+  --color-surface: #ffffff;
+  --color-ink: #12203a;
+  --color-muted: #5b6780;
+  --color-line: #dde3ee;
+
+  --color-success: #1b6b3f;
+  --color-success-soft: #e3f4ea;
+  --color-warning: #8a5a00;
+  --color-warning-soft: #fff1d6;
+  --color-danger: #b3261e;
+  --color-danger-soft: #fdecea;
+
+  --radius-button: 14px;
+
+  --font-sans: 'Noto Sans KR', ui-sans-serif, system-ui, sans-serif;
+
+  --text-title: 1.5rem;
+  --text-title--font-weight: 700;
+  --text-question: 1.125rem;
+  --text-question--font-weight: 700;
+  --text-body: 1rem;
+  --text-body--font-weight: 500;
+  --text-caption: 0.875rem;
+  --text-caption--font-weight: 400;
+  --text-label: 0.75rem;
+  --text-label--font-weight: 700;
+  --text-placeholder: 0.9375rem;
+  --text-placeholder--font-weight: 400;
+}

@@ -1,0 +1,184 @@
+import { Navigate, useNavigate } from 'react-router-dom'
+import StatCard from '../components/StatCard'
+import TopBar from '../components/TopBar'
+import {
+  MATERIAL_STATUS as M,
+  ROUTES,
+  SESSION_STATUS as S,
+  SOLVE_MODE,
+  WRONG_STATUS,
+} from '../lib/constants'
+import { useAuthStore } from '../store/useAuthStore'
+import { useMaterialStore } from '../store/useMaterialStore'
+import { getSessionRoute, useSessionStore } from '../store/useSessionStore'
+
+const formatDuration = (sec) => {
+  const m = Math.floor(sec / 60)
+  const s = sec % 60
+  return m > 0 ? `${m}분 ${s}초` : `${s}초`
+}
+
+const getComment = (percent) => {
+  if (percent >= 80) return '아주 잘했어요! 🎉'
+  if (percent >= 50) return '좋아요, 조금만 더 다져봐요.'
+  return '복습하면 금방 늘어요. 💪'
+}
+
+export default function S50Summary() {
+  const navigate = useNavigate()
+  const cur = useSessionStore((s) => s.current)
+  const openWrongCount = useSessionStore(
+    (s) => s.wrongNotes.filter((n) => n.status === WRONG_STATUS.OPEN).length,
+  )
+  const materials = useMaterialStore((s) => s.materials)
+  const commute = useAuthStore((s) => s.commute)
+
+  const finished =
+    cur && (cur.status === S.COMPLETED || cur.status === S.ENDED) && cur.questions.length > 0
+  if (!finished) return <Navigate to={ROUTES.HOME} replace />
+
+  const total = cur.questions.length
+  const answered = cur.answers.length
+  const correctCount = cur.answers.filter((a) => a.correct).length
+  const wrongCount = answered - correctCount
+  const percent = answered > 0 ? Math.round((correctCount / answered) * 100) : 0
+  const elapsedSec = Math.max(0, cur.plan.totalSec - cur.conceptRemainingSec - cur.quizRemainingSec)
+
+  const wrongItems = cur.answers
+    .filter((a) => !a.correct)
+    .map((a) => ({ answer: a, question: cur.questions.find((q) => q.id === a.questionId) }))
+    .filter((item) => item.question)
+
+  const unit = materials
+    .filter((m) => m.status === M.READY)
+    .flatMap((m) => m.units)
+    .find((u) => u.id === cur.unitId)
+
+  const timeUp = cur.status === S.ENDED
+  const isListen = cur.solveMode === SOLVE_MODE.LISTEN
+  const listened = cur.answers
+    .map((a) => cur.questions.find((q) => q.id === a.questionId))
+    .filter(Boolean)
+
+  // 같은 단원을 새 세션으로 다시 출발
+  const handleRetry = () => {
+    if (cur.mode === 'review') {
+      navigate(ROUTES.REVIEW, { replace: true })
+      return
+    }
+    const store = useSessionStore.getState()
+    store.createSession({
+      unit: { id: cur.unitId, title: cur.unitTitle },
+      studyMin: commute?.studyMin ?? 20,
+    })
+    useSessionStore.getState().start()
+    navigate(getSessionRoute(useSessionStore.getState().current), { replace: true })
+  }
+
+  return (
+    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-slate-50 px-5 py-4">
+      <TopBar backTo={ROUTES.HOME} showLogout={false} />
+
+      <p className="mt-2 text-sm text-slate-500">통학 후 요약</p>
+      <h1 className="text-2xl font-bold text-slate-900">{cur.unitTitle}</h1>
+
+      {timeUp && (
+        <div className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
+          학습이 끝나서 {total}문제 중 {answered}문제를 {isListen ? '들었어요' : '풀었어요'}.
+        </div>
+      )}
+
+      {isListen ? (
+        <>
+          <section className="mt-5 rounded-2xl bg-blue-600 p-6 text-center text-white">
+            <p className="text-sm opacity-80">들은 문제</p>
+            <p className="mt-1 text-5xl font-bold">{answered}개</p>
+            <p className="mt-2 text-sm">걸린 시간 {formatDuration(elapsedSec)}</p>
+          </section>
+
+          <section className="mt-6">
+            <h2 className="mb-3 font-semibold text-slate-800">들은 문제 다시 보기</h2>
+            <ul className="space-y-3">
+              {listened.map((q) => (
+                <li key={q.id} className="rounded-xl bg-white p-4 shadow-sm">
+                  <p className="font-medium text-slate-900">{q.prompt}</p>
+                  <p className="mt-2 text-sm text-green-600">정답: {q.answer}</p>
+                  {q.explanation && (
+                    <p className="mt-2 text-xs leading-relaxed text-slate-500">{q.explanation}</p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
+        </>
+      ) : (
+        <>
+          <section className="mt-5 rounded-2xl bg-blue-600 p-6 text-center text-white">
+            <p className="text-sm opacity-80">정답률</p>
+            <p className="mt-1 text-5xl font-bold">{percent}%</p>
+            <p className="mt-2 text-sm">{getComment(percent)}</p>
+          </section>
+
+          <div className="mt-3 flex gap-3">
+            <StatCard label="정답" value={`${correctCount}개`} tone="good" />
+            <StatCard
+              label="오답"
+              value={`${wrongCount}개`}
+              tone={wrongCount > 0 ? 'bad' : 'default'}
+            />
+            <StatCard label="걸린 시간" value={formatDuration(elapsedSec)} />
+          </div>
+
+          {unit?.summary && (
+            <section className="mt-6 rounded-xl bg-white p-4 shadow-sm">
+              <h2 className="font-semibold text-slate-800">자료 요약</h2>
+              <p className="mt-2 text-sm leading-relaxed text-slate-600">{unit.summary}</p>
+            </section>
+          )}
+
+          <section className="mt-6">
+            <h2 className="mb-3 font-semibold text-slate-800">틀린 문제</h2>
+            {wrongItems.length === 0 ? (
+              <p className="rounded-xl bg-white p-4 text-sm text-slate-500">
+                틀린 문제가 없어요. 완벽해요!
+              </p>
+            ) : (
+              <ul className="space-y-3">
+                {wrongItems.map(({ answer, question }) => (
+                  <li key={question.id} className="rounded-xl bg-white p-4 shadow-sm">
+                    <p className="font-medium text-slate-900">{question.prompt}</p>
+                    <p className="mt-2 text-sm text-red-500">내 답: {answer.value}</p>
+                    <p className="text-sm text-green-600">정답: {question.answer}</p>
+                    <p className="mt-2 text-xs leading-relaxed text-slate-500">
+                      {question.explanation}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {openWrongCount > 0 && (
+              <p className="mt-3 text-center text-xs text-slate-400">
+                오답 노트에 {openWrongCount}문제가 저장되어 있어요.
+              </p>
+            )}
+          </section>
+        </>
+      )}
+
+      <div className="mt-auto flex gap-3 pt-8">
+        <button
+          onClick={handleRetry}
+          className="flex-1 rounded-xl border border-slate-300 bg-white py-3.5 font-semibold text-slate-700 active:bg-slate-50"
+        >
+          다시 학습
+        </button>
+        <button
+          onClick={() => navigate(ROUTES.HOME, { replace: true })}
+          className="flex-1 rounded-xl bg-blue-600 py-3.5 font-semibold text-white active:bg-blue-700"
+        >
+          홈으로
+        </button>
+      </div>
+    </div>
+  )
+}
