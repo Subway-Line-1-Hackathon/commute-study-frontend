@@ -1,3 +1,4 @@
+// 선택/해제할 수 있는 동그란 태그 버튼 (문제 유형 고르기 등). selected면 파랗게 채워진다
 export default function Chip({ label, selected, onClick }) {
   return (
     <button

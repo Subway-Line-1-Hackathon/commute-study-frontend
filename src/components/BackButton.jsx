@@ -1,5 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 
+// 뒤로가기 버튼
+// to가 있으면 그 주소로, 없으면 브라우저 뒤로가기, 뒤로 갈 기록이 없으면(링크로 바로 들어온 경우) 첫 화면으로
 export default function BackButton({ to }) {
   const navigate = useNavigate()
 

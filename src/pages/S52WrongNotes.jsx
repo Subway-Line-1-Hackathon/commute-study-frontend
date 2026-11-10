@@ -7,8 +7,11 @@ import { QUESTION_TYPE as T, ROUTES, WRONG_STATUS } from '../lib/constants'
 import { WRONG_LIMIT, getOpenNotes, getResolvedNotes } from '../lib/review'
 import { useSessionStore } from '../store/useSessionStore'
 
+// S52 오답노트 탭: 미해결/해결 탭으로 나눠 틀린 문제를 보여주고, '정답 보기'로 정답·해설을 펼친다
+
 const TYPE_LABEL = { [T.OX]: 'O/X', [T.MCQ]: '객관식', [T.SHORT]: '단답형' }
 
+// 타임스탬프 -> "11. 10." 같은 월·일 표시
 const formatDate = (ts) =>
   new Date(ts).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })
 
@@ -28,9 +31,10 @@ function AnswerDetail({ question }) {
 export default function S52WrongNotes() {
   const navigate = useNavigate()
   const wrongNotes = useSessionStore((s) => s.wrongNotes)
-  const [tab, setTab] = useState(WRONG_STATUS.OPEN)
-  const [shownIds, setShownIds] = useState([])
+  const [tab, setTab] = useState(WRONG_STATUS.OPEN) // 지금 보는 탭
+  const [shownIds, setShownIds] = useState([]) // '정답 보기'를 펼친 오답 id
 
+  // 들어올 때 서버 오답노트로 갱신
   useEffect(() => {
     useSessionStore
       .getState()
@@ -47,6 +51,7 @@ export default function S52WrongNotes() {
     { value: WRONG_STATUS.RESOLVED, label: `해결 ${resolved.length}` },
   ]
 
+  // 정답 펼치기/접기
   const toggleAnswer = (id) =>
     setShownIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
 
@@ -97,6 +102,7 @@ export default function S52WrongNotes() {
               >
                 {shown ? '정답 숨기기' : '정답 보기'}
               </button>
+              {/* 펼쳤을 때만 그려서, 해설 조회도 이때 처음 일어난다 */}
               {shown && <AnswerDetail question={n.question} />}
             </li>
           )

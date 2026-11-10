@@ -10,12 +10,14 @@ import { supabase } from '../lib/supabase'
 import { getUnitGroups, useMaterialStore } from '../store/useMaterialStore'
 import { useSessionStore } from '../store/useSessionStore'
 
+// S11 단원 선택: 분석으로 나뉜 단원 중 공부할 단원을 골라 문제 설정 화면(S30)으로 넘어간다
+// 단원은 자료(Mock) 또는 과목(서버) 단위 묶음으로 접었다 폈다 할 수 있다
 export default function S11UnitPreview() {
   const navigate = useNavigate()
   const location = useLocation()
   const [params] = useSearchParams()
   const subjectId = params.get('subjectId')
-  const newMaterialIds = location.state?.newMaterialIds ?? []
+  const newMaterialIds = location.state?.newMaterialIds ?? [] // S10에서 방금 올린 자료 id
 
   const subjects = useMaterialStore((s) => s.subjects)
   const materials = useMaterialStore((s) => s.materials)
@@ -27,8 +29,9 @@ export default function S11UnitPreview() {
   const oldGroups = groups.filter((g) => !g.isNew)
   const newUnits = newGroups.flatMap((g) => g.units)
 
-  const [selectedIds, setSelectedIds] = useState([])
-  const [confirmRestart, setConfirmRestart] = useState(false)
+  const [selectedIds, setSelectedIds] = useState([]) // 체크한 단원 id
+  const [confirmRestart, setConfirmRestart] = useState(false) // "새로 시작할까요?" 팝업 표시
+  // 펼쳐진 묶음 key. 처음에는 방금 올린 자료 묶음, 없으면 첫 묶음만 펼친다
   const [openIds, setOpenIds] = useState(() => {
     if (newGroups.length > 0) {
       return newGroups.map((g) => g.key)
@@ -73,6 +76,7 @@ export default function S11UnitPreview() {
     description = '이전 자료 단원도 같이 고를 수 있어요.'
   }
 
+  // 단원 하나 체크/해제 (문제 준비 중인 단원은 무시)
   const toggleUnit = (unitId) => {
     if (isUnitPreparing(units.find((u) => u.id === unitId))) return
     if (selectedIds.includes(unitId)) {
@@ -82,6 +86,7 @@ export default function S11UnitPreview() {
     }
   }
 
+  // 묶음 접기/펼치기
   const toggleOpen = (key) => {
     if (openIds.includes(key)) {
       setOpenIds(openIds.filter((id) => id !== key))
@@ -90,6 +95,7 @@ export default function S11UnitPreview() {
     }
   }
 
+  // 묶음 전체 선택/해제: 이미 다 골랐으면 전부 해제, 아니면 빠진 것만 추가
   const toggleAll = (group) => {
     const groupIds = group.units.filter((unit) => !isUnitPreparing(unit)).map((unit) => unit.id)
     const allSelected = groupIds.every((id) => selectedIds.includes(id))
@@ -109,6 +115,7 @@ export default function S11UnitPreview() {
     if (selectedUnits.length > 1) {
       sessionTitle = `${first.title} 외 ${selectedUnits.length - 1}개`
     }
+    // 세션 초안. S30에서 유형·난이도를 더해 createSession에 넘긴다
     const draft = {
       source: 'categories',
       categoryIds: selectedUnits.map((u) => u.categoryId).filter((id) => id != null),
@@ -120,6 +127,7 @@ export default function S11UnitPreview() {
     navigate(ROUTES.SETUP, { state: { draft } })
   }
 
+  // '문제 생성하기': 하던 학습이 있으면 먼저 확인 팝업을 띄운다
   const handleCreate = () => {
     if (selectedUnits.length === 0) return
 
@@ -132,6 +140,7 @@ export default function S11UnitPreview() {
     startSession()
   }
 
+  // '다른 자료 올리기': 과목이 정해져 있으면 그 과목 업로드로, 아니면 과목 등록부터
   const handleUploadMore = () => {
     if (subjectId) {
       navigate(`${ROUTES.MATERIAL_UPLOAD}?subjectId=${subjectId}`)

@@ -1,4 +1,6 @@
 // Swagger(/v3/api-docs) 기준 엔드포인트 모음
+// 화면·스토어는 fetch를 직접 쓰지 않고 여기 함수를 부른다. 각 함수 위 주석은 요청 body 또는 응답 형태
+// 아직 화면에서 안 쓰는 것: getSettings, getAiQuota, askQuestion (AI 질문 기능 예정)
 import { api, ApiError, apiUrl, authHeader } from './api'
 
 // 사용자
@@ -86,6 +88,8 @@ export async function askQuestion(questionId, { message, history = [], onDelta, 
   let buffer = ''
   let done = null
 
+  // SSE 이벤트 하나("event: 이름\ndata: 내용" 줄 묶음)를 처리한다
+  // delta: 답변 조각 / done: 끝(최종 데이터) / error: 서버 오류
   const handle = (raw) => {
     let event = 'message'
     const dataLines = []
@@ -105,6 +109,7 @@ export async function askQuestion(questionId, { message, history = [], onDelta, 
     else if (event === 'error') throw new ApiError(502, data)
   }
 
+  // 스트림을 조금씩 읽어 buffer에 붙이고, 빈 줄(\n\n)로 구분된 이벤트가 완성될 때마다 처리한다
   for (;;) {
     const { value, done: end } = await reader.read()
     if (end) break

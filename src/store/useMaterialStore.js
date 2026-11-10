@@ -14,12 +14,19 @@ import { supabase } from '../lib/supabase'
 import { zustandStorage, uid, wait } from '../lib/storage'
 import { generateUnitsAndSummary, MOCK_FAIL_MESSAGE, shouldMockFail } from '../mocks/mockMaterial'
 
+// 과목·학습 자료·단원 전역 스토어
+// 자료 하나의 흐름: 업로드(UPLOADING) -> 서버 접수(UPLOADED) -> AI 분석(PROCESSING) -> READY/FAILED
+// 서버 모드는 상태를 3초마다 조회(polling)하고, Mock 모드는 타이머로 상태를 흉내 낸다
+
+// 지금 상태 조회(advance)가 돌고 있는 자료 id. 같은 자료를 두 번 polling하지 않게 막는다
 const inflight = new Set()
+// 파일명에서 확장자를 뗀다 ("강의1.pdf" -> "강의1")
 const baseName = (fileName) => fileName.replace(/\.[^.]+$/, '')
+// 업로드를 한 번에 하나씩 순서대로 보내기 위한 Promise 체인
 let uploadQueue = Promise.resolve()
 
-const POLL_MS = 3000
-const DONE = [M.READY, M.FAILED, M.EXPIRED]
+const POLL_MS = 3000 // 상태 조회 간격
+const DONE = [M.READY, M.FAILED, M.EXPIRED] // 더 이상 조회할 필요 없는 상태
 
 // 서버 단원(category) -> 화면 단원
 function toUnit(c, subjectId) {
@@ -41,8 +48,10 @@ function toUnit(c, subjectId) {
 export const useMaterialStore = create(
   persist(
     (set, get) => {
+      // 내부 헬퍼: 자료 id 하나의 일부 필드만 바꾼다
       const patch = (id, p) =>
         set((s) => ({ materials: s.materials.map((m) => (m.id === id ? { ...m, ...p } : m)) }))
+      // 내부 헬퍼: 최신 상태에서 자료를 찾는다 (await 뒤에는 상태가 바뀌었을 수 있어 매번 다시 찾는다)
       const find = (id) => get().materials.find((m) => m.id === id)
 
       // Mock: 일정 시간 뒤 단원과 요약을 만든다
@@ -74,10 +83,11 @@ export const useMaterialStore = create(
           try {
             res = await getMaterialStatus(cur.serverId)
           } catch {
+            // 네트워크 오류 등은 잠깐 기다렸다가 다시 조회한다
             await wait(POLL_MS)
             continue
           }
-          if (!find(id)) return
+          if (!find(id)) return // 기다리는 사이 자료가 지워졌으면 중단
           if (res.status === M.READY) {
             patch(id, { status: M.READY, errorMessage: null, categoryCount: res.categoryCount })
             get()
@@ -94,6 +104,8 @@ export const useMaterialStore = create(
         }
       }
 
+      // 업로드가 끝난 자료를 READY/FAILED가 될 때까지 진행시킨다
+      // serverId가 있으면 서버 polling, 없으면 Mock 진행
       const advance = async (id) => {
         if (inflight.has(id)) return
         inflight.add(id)
@@ -107,6 +119,7 @@ export const useMaterialStore = create(
         }
       }
 
+      // Mock 업로드: 진행률을 10%씩 올린 뒤 UPLOADED로 바꾸고 분석을 시작한다
       const uploadMock = async (id) => {
         for (let progress = 10; progress <= 100; progress += 10) {
           await wait(120, 200)
@@ -117,6 +130,7 @@ export const useMaterialStore = create(
         advance(id)
       }
 
+      // 서버 업로드: 파일을 보내고 받은 materialId(serverId)로 상태 조회를 시작한다
       const uploadServer = async (id, files) => {
         const cur = find(id)
         if (!cur) return
@@ -140,9 +154,10 @@ export const useMaterialStore = create(
         }
       }
 
+      // ---- 여기부터 화면에서 쓰는 상태와 액션 ----
       return {
-        subjects: [],
-        materials: [],
+        subjects: [], // [{ id, name, examDate, dDay }]
+        materials: [], // 업로드한 자료 목록 (상태, 진행률, 에러 문구 등)
         categories: {}, // { [subjectId]: unit[] } 서버 단원
 
         // 과목 등록. 서버가 연결돼 있으면 서버에 만들고 받은 id를 쓴다
@@ -182,6 +197,7 @@ export const useMaterialStore = create(
                 .catch(() => null),
             ),
           )
+          // 실패한 과목(null)은 건너뛰고, 성공한 과목만 덮어쓴다
           set((s) => {
             const categories = { ...s.categories }
             for (const r of results) if (r) categories[r[0]] = r[1]
@@ -189,6 +205,9 @@ export const useMaterialStore = create(
           })
         },
 
+        // 자료 업로드 시작. 목록에 UPLOADING 상태로 먼저 추가하고(화면에 바로 보이게),
+        // 실제 전송은 큐에 넣어 하나씩 처리한다. 프론트 임시 id를 바로 돌려준다
+        // files: PDF/PPTX 1개 또는 PNG 여러 장(한 자료로 묶임)
         uploadMaterial: (subjectId, files) => {
           const id = uid()
           const first = files[0]
@@ -214,9 +233,9 @@ export const useMaterialStore = create(
                 fileSize,
                 pageCount: files.length,
                 status: M.UPLOADING,
-                progress: supabase ? null : 0,
+                progress: supabase ? null : 0, // 서버 업로드는 진행률을 알 수 없어서 null
                 errorMessage: null,
-                retried: false,
+                retried: false, // 재시도는 1번만 허용
                 units: [],
                 summary: null,
                 createdAt: Date.now(),
@@ -224,10 +243,12 @@ export const useMaterialStore = create(
             ],
           }))
           const run = supabase ? () => uploadServer(id, files) : () => uploadMock(id)
+          // 앞 업로드가 끝나야 다음 업로드가 시작된다. 하나가 실패해도 큐가 멈추지 않게 catch
           uploadQueue = uploadQueue.then(run).catch(() => {})
           return id
         },
 
+        // 분석에 실패한 자료를 한 번 더 분석시킨다 (자료당 1회)
         retryMaterial: async (id) => {
           const cur = find(id)
           if (!cur || cur.status !== M.FAILED || cur.retried) return
@@ -246,6 +267,8 @@ export const useMaterialStore = create(
           advance(id)
         },
 
+        // 앱을 다시 열었을 때 호출: 전송 중에 끊긴 자료(UPLOADING)는 파일이 없어 이어갈 수 없으니 지우고,
+        // 분석 중이던 자료는 상태 조회를 다시 시작한다
         resumePending: () => {
           set((s) => ({ materials: s.materials.filter((m) => m.status !== M.UPLOADING) }))
           get()
@@ -253,6 +276,7 @@ export const useMaterialStore = create(
             .forEach((m) => advance(m.id))
         },
 
+        // 분석이 끝난 자료가 하나라도 있는지
         hasReadyMaterial: () => get().materials.some((m) => m.status === M.READY),
       }
     },
@@ -285,6 +309,9 @@ export const useMaterialStore = create(
   ),
 )
 
+// ---- 스토어 상태를 받아 화면용 데이터를 만드는 함수들 (selector) ----
+
+// 최근 올린 자료부터 최대 MAX_VISIBLE개
 export function getRecentMaterials(materials) {
   const newestFirst = [...materials].sort((a, b) => b.createdAt - a.createdAt)
   return newestFirst.slice(0, UPLOAD.MAX_VISIBLE)

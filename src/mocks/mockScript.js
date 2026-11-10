@@ -1,3 +1,4 @@
+// Mock 모드에서 쓰는 가짜 개념 듣기 대본 생성기
 const CHARS_PER_MIN = 350 // 한국어 TTS가 1분에 읽는 대략적인 글자 수
 
 const TEMPLATES = [
@@ -14,6 +15,7 @@ const TEMPLATES = [
 ]
 
 // unit: { id, title }, targetSec: 개념 듣기 시간(초) -> [{ id, text, sourcePage }]
+// 목표 시간 동안 읽을 만큼의 글자 수가 찰 때까지 템플릿 문장을 반복해서 붙인다
 export function generateScript({ unit, targetSec }) {
   const targetChars = Math.round((targetSec / 60) * CHARS_PER_MIN)
   const segments = []

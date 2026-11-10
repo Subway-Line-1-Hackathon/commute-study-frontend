@@ -1,6 +1,10 @@
 import { isUnitPreparing } from '../lib/constants'
 import UnitItem from './UnitItem'
 
+// 단원 선택 화면의 접고 펼 수 있는 묶음 (자료 또는 과목 하나 = 묶음 하나)
+// - group: { key, title, subjectName, units, isNew } (useMaterialStore의 getUnitGroups 결과)
+// - open/onToggleOpen: 펼침 상태 / selectedIds, onToggleUnit, onToggleAll: 단원 체크 상태
+// 상태는 부모(화면)가 가지고 있고, 이 컴포넌트는 보여주기만 한다
 export default function MaterialGroup({
   group,
   open,

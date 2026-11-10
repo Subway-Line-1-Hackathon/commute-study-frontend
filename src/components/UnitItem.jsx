@@ -1,5 +1,9 @@
 import { isUnitPreparing } from '../lib/constants'
 
+// 단원 목록의 한 줄
+// - checkable이면 체크박스가 있는 버튼(단원 선택 화면), 아니면 보기 전용
+// - showSubject면 제목 앞에 [과목명]을 붙인다
+// 아래 회색 줄(meta)에는 쪽수, 요약본 여부, 문제 준비 중 안내를 ' · '로 이어서 보여준다
 export default function UnitItem({
   number,
   unit,

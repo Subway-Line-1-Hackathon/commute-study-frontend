@@ -26,7 +26,9 @@ function useSessionFeedback(cur) {
     if (!serverId || !subjectId) return
     let cancelled = false
     const run = async () => {
+      // 남은 답안을 먼저 보내야 서버 피드백에 반영된다
       await useSessionStore.getState().flushAttempts()
+      // 3초 간격으로 최대 6번(약 18초) 조회
       for (let i = 0; i < 6 && !cancelled; i += 1) {
         try {
           const res = await getReport(subjectId, { scope: 'session', sessionId: serverId })
@@ -49,24 +51,30 @@ function useSessionFeedback(cur) {
   return feedback
 }
 
+// 문제 해설 한 줄 (없으면 아무것도 안 그림)
 function Explanation({ question }) {
   const { explanation } = useExplanation(question)
   if (!explanation) return null
   return <p className="mt-2 text-xs leading-relaxed text-slate-500">{explanation}</p>
 }
 
+// 초 -> "3분 20초" / "45초"
 const formatDuration = (sec) => {
   const m = Math.floor(sec / 60)
   const s = sec % 60
   return m > 0 ? `${m}분 ${s}초` : `${s}초`
 }
 
+// 정답률에 따른 응원 문구
 const getComment = (percent) => {
   if (percent >= 80) return '아주 잘했어요! 🎉'
   if (percent >= 50) return '좋아요, 조금만 더 다져봐요.'
   return '복습하면 금방 늘어요. 💪'
 }
 
+// S50 통학 후 요약: 방금 끝난 세션의 결과
+// 눈으로 풀기 -> 정답률, 정답/오답 수, AI 피드백, 자료 요약, 틀린 문제
+// 듣고 풀기 -> 들은 문제 수와 문제·정답 다시 보기
 export default function S50Summary() {
   const navigate = useNavigate()
   const cur = useSessionStore((s) => s.current)
@@ -76,6 +84,7 @@ export default function S50Summary() {
   const materials = useMaterialStore((s) => s.materials)
   const aiFeedback = useSessionFeedback(cur)
 
+  // 끝난 세션이 없으면 보여줄 게 없으니 홈으로
   const finished =
     cur && (cur.status === S.COMPLETED || cur.status === S.ENDED) && cur.questions.length > 0
   if (!finished) return <Navigate to={ROUTES.HOME} replace />
@@ -85,8 +94,10 @@ export default function S50Summary() {
   const correctCount = cur.answers.filter((a) => a.correct).length
   const wrongCount = answered - correctCount
   const percent = answered > 0 ? Math.round((correctCount / answered) * 100) : 0
+  // 실제로 쓴 시간 = 전체 시간 - 남은 개념 시간 - 남은 문제 시간
   const elapsedSec = Math.max(0, cur.plan.totalSec - cur.conceptRemainingSec - cur.quizRemainingSec)
 
+  // 틀린 답과 그 문제를 짝지은 목록
   const wrongItems = cur.answers
     .filter((a) => !a.correct)
     .map((a) => ({ answer: a, question: cur.questions.find((q) => q.id === a.questionId) }))
@@ -101,8 +112,9 @@ export default function S50Summary() {
     ? cur.script.map((seg) => seg.text)
     : [unit?.summary].filter(Boolean)
 
-  const timeUp = cur.status === S.ENDED
+  const timeUp = cur.status === S.ENDED // 다 풀기 전에 끝남 (시간 종료 또는 중단)
   const isListen = cur.solveMode === SOLVE_MODE.LISTEN
+  // 듣고 풀기에서 들은 문제 목록
   const listened = cur.answers
     .map((a) => cur.questions.find((q) => q.id === a.questionId))
     .filter(Boolean)

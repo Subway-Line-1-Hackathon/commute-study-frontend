@@ -7,10 +7,14 @@ import { supabase } from '../lib/supabase'
 import { clampCommute, isValidCommute } from '../lib/time'
 import { MOCK_USER } from '../mocks/mockUser'
 
+// 로그인·사용자 정보 전역 스토어 (zustand)
+// - 화면에서는 useAuthStore((s) => s.status)처럼 필요한 값만 골라 구독한다
+// - persist로 localStorage('cs:auth')에 저장돼서 새로고침해도 로그인 상태가 유지된다
+// - supabase가 null이면(키 없음) 서버 없이 Mock 데이터로 동작한다
 export const useAuthStore = create(
   persist(
     (set) => ({
-      status: AUTH_STATUS.ANONYMOUS,
+      status: AUTH_STATUS.ANONYMOUS, // 로그인/온보딩 단계 (constants.js의 AUTH_STATUS)
       user: null, // { id, name, email, provider, nickname }
       commute: null, // { studyMin, departure, arrival } 역 이름은 표시용
       activated: false, // 온보딩을 한 번이라도 끝냈는지
@@ -58,8 +62,10 @@ export const useAuthStore = create(
         })
       },
 
+      // 닉네임만 store에 저장 (서버 저장은 saveProfile에서 통학 시간과 함께 한다)
       saveNickname: (nickname) => set((s) => ({ user: { ...s.user, nickname: nickname.trim() } })),
 
+      // 통학 설정을 store에만 저장한다. 범위를 벗어나면 저장하지 않고 false
       // 입력한 시간이 그대로 학습 가능 시간
       saveCommute: ({ studyMin, departure = '', arrival = '' }) => {
         if (!isValidCommute(studyMin)) return false
@@ -79,6 +85,7 @@ export const useAuthStore = create(
             fromStation: departure.trim() || undefined,
             toStation: arrival.trim() || undefined,
           })
+          // 서버가 보정한 학습 시간을 돌려주면 그 값을 쓴다
           savedMin = res?.studyMin ?? studyMin
         }
         set((s) => ({
@@ -101,6 +108,7 @@ export const useAuthStore = create(
             user: { ...s.user, nickname: me?.nickname ?? s.user?.nickname },
           }
           if (settings) {
+            // 서버 필드명(oneWayMin, fromStation, toStation)을 화면 필드명으로 바꾼다
             patch.commute = {
               studyMin: settings.studyMin ?? settings.oneWayMin,
               departure: settings.fromStation ?? '',
@@ -111,6 +119,7 @@ export const useAuthStore = create(
         })
       },
 
+      // 온보딩 완료 처리 -> 이후 RequireActive 화면(홈 등)에 들어갈 수 있다
       activate: () => set({ status: AUTH_STATUS.ACTIVE, activated: true }),
 
       // 로그인 상태만 해제. 닉네임, 통학 시간, 자료는 계정 데이터라 유지
@@ -119,6 +128,7 @@ export const useAuthStore = create(
         set({ status: AUTH_STATUS.ANONYMOUS })
       },
     }),
+    // persist 설정: localStorage 키 이름, 저장 형식 버전, 버전이 바뀌었을 때 옛 데이터를 변환하는 migrate
     {
       name: 'cs:auth',
       version: 1,

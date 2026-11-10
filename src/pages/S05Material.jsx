@@ -9,6 +9,7 @@ import { ROUTES, SUBJECT_NAME } from '../lib/constants'
 import { kstDateKey } from '../lib/date'
 import { useMaterialStore } from '../store/useMaterialStore'
 
+// S05 과목 등록: 과목명(필수)과 시험일(선택)을 입력하고, 등록 후 자료 업로드 화면으로 간다
 export default function S05Material() {
   const navigate = useNavigate()
   const addSubject = useMaterialStore((s) => s.addSubject)
@@ -28,6 +29,7 @@ export default function S05Material() {
     setSaveError('')
     try {
       const subject = await addSubject(trimmed, examDate)
+      // replace: 업로드 화면에서 뒤로가기 했을 때 과목 등록 화면으로 돌아오지 않게
       navigate(`${ROUTES.MATERIAL_UPLOAD}?subjectId=${subject.id}`, { replace: true })
     } catch (err) {
       setSaveError(errorMessage(err, '과목을 등록하지 못했어요. 잠시 후 다시 시도해 주세요.'))
@@ -70,7 +72,7 @@ export default function S05Material() {
         <TextField
           label="시험일"
           type="date"
-          min={kstDateKey()}
+          min={kstDateKey()} // 오늘 이전 날짜는 고를 수 없다
           value={examDate}
           onChange={(e) => setExamDate(e.target.value)}
           placeholder="연도-월-일"

@@ -1,3 +1,4 @@
+// 단원 하나의 진도 카드 (제목, 상태 문구, 진행 막대, 학습하기/복습하기 버튼)
 // progress: { percent, label } | null
 export default function UnitCard({ unit, progress, disabled, onStart }) {
   const percent = progress?.percent ?? 0

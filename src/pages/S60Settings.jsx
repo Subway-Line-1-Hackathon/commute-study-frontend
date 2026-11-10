@@ -10,8 +10,11 @@ import { getTimePlan } from '../lib/plan'
 import { isValidCommute } from '../lib/time'
 import { useAuthStore } from '../store/useAuthStore'
 
+// 초 -> 분 (반올림)
 const toMin = (sec) => Math.round(sec / 60)
 
+// S60 설정 탭: 통학 시간·닉네임 수정, 로그아웃
+// 두 항목은 저장 버튼이 따로 있지만 서버에는 항상 함께 저장된다 (아래 save 참고)
 export default function S60Settings() {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
@@ -23,15 +26,16 @@ export default function S60Settings() {
 
   const [nickname, setNickname] = useState(user?.nickname ?? '')
   const [commuteInput, setCommuteInput] = useState(String(commute?.studyMin ?? COMMUTE.DEFAULT))
+  // 저장 직후 버튼 문구를 '저장했어요'로 바꾸기 위한 표시. 값을 다시 고치면 false로
   const [nicknameSaved, setNicknameSaved] = useState(false)
   const [commuteSaved, setCommuteSaved] = useState(false)
 
-  // 닉네임
+  // 닉네임: 올바르고 + 바뀌었을 때만 저장 버튼 활성화
   const nicknameError = nickname ? validateNickname(nickname) : ''
   const nicknameChanged = nickname.trim() !== (user?.nickname ?? '')
   const canSaveNickname = nickname.trim() !== '' && nicknameError === '' && nicknameChanged
 
-  // 통학 시간
+  // 통학 시간: 범위 안이고 + 바뀌었을 때만 저장 버튼 활성화. plan은 개념/문제 시간 미리보기용
   const minutes = commuteInput === '' ? null : Number(commuteInput)
   const commuteValid = minutes !== null && isValidCommute(minutes)
   const commuteError = minutes !== null && !commuteValid
@@ -49,7 +53,7 @@ export default function S60Settings() {
         studyMin: commute?.studyMin ?? COMMUTE.DEFAULT,
         departure: commute?.departure ?? '',
         arrival: commute?.arrival ?? '',
-        ...profile,
+        ...profile, // 바꾼 값으로 덮어쓴다
       })
       onSaved()
     } catch (err) {

@@ -27,8 +27,12 @@ function unitProgressOf(unit, unitProgress) {
   }
 }
 
+// S20 홈: 통학 시간, 과목별 단원 목록(진도), 오답노트 바로가기
+// 하던 학습이 있으면 "이어서 할까요?" 팝업을 띄운다
+// 20분 미만이면 새 단원 학습은 막고 오답 복습만 할 수 있다
 export default function S20Home() {
   const navigate = useNavigate()
+  // 다른 화면에서 특정 과목으로 스크롤해 달라고 넘겨준 과목 id
   const focusSubjectId = useLocation().state?.focusSubjectId
   const user = useAuthStore((s) => s.user)
   const commute = useAuthStore((s) => s.commute)
@@ -62,6 +66,7 @@ export default function S20Home() {
       .catch(() => {})
   }, [])
 
+  // 과목별 섹션 데이터: 단원 목록 + 아직 처리 중인 자료가 있는지
   const sections = subjects.map((subject) => {
     const subjectMaterials = materials.filter((m) => m.subjectId === subject.id)
     const units = getSubjectUnits({ materials, categories }, subject.id)
@@ -71,8 +76,9 @@ export default function S20Home() {
     return { subject, units, pending }
   })
   const hasUnits = sections.some((s) => s.units.length > 0)
-  const isFirst = materials.length === 0 && !hasUnits
+  const isFirst = materials.length === 0 && !hasUnits // 처음 온 사용자 -> '첫 자료 올리기' 버튼
 
+  // focusSubjectId가 있으면 그 과목 섹션으로 부드럽게 스크롤
   useEffect(() => {
     if (!focusSubjectId) return
     document
@@ -80,8 +86,10 @@ export default function S20Home() {
       ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [focusSubjectId])
 
+  // 이어하기: 세션 단계(듣기/풀이)에 맞는 화면으로
   const handleResume = () => navigate(getSessionRoute(resumable))
 
+  // 그만하기: 세션을 끝내고 팝업을 닫는다
   const handleDiscard = () => {
     endSession('QUIT') // IN_PROGRESS -> ENDED
     clearCurrent()
@@ -197,6 +205,7 @@ export default function S20Home() {
                     key={unit.id}
                     unit={unit}
                     progress={progress}
+                    // 막는 경우: 복습만 가능한데 한 번도 안 푼 단원 / 문제 준비 중인 단원
                     disabled={(reviewOnly && !progress) || unit.questionStatus === 'PREPARING'}
                     onStart={() => handleDepart(unit)}
                   />

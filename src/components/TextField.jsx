@@ -1,3 +1,5 @@
+// 공통 입력칸. label이 있으면 위에 이름을 붙이고, invalid면 빨간 테두리
+// value, onChange, placeholder 등 나머지 props는 그대로 <input>에 전달된다
 export default function TextField({
   label,
   required = false,
@@ -5,6 +7,7 @@ export default function TextField({
   className = '',
   ...props
 }) {
+  // 날짜 입력칸은 placeholder를 지원하지 않아서, 비어 있으면 글자를 투명하게 하고 위에 안내 문구를 겹쳐 보여준다
   const isEmptyDate = props.type === 'date' && !props.value
 
   const input = (

@@ -1,9 +1,12 @@
 import { COMMUTE } from '../lib/constants'
 import { clampCommute } from '../lib/time'
 
+// 통학 시간(분) 입력: 가운데 숫자를 직접 입력하거나 − + 버튼으로 조절한다
 // − + 버튼은 5분 단위
+// value는 문자열이다 (입력 중에 빈 칸도 허용해야 해서). 범위 검사는 화면에서 저장할 때 한다
 export default function MinuteStepper({ label, value, onChange, required = false }) {
   const minutes = value === '' ? null : Number(value)
+  // 빈 칸에서 −/+를 누르면 기본값(50분)부터 시작
   const base = Number.isFinite(minutes) ? Math.round(minutes) : COMMUTE.DEFAULT
 
   const step = (delta) => onChange(String(clampCommute(base + delta)))
@@ -32,6 +35,7 @@ export default function MinuteStepper({ label, value, onChange, required = false
             inputMode="numeric"
             maxLength={3}
             value={value}
+            // 숫자가 아닌 글자는 지운다
             onChange={(e) => onChange(e.target.value.replace(/\D/g, ''))}
             aria-label={label}
             style={{ width: `${Math.max(value.length, 1)}ch` }}

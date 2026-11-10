@@ -6,14 +6,17 @@ import { DIFFICULTY, QUESTION_TYPE as T } from './constants'
 const TO_SERVER_TYPE = { [T.OX]: 'OX', [T.MCQ]: 'MC', [T.SHORT]: 'SHORT' }
 const FROM_SERVER_TYPE = { OX: T.OX, MC: T.MCQ, SHORT: T.SHORT }
 
+// 화면 유형 배열을 서버 유형 배열로 (세션 만들 때 사용). 예: ['OX','MCQ'] -> ['OX','MC']
 export const toServerTypes = (types) => types.map((t) => TO_SERVER_TYPE[t])
 
+// 난이도 이름 -> 서버로 보낼 숫자
 export const DIFFICULTY_LEVEL = {
   [DIFFICULTY.EASY]: 1,
   [DIFFICULTY.NORMAL]: 2,
   [DIFFICULTY.HARD]: 3,
 }
 
+// 서버 문제 하나를 화면에서 쓰는 형식으로 바꾼다. 빠진 값은 null/빈 값으로 채운다
 export function fromServerQuestion(q) {
   const type = FROM_SERVER_TYPE[q.type] ?? T.SHORT
   const choices = q.choices ?? []

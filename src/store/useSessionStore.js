@@ -35,9 +35,16 @@ import { generateQuestions } from '../mocks/mockQuiz'
 import { generateScript } from '../mocks/mockScript'
 import { useMaterialStore } from './useMaterialStore'
 
+// 학습 세션(한 번의 통학 공부) 전역 스토어
+// 세션 흐름: createSession -> (개념 듣기 LISTEN) -> 문제 풀이 QUIZ -> COMPLETED(다 풂) 또는 ENDED(중간 종료)
+// current: 지금 진행 중인 세션 하나 / history: 끝난 세션들 / wrongNotes: 오답노트
+// 답안은 pendingAttempts에 먼저 쌓고 서버로 보낸다 (지하철에서 네트워크가 끊겨도 잃지 않게)
+
 const SUMMARY_SEC = 180 // 서버는 CURRICULUM 세션에서 요약 3분을 빼고 문제 수를 정한다
 
+// 단답 비교용: 앞뒤 공백 제거 + 소문자
 const norm = (v) => String(v).trim().toLowerCase()
+// Mock(서버 없음) 채점: 단답은 대소문자·공백 무시하고 비교, 나머지는 정확히 같은지
 const judgeLocal = (q, a) => (q.type === T.SHORT ? norm(q.answer) === norm(a) : q.answer === a)
 
 // 틀린 문제를 오답노트에 반영. 이미 있으면 OPEN으로 되돌리고 횟수만 올린다
@@ -92,6 +99,7 @@ function fromServerNote(item, subjectId, unitTitles) {
   }
 }
 
+// 답안 전송을 한 번에 하나씩 순서대로 하기 위한 Promise 체인 (같은 답을 두 번 보내지 않게)
 let flushing = Promise.resolve()
 
 export const useSessionStore = create(
@@ -102,15 +110,18 @@ export const useSessionStore = create(
         flushing = flushing.then(async () => {
           const pending = get().pendingAttempts
           if (!supabase || pending.length === 0) return
+          // API가 세션 단위로 받으므로 세션 id별로 묶는다
           const bySession = {}
           for (const a of pending) (bySession[a.sessionId] ??= []).push(a)
           for (const [sessionId, list] of Object.entries(bySession)) {
             try {
+              // 100개씩 나눠 보내고, 보낸 것만 pendingAttempts에서 지운다
               for (let i = 0; i < list.length; i += 100) {
                 const chunk = list.slice(i, i + 100)
                 await saveAttempts({
                   sessionId: Number(sessionId),
                   attempts: chunk.map((a) => {
+                    // sessionId, key는 프론트 관리용이라 빼고 보낸다
                     const { sessionId: _s, key: _k, ...rest } = a // eslint-disable-line no-unused-vars
                     return rest
                   }),
@@ -134,9 +145,12 @@ export const useSessionStore = create(
       }
 
       // 답 하나를 기록한다 (채점이 끝난 뒤)
+      // 하는 일: 답 추가 -> 오답노트 갱신 -> 오늘 정답률 갱신 -> 서버 전송 대기열에 추가 -> 마지막 문제면 세션 완료
+      // 반환: { correct, reason, completed(마지막 문제였는지), question }
       const recordAnswer = (value, correct, { reason = null, selfJudged = false } = {}) => {
         const cur = get().current
         if (!cur || cur.status !== S.IN_PROGRESS || cur.phase !== PHASE.QUIZ) return null
+        // 지금까지 답한 개수 = 지금 풀고 있는 문제 번호
         const idx = cur.answers.length
         const q = cur.questions[idx]
         if (!q) return null
@@ -183,6 +197,7 @@ export const useSessionStore = create(
           patch.pendingAttempts = [...get().pendingAttempts, attempt]
         }
 
+        // 마지막 문제: Mock 모드면 단원 진도를 기록하고(서버 모드는 서버가 계산), 기록에 추가
         if (isLast) {
           if (!isReview && !cur.serverId) {
             patch.unitProgress = {
@@ -200,11 +215,12 @@ export const useSessionStore = create(
         return { correct, reason, completed: isLast, question: q }
       }
 
+      // ---- 여기부터 화면에서 쓰는 상태와 액션 ----
       return {
-        current: null,
-        history: [],
-        wrongNotes: [],
-        unitProgress: {},
+        current: null, // 진행 중(또는 방금 끝난) 세션. 구조는 createSession의 set 부분 참고
+        history: [], // 끝난 세션 목록 (최신이 앞)
+        wrongNotes: [], // 오답노트 (서버 모드는 syncWrongNotes로 서버 값으로 덮어씀)
+        unitProgress: {}, // Mock 모드 단원별 진도 { [unitId]: { solved, total } }
         dailyStats: {}, // { 'YYYY-MM-DD': { answered, correct } } 한국 시간 기준
         pendingAttempts: [], // 서버로 아직 못 보낸 답안
 
@@ -225,6 +241,7 @@ export const useSessionStore = create(
           let shortage = null
 
           if (supabase) {
+            // 서버 모드: 서버가 문제와 요약을 만들어 준다
             const body = {
               source: draft.source,
               questionTypes: toServerTypes(types),
@@ -245,10 +262,12 @@ export const useSessionStore = create(
             serverId = res.sessionId
             shortage = res.shortage ?? null
             script = summaryToScript(res.summary)
+            // 요약이 있으면 개념 듣기 최대 3분, 나머지는 문제 풀이 시간
             const totalSec = (res.studyMin ?? studyMin) * 60
             const conceptSec = script.length > 0 ? Math.min(SUMMARY_SEC, totalSec) : 0
             plan = { totalSec, conceptSec, quizSec: totalSec - conceptSec }
           } else {
+            // Mock 모드: 시간 계획을 직접 계산하고 가짜 문제·대본을 만든다. 복습은 개념 듣기 없이 문제만
             plan = getTimePlan(studyMin)
             if (isReview) plan = { totalSec: plan.totalSec, conceptSec: 0, quizSec: plan.totalSec }
             if (isReview) {
@@ -275,30 +294,31 @@ export const useSessionStore = create(
             set({ current: { ...prev, status: S.ENDED } })
           }
 
+          // 들을 대본이 있으면 개념 듣기부터, 없으면 바로 문제 풀이
           const listening = script.length > 0
           set({
             current: {
-              id: serverId ? String(serverId) : uid(),
-              serverId,
-              mode: isReview ? 'review' : 'curriculum',
+              id: serverId ? String(serverId) : uid(), // 화면용 id
+              serverId, // 서버 세션 id (Mock이면 null)
+              mode: isReview ? 'review' : 'curriculum', // 오답 복습 / 단원 학습
               source: draft.source,
               categoryIds: draft.categoryIds ?? [],
               unitId: isReview ? 'review' : draft.unitId,
               unitTitle: isReview ? '오답 복습' : draft.unitTitle,
               subjectId: draft.subjectId ?? null,
-              plan,
-              script,
-              listenIndex: 0,
+              plan, // { totalSec, conceptSec, quizSec }
+              script, // 개념 듣기 문단 [{ id, text, sourcePage }]
+              listenIndex: 0, // 지금 읽고 있는 문단 번호 (이어 듣기용)
               phase: listening ? PHASE.LISTEN : PHASE.QUIZ,
-              conceptRemainingSec: plan.conceptSec,
-              quizRemainingSec: plan.quizSec,
-              warned: false,
-              solveMode,
+              conceptRemainingSec: plan.conceptSec, // 남은 개념 듣기 시간
+              quizRemainingSec: plan.quizSec, // 남은 문제 풀이 시간
+              warned: false, // "곧 끝나요" 알림을 띄웠는지
+              solveMode, // 눈으로 풀기 / 듣고 풀기
               types,
               difficulty,
               questions,
-              answers: [],
-              shortage,
+              answers: [], // [{ questionId, value, correct, reason }]
+              shortage, // 서버가 요청보다 문제를 적게 줬을 때의 정보
               status: S.IN_PROGRESS,
               startedAt: Date.now(),
             },
@@ -306,6 +326,7 @@ export const useSessionStore = create(
           return get().current
         },
 
+        // 개념 듣기에서 몇 번째 문단까지 읽었는지 저장 (앱을 다시 열면 거기서 이어 듣기)
         setListenIndex: (i) =>
           set((s) => (s.current ? { current: { ...s.current, listenIndex: i } } : s)),
 
@@ -335,13 +356,16 @@ export const useSessionStore = create(
           if (cur.serverId && q.type === T.SHORT) {
             let res
             try {
+              // 서버 판정 API는 30자까지만 받는다
               res = await judgeAnswer(q.id, String(value).slice(0, 30))
             } catch {
+              // 네트워크 오류도 판정 실패로 보고 자가 판정으로 넘긴다
               res = { correct: null, timeout: true }
             }
             if (res.correct == null) return { needsSelfJudge: true, question: q }
             return recordAnswer(value, res.correct, { reason: res.reason ?? null })
           }
+          // O/X·객관식(또는 Mock 모드)은 정답을 알고 있으니 바로 채점한다
           return recordAnswer(value, judgeLocal(q, value))
         },
 
@@ -389,6 +413,7 @@ export const useSessionStore = create(
               get().endSession('ARRIVED')
               return
             }
+            // 전체 시간이 6분보다 길 때만, 남은 시간이 3분 이하가 되면 경고 표시
             const shouldWarn = cur.plan.totalSec > WARNING_SEC * 2 && left <= WARNING_SEC
             set({ current: { ...cur, quizRemainingSec: left, warned: cur.warned || shouldWarn } })
           }
@@ -399,6 +424,7 @@ export const useSessionStore = create(
           const cur = get().current
           if (!cur || cur.status === S.COMPLETED || cur.status === S.ENDED) return
           const ended = { ...cur, status: S.ENDED }
+          // 한 문제도 안 풀었으면 기록(history)에 남기지 않는다
           set({
             current: ended,
             history: cur.answers.length > 0 ? [ended, ...get().history] : get().history,
@@ -411,10 +437,13 @@ export const useSessionStore = create(
           }
         },
 
+        // 화면에서도 답안 전송을 직접 부를 수 있게 공개 (예: 앱 시작 시 남은 답안 전송)
         flushAttempts,
 
+        // 현재 세션 정보를 비운다 (결과 화면을 다 본 뒤 등)
         clearCurrent: () => set({ current: null }),
 
+        // 이어서 할 수 있는 진행 중 세션이 있으면 돌려주고, 없으면 null
         getResumable: () => {
           const cur = get().current
           return cur?.status === S.IN_PROGRESS ? cur : null
@@ -446,6 +475,7 @@ export const useSessionStore = create(
                 .catch(() => null),
             ),
           )
+          // 한 과목이라도 실패하면 일부만 덮어써서 오답이 사라져 보이지 않게, 이번엔 반영하지 않는다
           if (results.some((r) => r === null)) return
           set({ wrongNotes: results.flat() })
         },
@@ -463,6 +493,7 @@ export const useSessionStore = create(
         pendingAttempts: persisted.pendingAttempts ?? [],
       }),
       storage: createJSONStorage(() => zustandStorage),
+      // localStorage에 저장할 필드만 고른다 (액션 함수는 저장하지 않음)
       partialize: (s) => ({
         current: s.current,
         history: s.history,
@@ -482,6 +513,7 @@ export function getSessionRoute(cur) {
   return ROUTES.PLAYER
 }
 
+// "이어서 할까요?" 모달에 띄울 문구
 export function resumeMessage(cur) {
   if (cur.phase === PHASE.LISTEN) {
     return `지난번 ${cur.unitTitle} 개념 듣기를 하던 중이었어요. 이어서 할까요?`

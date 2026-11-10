@@ -1,7 +1,8 @@
 import { formatClock } from '../lib/time'
 
+// 남은 시간 표시 (MM:SS)
 export default function TimerBadge({ seconds }) {
-  const urgent = seconds <= 60
+  const urgent = seconds <= 60 // 1분 이하면 빨간색
 
   return (
     <div

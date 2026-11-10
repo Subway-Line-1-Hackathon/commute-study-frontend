@@ -14,11 +14,13 @@ import {
 import { useAuthStore } from '../store/useAuthStore'
 import { getSessionRoute, useSessionStore } from '../store/useSessionStore'
 
+// 푸는 방식별 문제 양식 이름 (듣고 풀기는 객관식이 없다)
 const TYPE_LABEL = {
   [M.READ]: { [T.OX]: 'O/X 스와이프', [T.SHORT]: '단답형', [T.MCQ]: '객관식' },
   [M.LISTEN]: { [T.OX]: 'O/X', [T.SHORT]: '단답형' },
 }
 
+// 1단계에서 보여줄 푸는 방식 카드
 const MODE_OPTIONS = [
   {
     value: M.READ,
@@ -36,6 +38,7 @@ const MODE_OPTIONS = [
   },
 ]
 
+// 방식을 고르면 미리 체크해 둘 양식
 const DEFAULT_TYPES = { [M.READ]: [T.MCQ], [M.LISTEN]: [T.OX] }
 
 const DIFFICULTY_OPTIONS = [
@@ -46,6 +49,7 @@ const DIFFICULTY_OPTIONS = [
 
 // 출발 전 문제 설정. 단원 선택(S-11)·홈·오답 복습에서 draft를 받아 온다
 // draft: { source: 'categories'|'wrongNotes', categoryIds, unitId, unitTitle, subjectId }
+// 화면은 2단계: (1) 푸는 방식 선택 -> (2) 양식·난이도 선택 후 '출발하기'
 export default function S30Setup() {
   const navigate = useNavigate()
   const draft = useLocation().state?.draft
@@ -57,14 +61,17 @@ export default function S30Setup() {
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState('')
 
+  // 주소로 바로 들어오는 등 draft 없이 오면 홈으로
   if (!draft) return <Navigate to={ROUTES.HOME} replace />
 
   const title = draft.source === 'wrongNotes' ? '오답 복습' : draft.unitTitle
 
+  // 양식 체크/해제 (여러 개 선택 가능)
   const toggleType = (value) => {
     setTypes((prev) => (prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value]))
   }
 
+  // 방식을 고르면 2단계로 넘어가고, 양식은 기본값으로 다시 채운다
   const chooseMode = (value) => {
     setMode(value)
     setTypes(DEFAULT_TYPES[value])
@@ -79,6 +86,7 @@ export default function S30Setup() {
       const cur = await useSessionStore
         .getState()
         .createSession({ draft, solveMode: mode, types, difficulty, studyMin })
+      // 개념 듣기가 있으면 S35, 없으면 바로 S40으로
       navigate(getSessionRoute(cur), { replace: true })
     } catch (err) {
       setError(errorMessage(err, '문제를 만들지 못했어요. 잠시 후 다시 시도해 주세요.'))
@@ -86,6 +94,7 @@ export default function S30Setup() {
     }
   }
 
+  // 상단: 2단계에서는 '방식 다시 고르기'(1단계로), 1단계에서는 '뒤로'(이전 화면)
   const header = (
     <div className="flex items-center justify-between">
       <button
@@ -99,6 +108,7 @@ export default function S30Setup() {
     </div>
   )
 
+  // 세션 만드는 중 로딩 화면
   if (creating) {
     return (
       <div className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center bg-white px-5 py-4 text-center">
