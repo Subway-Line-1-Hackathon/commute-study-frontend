@@ -34,9 +34,9 @@ export default function QuestionCard({ question, value, onChange, onSubmit, resu
 
       {swipe && (
         <p className="mt-6 flex justify-between text-sm font-semibold">
-          <span className="text-red-500">← X</span>
+          <span className="text-green-600">← O</span>
           <span className="text-slate-400">밀어서 답하기</span>
-          <span className="text-green-600">O →</span>
+          <span className="text-red-500">X →</span>
         </p>
       )}
     </div>
