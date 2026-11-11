@@ -455,8 +455,12 @@ export const useSessionStore = create(
           const cur = get().current
           if (cur?.status !== S.IN_PROGRESS || !cur.serverId) return
           const res = await getCurrentSession()
-          if (!res || res.sessionId !== cur.serverId) {
-            set({ current: { ...cur, status: S.ENDED } })
+          if (!res || String(res.sessionId) !== String(cur.serverId)) {
+            const ended = { ...cur, status: S.ENDED }
+            set({
+              current: ended,
+              history: cur.answers.length > 0 ? [ended, ...get().history] : get().history,
+            })
           }
         },
 

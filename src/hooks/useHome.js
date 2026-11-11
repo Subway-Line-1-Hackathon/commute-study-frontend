@@ -1,5 +1,10 @@
-import { useEffect } from 'react'
-import { isUnitPreparing, MATERIAL_STATUS as M, SESSION_STATUS as S } from '../lib/constants'
+import { useEffect, useState } from 'react'
+import {
+  COMMUTE,
+  isUnitPreparing,
+  MATERIAL_STATUS as M,
+  SESSION_STATUS as S,
+} from '../lib/constants'
 import { getDDay } from '../lib/date'
 import { getOpenNotes } from '../lib/review'
 import { supabase } from '../lib/supabase'
@@ -9,6 +14,7 @@ import { getUnitGroups, useMaterialStore } from '../store/useMaterialStore'
 import { useSessionStore } from '../store/useSessionStore'
 
 const PENDING = [M.UPLOADING, M.UPLOADED, M.PROCESSING]
+const ONE_DAY = 24 * 60 * 60 * 1000
 
 function findSubject(session, materials, subjects) {
   if (!session) return null
@@ -73,9 +79,12 @@ export function useHome() {
   const subjects = useMaterialStore((s) => s.subjects)
   const materials = useMaterialStore((s) => s.materials)
   const categories = useMaterialStore((s) => s.categories)
+  const serverMaterials = useMaterialStore((s) => s.serverMaterials)
   const current = useSessionStore((s) => s.current)
   const history = useSessionStore((s) => s.history)
   const wrongNotes = useSessionStore((s) => s.wrongNotes)
+
+  const [openedAt] = useState(() => Date.now())
 
   useEffect(() => {
     syncWithServer()
@@ -88,14 +97,18 @@ export function useHome() {
 
   const last = resumable ?? history[0] ?? null
   const lastSubject = findSubject(last, materials, subjects)
-  const groups = getUnitGroups({ materials, categories, subjects })
+  const groups = getUnitGroups({ materials, categories, subjects, serverMaterials })
+  const openWrongCount = getOpenNotes(wrongNotes).length
 
   return {
     nickname: user?.nickname ?? '학습자',
     commute,
-    reviewOnly: isReviewOnly(commute?.studyMin ?? 0),
+    reviewOnly: isReviewOnly(commute?.studyMin ?? COMMUTE.DEFAULT),
     isFirst: materials.length === 0 && groups.length === 0,
     pendingMaterials: materials.filter((m) => PENDING.includes(m.status)),
+    failedMaterials: materials.filter(
+      (m) => m.status === M.FAILED && openedAt - m.createdAt < ONE_DAY,
+    ),
     preparingUnits: groups.flatMap((g) => g.units).filter(isUnitPreparing),
     hasUnits: groups.some((g) => g.units.length > 0),
     resumable,
@@ -104,6 +117,6 @@ export function useHome() {
     lastDDay: getDDay(lastSubject?.examDate),
     lastResult: getResult(last),
     nextUnit: findNextUnit(last, groups),
-    openWrongCount: getOpenNotes(wrongNotes).length,
+    openWrongCount,
   }
 }

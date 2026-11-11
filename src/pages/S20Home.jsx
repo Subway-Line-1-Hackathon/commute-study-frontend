@@ -9,6 +9,7 @@ import ReviewCard from '../components/home/ReviewCard'
 import { useHome } from '../hooks/useHome'
 import Screen from '../layouts/Screen'
 import { ROUTES } from '../lib/constants'
+import { useMaterialStore } from '../store/useMaterialStore'
 import { getSessionRoute } from '../store/useSessionStore'
 
 export default function S20Home() {
@@ -26,14 +27,41 @@ export default function S20Home() {
     navigate(ROUTES.SETUP, { state: { draft } })
   }
 
-  const showLastStudy = !home.isFirst && (home.hasUnits || home.last)
-  const showProcessing = home.pendingMaterials.length > 0 || home.preparingUnits.length > 0
+  const retryLast = () => {
+    const session = home.last
+    if (session.mode === 'review') {
+      navigate(ROUTES.REVIEW)
+      return
+    }
+    const draft = {
+      source: 'categories',
+      categoryIds: session.categoryIds ?? [],
+      unitId: session.unitId,
+      unitTitle: session.unitTitle,
+      subjectId: session.subjectId,
+    }
+    navigate(ROUTES.SETUP, { state: { draft } })
+  }
+
+  const handleFailed = (material) => {
+    if (!material.retried) {
+      useMaterialStore.getState().retryMaterial(material.id)
+      return
+    }
+    navigate(`${ROUTES.MATERIAL_UPLOAD}?subjectId=${material.subjectId}`)
+  }
+
+  const failed = home.reviewOnly ? [] : home.failedMaterials
+  const showFirstUpload = home.isFirst && !home.reviewOnly
+  const showLastStudy = home.reviewOnly || (!home.isFirst && (home.hasUnits || home.last))
+  const showProcessing =
+    home.pendingMaterials.length > 0 || home.preparingUnits.length > 0 || failed.length > 0
 
   let bottomCta = null
-  if (!home.isFirst) {
+  if (!home.isFirst && !home.reviewOnly) {
     bottomCta = (
       <Button variant="secondary" onClick={() => navigate(ROUTES.SUBJECT_NEW)}>
-        새 파일 업로드
+        새 자료 올리기
       </Button>
     )
   }
@@ -51,7 +79,7 @@ export default function S20Home() {
       <div className="mt-4 space-y-3">
         <CommuteCard commute={home.commute} />
 
-        {home.isFirst && <FirstUploadCard onClick={() => navigate(ROUTES.SUBJECT_NEW)} />}
+        {showFirstUpload && <FirstUploadCard onClick={() => navigate(ROUTES.SUBJECT_NEW)} />}
 
         {showLastStudy && (
           <LastStudyCard
@@ -59,12 +87,21 @@ export default function S20Home() {
             onResume={() => navigate(getSessionRoute(home.resumable))}
             onCreate={() => navigate(ROUTES.UNIT_PREVIEW)}
             onReview={() => navigate(ROUTES.REVIEW)}
+            onSettings={() => navigate(ROUTES.SETTINGS)}
             onStartNext={startUnit}
+            onRetry={retryLast}
           />
         )}
 
         {showProcessing && (
-          <ProcessingCard materials={home.pendingMaterials} units={home.preparingUnits} />
+          <ProcessingCard
+            materials={home.pendingMaterials}
+            units={home.preparingUnits}
+            failed={failed}
+            onClick={() => navigate(ROUTES.UNIT_PREVIEW)}
+            onOpenFailed={handleFailed}
+            onRemoveFailed={(id) => useMaterialStore.getState().removeFailedMaterial(id)}
+          />
         )}
 
         {home.openWrongCount > 0 && (

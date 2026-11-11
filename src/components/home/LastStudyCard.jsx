@@ -1,3 +1,4 @@
+import { SESSION_STATUS as S } from '../../lib/constants'
 import { withObject } from '../../lib/josa'
 import Button from '../Button'
 import Card from '../Card'
@@ -69,7 +70,7 @@ function ResumeCard({ home, onResume, onCreate, onReview }) {
   )
 }
 
-function DoneCard({ home, onCreate, onReview, onStartNext }) {
+function DoneCard({ home, onCreate, onStartNext }) {
   const result = home.lastResult
   const next = home.nextUnit
 
@@ -83,9 +84,7 @@ function DoneCard({ home, onCreate, onReview, onStartNext }) {
       단원 골라 시작
     </Button>
   )
-  if (home.reviewOnly) {
-    buttons = <Button onClick={onReview}>오답 복습하기</Button>
-  } else if (next) {
+  if (next) {
     buttons = (
       <>
         <Button onClick={() => onStartNext(next)} className="flex-1">
@@ -109,7 +108,7 @@ function DoneCard({ home, onCreate, onReview, onStartNext }) {
         {result.accuracy != null && <AccuracyRing percent={result.accuracy} />}
       </div>
 
-      {next && !home.reviewOnly && (
+      {next && (
         <div className="mt-4 border-t border-primary/15 pt-3">
           <p className="text-label font-normal text-muted">다음 단원 추천</p>
           <p className="mt-0.5 truncate text-body font-bold text-ink">
@@ -123,27 +122,73 @@ function DoneCard({ home, onCreate, onReview, onStartNext }) {
   )
 }
 
-function EmptyCard({ home, onCreate, onReview }) {
-  let button = (
-    <Button onClick={onCreate} disabled={!home.hasUnits}>
-      단원 골라 시작
-    </Button>
+function StoppedCard({ home, onCreate, onRetry }) {
+  return (
+    <Card tone="primary">
+      <CardHeader name={home.lastSubjectName} dDay={home.lastDDay} />
+      <p className="mt-1 text-body font-bold text-ink">{home.last.unitTitle}</p>
+      <Progress session={home.last} />
+
+      <div className="mt-4 flex gap-2">
+        <Button onClick={onRetry} className="flex-1">
+          이 단원 다시 풀기
+        </Button>
+        <Button variant="secondary" onClick={onCreate} className="flex-1">
+          다른 단원 고르기
+        </Button>
+      </div>
+    </Card>
   )
-  if (home.reviewOnly) {
-    button = <Button onClick={onReview}>오답 복습하기</Button>
+}
+
+function EmptyCard({ home, onCreate }) {
+  return (
+    <Card tone="primary">
+      <p className="text-body font-bold text-ink">첫 커리큘럼을 만들어 볼까요?</p>
+      <div className="mt-4">
+        <Button onClick={onCreate} disabled={!home.hasUnits}>
+          단원 골라 시작
+        </Button>
+      </div>
+    </Card>
+  )
+}
+
+function ReviewOnlyCard({ home, onReview, onSettings }) {
+  if (home.openWrongCount === 0) {
+    return (
+      <Card tone="primary">
+        <p className="text-body font-bold text-ink">아직 복습할 문제가 없어요</p>
+        <p className="mt-1 text-caption text-muted">
+          통학 시간이 {home.commute?.studyMin}분이라 오답 복습만 할 수 있어요. 시간을 늘리면 단원
+          학습을 할 수 있어요.
+        </p>
+        <div className="mt-4">
+          <Button variant="secondary" onClick={onSettings}>
+            통학 시간 바꾸기
+          </Button>
+        </div>
+      </Card>
+    )
   }
 
   return (
     <Card tone="primary">
-      <CardHeader name={home.lastSubjectName} dDay={home.lastDDay} />
-      <p className="mt-1 text-body font-bold text-ink">첫 커리큘럼을 만들어 볼까요?</p>
-      <div className="mt-4">{button}</div>
+      <p className="text-body font-bold text-ink">틀린 문제부터 복습해 볼까요?</p>
+      <p className="mt-1 text-caption text-muted">
+        통학 시간이 {home.commute?.studyMin}분이라 오답 복습만 할 수 있어요.
+      </p>
+      <div className="mt-4">
+        <Button onClick={onReview}>오답 복습하기</Button>
+      </div>
     </Card>
   )
 }
 
 export default function LastStudyCard(props) {
   if (props.home.resumable) return <ResumeCard {...props} />
+  if (props.home.reviewOnly) return <ReviewOnlyCard {...props} />
+  if (props.home.last?.status === S.ENDED) return <StoppedCard {...props} />
   if (props.home.last) return <DoneCard {...props} />
   return <EmptyCard {...props} />
 }

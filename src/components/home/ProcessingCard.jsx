@@ -21,10 +21,61 @@ function Row({ name, label }) {
   )
 }
 
-export default function ProcessingCard({ materials, units }) {
+function FailedRow({ name, retried, onClick, onRemove }) {
   return (
-    <Card title="준비 중인 자료">
+    <li className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex min-w-0 flex-1 items-center justify-between gap-3"
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="shrink-0 text-caption font-bold text-danger">✕</span>
+          <span className="truncate text-caption text-ink">{name}</span>
+        </span>
+        <span className="shrink-0 rounded-full bg-danger-soft px-2.5 py-1 text-label text-danger">
+          {retried ? '실패 · 다시 올리기 ›' : '실패 · 다시 시도 ›'}
+        </span>
+      </button>
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label="목록에서 지우기"
+        className="-m-1 shrink-0 p-1 text-caption text-muted"
+      >
+        ✕
+      </button>
+    </li>
+  )
+}
+
+export default function ProcessingCard({
+  materials,
+  units,
+  failed,
+  onClick,
+  onOpenFailed,
+  onRemoveFailed,
+}) {
+  return (
+    <Card>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h2 className="text-caption text-muted">준비 중인 자료</h2>
+        <button type="button" onClick={onClick} className="text-caption font-bold text-primary">
+          단원 보기 ›
+        </button>
+      </div>
+
       <ul className="space-y-2.5">
+        {failed.map((m) => (
+          <FailedRow
+            key={m.id}
+            name={m.fileName}
+            retried={m.retried}
+            onClick={() => onOpenFailed(m)}
+            onRemove={() => onRemoveFailed(m.id)}
+          />
+        ))}
         {materials.map((m) => (
           <Row key={m.id} name={m.fileName} label={LABEL[m.status]} />
         ))}

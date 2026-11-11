@@ -3,10 +3,14 @@ import Card from '../Card'
 export default function ReviewCard({ count, onClick }) {
   return (
     <Card>
-      <button type="button" onClick={onClick} className="flex w-full items-center justify-between">
-        <span className="text-body font-bold text-ink">복습할 문제 {count}개</span>
-        <span className="text-caption font-bold text-primary">복습하기 ›</span>
-      </button>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-caption text-muted">오답 노트</h2>
+        <button type="button" onClick={onClick} className="text-caption font-bold text-primary">
+          전체 보기 ›
+        </button>
+      </div>
+
+      <p className="mt-2 text-body font-bold text-ink">복습할 문제 {count}개</p>
     </Card>
   )
 }
