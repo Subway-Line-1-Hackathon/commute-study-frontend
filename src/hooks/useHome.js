@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { MATERIAL_STATUS as M, SESSION_STATUS as S } from '../lib/constants'
+import { isUnitPreparing, MATERIAL_STATUS as M, SESSION_STATUS as S } from '../lib/constants'
 import { getDDay } from '../lib/date'
 import { getOpenNotes } from '../lib/review'
 import { supabase } from '../lib/supabase'
@@ -21,6 +21,37 @@ function findSubject(session, materials, subjects) {
   if (!material) return null
 
   return subjects.find((s) => s.id === material.subjectId) ?? null
+}
+
+function getResult(session) {
+  if (!session) return null
+
+  const scored = session.answers.filter((a) => a.correct != null)
+  const correct = scored.filter((a) => a.correct).length
+
+  let accuracy = null
+  if (scored.length > 0) {
+    accuracy = Math.round((correct / scored.length) * 100)
+  }
+
+  return { answered: session.answers.length, scored: scored.length, correct, accuracy }
+}
+
+function findNextUnit(session, groups) {
+  if (!session) return null
+
+  for (const group of groups) {
+    const index = group.units.findIndex((unit) => unit.id === session.unitId)
+    if (index === -1) continue
+
+    for (let i = index + 1; i < group.units.length; i++) {
+      const unit = group.units[i]
+      if (!isUnitPreparing(unit)) return { ...unit, number: i + 1 }
+    }
+    return null
+  }
+
+  return null
 }
 
 function syncWithServer() {
@@ -64,12 +95,15 @@ export function useHome() {
     commute,
     reviewOnly: isReviewOnly(commute?.studyMin ?? 0),
     isFirst: materials.length === 0 && groups.length === 0,
-    isProcessing: materials.some((m) => PENDING.includes(m.status)),
+    pendingMaterials: materials.filter((m) => PENDING.includes(m.status)),
+    preparingUnits: groups.flatMap((g) => g.units).filter(isUnitPreparing),
     hasUnits: groups.some((g) => g.units.length > 0),
     resumable,
     last,
     lastSubjectName: lastSubject?.name ?? '',
     lastDDay: getDDay(lastSubject?.examDate),
+    lastResult: getResult(last),
+    nextUnit: findNextUnit(last, groups),
     openWrongCount: getOpenNotes(wrongNotes).length,
   }
 }

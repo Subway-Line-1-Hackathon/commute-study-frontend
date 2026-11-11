@@ -518,5 +518,5 @@ export function resumeMessage(cur) {
   if (cur.phase === PHASE.LISTEN) {
     return `지난번 ${cur.unitTitle} 개념 듣기를 하던 중이었어요. 이어서 할까요?`
   }
-  return `지난번 ${cur.unitTitle} ${cur.answers.length}/${cur.questions.length}문제까지 풀었어요. 이어서 할까요?`
+  return `지난번 ${cur.unitTitle} ${cur.questions.length}문제 중 ${cur.answers.length}문제를 풀었어요. 이어서 할까요?`
 }
