@@ -36,6 +36,7 @@ export default function S40Player() {
   const [selfCheck, setSelfCheck] = useState(null) // AI 판정이 늦을 때 { question, value }
   const [timeUp, setTimeUp] = useState(false) // 시간이 다 돼서 끝났는지 (팝업 표시)
   const [confirmEnd, setConfirmEnd] = useState(false) // '학습 종료' 확인 팝업
+  const [confirmLeave, setConfirmLeave] = useState(false)
   const [warn, setWarn] = useState(false) // 상단 "곧 끝나요" 배너
   const [paused, setPaused] = useState(false) // 듣고 풀기 일시정지
 
@@ -152,10 +153,15 @@ export default function S40Player() {
       )}
 
       <div className="flex items-center justify-between">
-        <button onClick={() => setConfirmEnd(true)} className="py-2 text-sm text-slate-500">
-          ‹ 학습 종료
+        <button onClick={() => setConfirmLeave(true)} className="py-2 text-sm text-slate-500">
+          ‹ 나가기
         </button>
-        <TimerBadge seconds={cur.quizRemainingSec} />
+        <div className="flex items-center gap-3">
+          <TimerBadge seconds={cur.quizRemainingSec} />
+          <button onClick={() => setConfirmEnd(true)} className="py-2 text-sm text-slate-500">
+            종료
+          </button>
+        </div>
       </div>
 
       <div className="mt-2">
@@ -245,6 +251,17 @@ export default function S40Player() {
           cancelLabel="계속 풀기"
           onConfirm={handleEnd}
           onCancel={() => setConfirmEnd(false)}
+        />
+      )}
+
+      {confirmLeave && (
+        <ConfirmModal
+          title="학습을 일시 중단할까요?"
+          message="나중에 멈춘 곳부터 다시 풀 수 있어요."
+          confirmLabel="나가기"
+          cancelLabel="계속 풀기"
+          onConfirm={() => navigate(ROUTES.HOME, { replace: true })}
+          onCancel={() => setConfirmLeave(false)}
         />
       )}
 
