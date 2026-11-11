@@ -1,3 +1,5 @@
+// 여러 개 중 하나를 고르는 탭 모양 토글 (예: 눈으로 풀기 | 듣고 풀기)
+// options: [{ value, label }], value: 지금 선택된 값
 export default function SegmentedToggle({ options, value, onChange }) {
   return (
     <div className="flex rounded-xl bg-slate-100 p-1">

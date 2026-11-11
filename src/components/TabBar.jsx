@@ -16,6 +16,8 @@ const TABS = [
   { to: ROUTES.SETTINGS, label: '설정', on: settingsOn, off: settingsOff },
 ]
 
+// 하단 탭바. NavLink가 현재 주소와 같은 탭에 isActive를 줘서 켜진 아이콘을 보여준다
+// replace: 탭 이동은 뒤로가기 기록에 쌓지 않는다
 export default function TabBar() {
   return (
     <nav className="sticky bottom-0 z-10 flex h-16 border-t border-line bg-surface">

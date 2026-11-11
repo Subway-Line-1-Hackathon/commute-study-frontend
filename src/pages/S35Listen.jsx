@@ -8,6 +8,10 @@ import { PHASE, ROUTES, SESSION_STATUS as S } from '../lib/constants'
 import { createSpeaker, isSpeechSupported } from '../lib/speaker'
 import { getSessionRoute, useSessionStore } from '../store/useSessionStore'
 
+// S35 개념 듣기: 요약 대본을 문단별로 TTS로 읽어 준다
+// 개념 시간이 다 되거나 '건너뛰기'를 누르면 문제 풀이(S40)로 넘어간다
+
+// 재생 속도 선택지
 const RATE_OPTIONS = [
   { value: 0.8, label: '0.8x' },
   { value: 1, label: '1x' },
@@ -21,12 +25,15 @@ export default function S35Listen() {
   const skipListening = useSessionStore((s) => s.skipListening)
   const endSession = useSessionStore((s) => s.endSession)
 
+  // 지금 문단 번호. 이어 듣기면 저장된 위치부터 시작
   const [index, setIndex] = useState(() => useSessionStore.getState().current?.listenIndex ?? 0)
   const [playing, setPlaying] = useState(false)
   const [rate, setRate] = useState(1)
-  const [finished, setFinished] = useState(false)
+  const [finished, setFinished] = useState(false) // 마지막 문단까지 다 들었는지
   const [confirm, setConfirm] = useState(null) // 'skip' | 'end' | null
 
+  // 음성 플레이어는 화면이 처음 그려질 때 한 번만 만든다 (useState 초기화 함수는 한 번만 실행됨)
+  // 문단이 바뀔 때마다 화면 번호와 스토어(이어 듣기 위치)를 갱신한다
   const [speaker] = useState(() => {
     const sp = createSpeaker({
       onIndex: (i) => {
@@ -44,9 +51,9 @@ export default function S35Listen() {
   })
 
   const running = cur?.status === S.IN_PROGRESS && cur?.phase === PHASE.LISTEN
-  useWakeLock(running)
+  useWakeLock(running) // 듣는 동안 화면 꺼짐 방지
 
-  // 1초마다 개념 시간 감소. 0이 되면 스토어가 문제 설정 단계로 바꾼다
+  // 1초마다 개념 시간 감소. 0이 되면 스토어가 문제 풀이 단계로 바꾼다
   useEffect(() => {
     if (!running) return
     const id = setInterval(() => useSessionStore.getState().tick(), 1000)
@@ -56,6 +63,7 @@ export default function S35Listen() {
   // 화면을 떠나면 음성을 멈춘다
   useEffect(() => () => speaker.stop(), [speaker])
 
+  // 세션이 없거나 듣기 단계가 아니면 맞는 화면으로 보낸다 (시간이 다 돼서 QUIZ로 바뀐 경우 포함)
   if (!cur) return <Navigate to={ROUTES.HOME} replace />
   if (cur.phase !== PHASE.LISTEN || cur.status === S.COMPLETED || cur.status === S.ENDED) {
     return <Navigate to={getSessionRoute(cur)} replace />
@@ -65,6 +73,7 @@ export default function S35Listen() {
   const seg = script[index]
   const supported = isSpeechSupported()
 
+  // 재생/일시정지. 다 들은 상태에서 누르면 처음부터 다시
   const togglePlay = () => {
     if (playing) {
       speaker.pause()
@@ -84,17 +93,19 @@ export default function S35Listen() {
     speaker.setRate(value)
   }
 
+  // 건너뛰기: 남은 개념 시간을 문제 시간에 더하고 문제 풀이로
   const handleSkip = () => {
     speaker.stop()
     setConfirm(null)
     skipListening()
-    navigate(ROUTES.SETUP, { replace: true })
+    navigate(ROUTES.PLAYER, { replace: true })
   }
 
+  // 학습 종료: 세션을 끝내고 홈으로
   const handleEnd = () => {
     speaker.stop()
     setConfirm(null)
-    endSession()
+    endSession('QUIT')
     navigate(ROUTES.HOME, { replace: true })
   }
 
@@ -125,7 +136,7 @@ export default function S35Listen() {
             <span>
               문단 {index + 1} / {script.length}
             </span>
-            {seg && <span>자료 {seg.sourcePage}쪽</span>}
+            {seg?.sourcePage != null && <span>자료 {seg.sourcePage}쪽</span>}
           </div>
           <p className="mt-4 text-lg leading-relaxed text-slate-900">{seg?.text}</p>
         </div>

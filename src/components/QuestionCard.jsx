@@ -3,6 +3,7 @@ import SwipeCard from './SwipeCard'
 
 const TYPE_LABEL = { [T.OX]: 'O/X', [T.MCQ]: '객관식', [T.SHORT]: '단답형' }
 
+// 보기 버튼 색: 제출 전에는 고른 것만 파랑, 제출 후(locked)에는 정답 초록 / 내가 고른 오답 빨강
 function optionClass(opt, { value, locked, answer }) {
   const base = 'w-full rounded-xl border px-4 py-3.5 font-medium transition'
   if (locked) {
@@ -18,9 +19,9 @@ function optionClass(opt, { value, locked, answer }) {
 // value: 현재 선택/입력값, result: 제출 후 { correct } (제출 전에는 null)
 // onSubmit(v): O/X처럼 고르는 즉시 제출하는 경우 사용
 export default function QuestionCard({ question, value, onChange, onSubmit, result }) {
-  const locked = Boolean(result)
+  const locked = Boolean(result) // 제출했으면 더 못 바꾼다
   const isOX = question.type === T.OX
-  const swipe = isOX && !locked
+  const swipe = isOX && !locked // O/X 문제는 제출 전까지 카드를 좌우로 밀어서 답할 수 있다
   const options = isOX ? ['O', 'X'] : (question.choices ?? [])
 
   const card = (
@@ -34,9 +35,9 @@ export default function QuestionCard({ question, value, onChange, onSubmit, resu
 
       {swipe && (
         <p className="mt-6 flex justify-between text-sm font-semibold">
-          <span className="text-red-500">← X</span>
+          <span className="text-green-600">← O</span>
           <span className="text-slate-400">밀어서 답하기</span>
-          <span className="text-green-600">O →</span>
+          <span className="text-red-500">X →</span>
         </p>
       )}
     </div>
@@ -47,6 +48,7 @@ export default function QuestionCard({ question, value, onChange, onSubmit, resu
       {swipe ? <SwipeCard onSwipe={(v) => onSubmit?.(v)}>{card}</SwipeCard> : card}
 
       <div className="mt-5">
+        {/* 단답형: 입력칸 (Enter로 제출) / 그 외: 보기 버튼 */}
         {question.type === T.SHORT ? (
           <input
             value={value}

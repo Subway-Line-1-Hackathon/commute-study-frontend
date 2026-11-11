@@ -20,12 +20,21 @@ import S51Report from '../pages/S51Report'
 import S52WrongNotes from '../pages/S52WrongNotes'
 import S60Settings from '../pages/S60Settings'
 
+// 전체 화면 라우팅 표
+// 화면 이름 S00~S60은 기획서의 화면 번호와 같다
+// - RequireAuth: 로그인만 되어 있으면 통과 (온보딩: 닉네임, 통학 시간)
+// - RequireActive: 온보딩까지 끝난 ACTIVE 유저만 통과 (홈, 학습 화면)
+// - TabLayout 안의 화면만 하단 탭바가 보인다
 export default function AppRouter() {
   return (
     <Routes>
+      {/* 모든 화면을 감싸는 공통 레이아웃 (모바일 폭 고정) */}
       <Route element={<AppLayout />}>
+        {/* 누구나 들어올 수 있는 화면 */}
         <Route path={ROUTES.SPLASH} element={<S00Splash />} />
         <Route path={ROUTES.LOGIN} element={<S01Login />} />
+
+        {/* 온보딩: 로그인만 필요 */}
 
         <Route
           path={ROUTES.NICKNAME}
@@ -43,6 +52,7 @@ export default function AppRouter() {
             </RequireAuth>
           }
         />
+        {/* 과목·자료 등록 흐름: 과목 만들기 -> 업로드/분석 대기 -> 단원 미리보기 */}
         <Route
           path={ROUTES.SUBJECT_NEW}
           element={
@@ -68,6 +78,7 @@ export default function AppRouter() {
           }
         />
 
+        {/* 학습 흐름: 개념 듣기 -> 문제 설정 -> (복습) -> 문제 풀이 -> 결과 요약 */}
         <Route
           path={ROUTES.LISTEN}
           element={
@@ -109,6 +120,7 @@ export default function AppRouter() {
           }
         />
 
+        {/* 하단 탭바가 있는 화면: 홈 / 오답노트 / 리포트 / 설정 */}
         <Route element={<TabLayout />}>
           <Route
             path={ROUTES.HOME}
@@ -144,6 +156,7 @@ export default function AppRouter() {
           />
         </Route>
 
+        {/* 없는 주소는 스플래시로 보낸다 (스플래시가 상태에 맞는 화면으로 다시 보냄) */}
         <Route path="*" element={<Navigate to={ROUTES.SPLASH} replace />} />
       </Route>
     </Routes>

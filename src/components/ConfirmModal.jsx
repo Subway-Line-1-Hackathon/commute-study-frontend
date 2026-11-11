@@ -1,3 +1,5 @@
+// 확인/취소 팝업 (화면 전체를 어둡게 덮고 아래쪽에 뜬다)
+// onCancel을 안 넘기면 확인 버튼만 보인다 (단순 알림용)
 export default function ConfirmModal({
   title,
   message,
