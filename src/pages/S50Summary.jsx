@@ -12,6 +12,7 @@ import {
   WRONG_STATUS,
 } from '../lib/constants'
 import { getReport } from '../lib/endpoints'
+import { cleanSummaryLine } from '../lib/question'
 import { wait } from '../lib/storage'
 import { useMaterialStore } from '../store/useMaterialStore'
 import { useSessionStore } from '../store/useSessionStore'
@@ -51,11 +52,16 @@ function useSessionFeedback(cur) {
   return feedback
 }
 
-// 문제 해설 한 줄 (없으면 아무것도 안 그림)
+// 문제 해설 한 줄 + 근거 쪽수 (둘 다 없으면 아무것도 안 그림)
 function Explanation({ question }) {
-  const { explanation } = useExplanation(question)
-  if (!explanation) return null
-  return <p className="mt-2 text-xs leading-relaxed text-slate-500">{explanation}</p>
+  const { explanation, sourcePage } = useExplanation(question)
+  if (!explanation && sourcePage == null) return null
+  return (
+    <p className="mt-2 text-xs leading-relaxed text-slate-500">
+      {explanation}
+      {sourcePage != null && <span className="ml-1 text-slate-400">(자료 {sourcePage}쪽)</span>}
+    </p>
+  )
 }
 
 // 초 -> "3분 20초" / "45초"
@@ -109,7 +115,7 @@ export default function S50Summary() {
     .find((u) => u.id === cur.unitId)
   // 서버 세션은 받은 요약문을, Mock은 자료 요약을 보여준다
   const summaryLines = cur.serverId
-    ? cur.script.map((seg) => seg.text)
+    ? cur.script.map((seg) => cleanSummaryLine(seg.text))
     : [unit?.summary].filter(Boolean)
 
   const timeUp = cur.status === S.ENDED // 다 풀기 전에 끝남 (시간 종료 또는 중단)

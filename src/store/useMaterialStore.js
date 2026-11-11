@@ -226,7 +226,7 @@ export const useMaterialStore = create(
 
         // 자료 업로드 시작. 목록에 UPLOADING 상태로 먼저 추가하고(화면에 바로 보이게),
         // 실제 전송은 큐에 넣어 하나씩 처리한다. 프론트 임시 id를 바로 돌려준다
-        // files: PDF/PPTX 1개 또는 PNG 여러 장(한 자료로 묶임)
+        // files: PDF/PPTX 1개 또는 사진(PNG·JPG) 여러 장(한 자료로 묶임)
         uploadMaterial: (subjectId, files) => {
           const id = uid()
           const first = files[0]

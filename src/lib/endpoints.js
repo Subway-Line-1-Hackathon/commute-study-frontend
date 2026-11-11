@@ -1,6 +1,6 @@
 // Swagger(/v3/api-docs) 기준 엔드포인트 모음
 // 화면·스토어는 fetch를 직접 쓰지 않고 여기 함수를 부른다. 각 함수 위 주석은 요청 body 또는 응답 형태
-// 아직 화면에서 안 쓰는 것: getSettings, getAiQuota, askQuestion (AI 질문 기능 예정)
+// 아직 화면에서 안 쓰는 것: getSettings (getMe 응답에 settings가 들어 있어서)
 import { api, ApiError, apiUrl, authHeader } from './api'
 
 // 사용자
@@ -8,6 +8,8 @@ export const getMe = () => api('/api/users/me')
 export const getSettings = () => api('/api/users/me/settings')
 // { nickname, oneWayMin, fromStation, toStation }
 export const saveSettings = (body) => api('/api/users/me/settings', { method: 'PUT', body })
+// 회원 탈퇴. 계정과 모든 학습 기록을 즉시 삭제한다 (204, 되돌릴 수 없음). 502면 다시 시도
+export const withdraw = () => api('/api/users/me', { method: 'DELETE' })
 
 // 과목
 export const getSubjects = () => api('/api/subjects')
@@ -25,7 +27,7 @@ export const getReport = (subjectId, { scope, sessionId } = {}) =>
 // 자료
 // { materials: [{ id, subjectId, fileName, status, createdAt }] } 최신순
 export const getMaterials = () => api('/api/materials')
-// PDF/PPTX 1개 또는 PNG 1~20장 -> { materialId, status }
+// PDF/PPTX 1개 또는 사진(PNG·JPG 섞어도 됨) 1~20장 -> { materialId, status }
 export const uploadMaterial = (subjectId, files, kind = 'LECTURE') => {
   const fd = new FormData()
   for (const f of [].concat(files)) fd.append('file', f)

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import AskAi from '../components/AskAi'
 import BackButton from '../components/BackButton'
 import SegmentedToggle from '../components/SegmentedToggle'
 import { useExplanation } from '../hooks/useExplanation'
@@ -17,13 +18,15 @@ const formatDate = (ts) =>
 
 // 정답·해설. 서버 오답노트에는 정답이 없어서 해설을 조회한다
 function AnswerDetail({ question }) {
-  const { explanation, loaded } = useExplanation(question)
+  const { explanation, sourcePage, loaded } = useExplanation(question)
   return (
     <div className="mt-2 rounded-lg bg-slate-50 p-3 text-sm">
       {question.answer && <p className="font-semibold text-green-600">정답: {question.answer}</p>}
       <p className="mt-1 text-xs leading-relaxed text-slate-500">
         {explanation ?? (loaded ? '해설이 없어요.' : '해설을 불러오고 있어요…')}
       </p>
+      {sourcePage != null && <p className="mt-1 text-xs text-slate-400">자료 {sourcePage}쪽</p>}
+      <AskAi questionId={question.id} />
     </div>
   )
 }
@@ -56,7 +59,8 @@ export default function S52WrongNotes() {
     setShownIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-slate-50 px-5 py-4">
+    // 높이에서 하단 탭바(h-16 = 4rem)를 빼야 맨 아래 문구가 탭바에 가려지지 않는다
+    <div className="mx-auto flex min-h-[calc(100dvh-4rem)] max-w-md flex-col bg-slate-50 px-5 py-4">
       <BackButton to={ROUTES.HOME} />
       <h1 className="mt-2 text-2xl font-bold text-slate-900">오답노트</h1>
 

@@ -145,7 +145,7 @@ export default function S40Player() {
   }
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-slate-50 px-5 py-4">
+    <div className="mx-auto flex min-h-screen max-w-md flex-col overflow-x-hidden bg-slate-50 px-5 py-4">
       {warn && (
         <div className="fixed top-4 left-1/2 z-40 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 rounded-xl bg-amber-500 px-4 py-3 text-center text-sm font-semibold text-white shadow-lg">
           곧 끝나요! 학습 종료까지 {WARNING_SEC / 60}분 남았어요.
@@ -280,7 +280,7 @@ export default function S40Player() {
 // 채점 결과. 해설이 없으면(서버 단답형) 서버에서 조회한다
 function Feedback({ feedback }) {
   const { question, correct, reason } = feedback
-  const { explanation } = useExplanation(question)
+  const { explanation, sourcePage } = useExplanation(question)
   return (
     <div
       className={`mt-4 rounded-xl p-4 ${correct ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}
@@ -289,19 +289,21 @@ function Feedback({ feedback }) {
       {!correct && question.answer && <p className="mt-1 text-sm">정답: {question.answer}</p>}
       {reason && <p className="mt-1 text-sm">{reason}</p>}
       {explanation && <p className="mt-2 text-sm opacity-80">{explanation}</p>}
+      {sourcePage != null && <p className="mt-1 text-xs opacity-60">자료 {sourcePage}쪽</p>}
     </div>
   )
 }
 
 // AI 판정이 늦거나 실패했을 때: 해설을 보여주고 맞음/틀림을 직접 고른다
 function SelfJudge({ question, value, onJudge }) {
-  const { explanation } = useExplanation(question)
+  const { explanation, sourcePage } = useExplanation(question)
   return (
     <div className="mt-4 rounded-xl bg-amber-50 p-4 text-amber-900">
       <p className="font-semibold">자동 채점이 늦어지고 있어요</p>
       <p className="mt-1 text-sm">내 답: {value}</p>
       {question.answer && <p className="mt-1 text-sm">정답: {question.answer}</p>}
       {explanation && <p className="mt-2 text-sm opacity-80">{explanation}</p>}
+      {sourcePage != null && <p className="mt-1 text-xs opacity-60">자료 {sourcePage}쪽</p>}
       <p className="mt-3 text-sm">내 답이 맞았나요?</p>
       <div className="mt-2 grid grid-cols-2 gap-3">
         <button

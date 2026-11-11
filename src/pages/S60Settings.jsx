@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import BackButton from '../components/BackButton'
+import ConfirmModal from '../components/ConfirmModal'
 import MinuteStepper from '../components/MinuteStepper'
 import TextField from '../components/TextField'
 import { errorMessage } from '../lib/api'
@@ -21,6 +22,10 @@ export default function S60Settings() {
   const commute = useAuthStore((s) => s.commute)
   const saveProfile = useAuthStore((s) => s.saveProfile)
   const logout = useAuthStore((s) => s.logout)
+  const withdraw = useAuthStore((s) => s.withdraw)
+  const [confirmWithdraw, setConfirmWithdraw] = useState(false) // 탈퇴 확인 창 표시
+  const [withdrawing, setWithdrawing] = useState(false)
+  const [withdrawError, setWithdrawError] = useState('')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
 
@@ -78,8 +83,23 @@ export default function S60Settings() {
     navigate(ROUTES.LOGIN, { replace: true })
   }
 
+  // 회원 탈퇴: 확인 창 -> 서버 삭제 -> 로그인 화면. 실패하면 문구를 띄우고 다시 누를 수 있다
+  const handleWithdraw = async () => {
+    setConfirmWithdraw(false)
+    setWithdrawing(true)
+    setWithdrawError('')
+    try {
+      await withdraw()
+      navigate(ROUTES.LOGIN, { replace: true })
+    } catch (err) {
+      setWithdrawError(errorMessage(err, '탈퇴하지 못했어요. 잠시 후 다시 시도해 주세요.'))
+      setWithdrawing(false)
+    }
+  }
+
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-slate-50 px-5 py-4">
+    // 높이에서 하단 탭바(h-16 = 4rem)를 빼야 맨 아래 버튼이 탭바에 가려지지 않는다
+    <div className="mx-auto flex min-h-[calc(100dvh-4rem)] max-w-md flex-col bg-slate-50 px-5 py-4">
       <BackButton to={ROUTES.HOME} />
       <h1 className="mt-2 text-2xl font-bold text-slate-900">설정</h1>
 
@@ -167,7 +187,25 @@ export default function S60Settings() {
         >
           로그아웃
         </button>
+        <button
+          onClick={() => setConfirmWithdraw(true)}
+          disabled={withdrawing}
+          className="mt-3 w-full py-2 text-sm text-slate-400 underline disabled:opacity-50"
+        >
+          {withdrawing ? '탈퇴 처리 중…' : '회원 탈퇴'}
+        </button>
+        {withdrawError && <p className="mt-2 text-center text-sm text-red-500">{withdrawError}</p>}
       </div>
+
+      {confirmWithdraw && (
+        <ConfirmModal
+          title="정말 탈퇴할까요?"
+          message="과목, 자료, 학습 기록, 오답노트가 모두 바로 삭제되고 되돌릴 수 없어요."
+          confirmLabel="탈퇴하기"
+          onConfirm={handleWithdraw}
+          onCancel={() => setConfirmWithdraw(false)}
+        />
+      )}
     </div>
   )
 }

@@ -46,17 +46,16 @@ export default function SwipeCard({ disabled, onSwipe, children }) {
       }}
     >
       {children}
+      {/* 민 방향의 답을 카드 전체에 반투명하게 덮어 보여준다 (문제 글자·화살표 안내와 겹쳐 헷갈리지 않게) */}
       {dx !== 0 && (
-        <span
-          className={`pointer-events-none absolute top-4 rounded-lg border-4 px-3 py-1 text-3xl font-black ${
-            dx < 0
-              ? 'right-4 rotate-12 border-green-500 text-green-500'
-              : 'left-4 -rotate-12 border-red-500 text-red-500'
+        <div
+          className={`pointer-events-none absolute inset-0 flex items-center justify-center rounded-2xl ${
+            dx < 0 ? 'bg-green-50/90 text-green-600' : 'bg-red-50/90 text-red-500'
           }`}
           style={{ opacity: strength }}
         >
-          {dx < 0 ? 'O' : 'X'}
-        </span>
+          <span className="text-6xl font-black">{dx < 0 ? 'O' : 'X'}</span>
+        </div>
       )}
     </div>
   )

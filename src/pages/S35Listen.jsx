@@ -5,6 +5,7 @@ import SegmentedToggle from '../components/SegmentedToggle'
 import TimerBadge from '../components/TimerBadge'
 import { useWakeLock } from '../hooks/useWakeLock'
 import { PHASE, ROUTES, SESSION_STATUS as S } from '../lib/constants'
+import { cleanSummaryLine } from '../lib/question'
 import { createSpeaker, isSpeechSupported } from '../lib/speaker'
 import { getSessionRoute, useSessionStore } from '../store/useSessionStore'
 
@@ -133,9 +134,10 @@ export default function S35Listen() {
             <span>
               문단 {index + 1} / {script.length}
             </span>
-            {seg?.sourcePage != null && <span>자료 {seg.sourcePage}쪽</span>}
           </div>
-          <p className="mt-4 text-lg leading-relaxed text-slate-900">{seg?.text}</p>
+          <p className="mt-4 text-lg leading-relaxed text-slate-900">
+            {cleanSummaryLine(seg?.text)}
+          </p>
         </div>
 
         <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-200">
