@@ -3,7 +3,7 @@ export default function FirstUploadCard({ onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full flex-col items-center gap-1 rounded-xl border-2 border-dashed border-primary/40 bg-surface px-4 py-10 active:bg-background"
+      className="flex w-full flex-col items-center gap-1 rounded-xl border-2 border-dashed border-primary/40 bg-surface px-4 py-10"
     >
       <span className="text-question text-primary">첫 자료 올리기</span>
       <span className="text-caption text-muted">

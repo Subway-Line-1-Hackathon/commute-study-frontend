@@ -104,7 +104,7 @@ export default function S10Waiting() {
         type="button"
         onClick={() => fileRef.current?.click()}
         disabled={room <= 0}
-        className="mt-6 flex flex-col items-center gap-1 rounded-xl border-2 border-dashed border-primary/40 bg-surface px-4 py-8 text-center active:bg-background disabled:opacity-40"
+        className="mt-6 flex flex-col items-center gap-1 rounded-xl border-2 border-dashed border-primary/40 bg-surface px-4 py-8 text-center disabled:opacity-40"
       >
         <span className="text-body font-bold text-primary">파일 선택</span>
         <span className="text-caption text-muted">

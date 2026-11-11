@@ -63,7 +63,7 @@ export default function S52WrongNotes() {
       <button
         onClick={() => navigate(ROUTES.REVIEW)}
         disabled={open.length === 0}
-        className="mt-4 w-full rounded-xl bg-blue-600 py-3.5 font-semibold text-white active:bg-blue-700 disabled:bg-slate-300"
+        className="mt-4 w-full rounded-xl bg-blue-600 py-3.5 font-semibold text-white disabled:bg-slate-300"
       >
         미해결 오답 복습하기{open.length > 0 && ` (${open.length})`}
       </button>

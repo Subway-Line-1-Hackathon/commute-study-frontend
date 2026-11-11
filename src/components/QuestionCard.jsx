@@ -12,7 +12,7 @@ function optionClass(opt, { value, locked, answer }) {
     return `${base} border-slate-200 bg-white text-slate-400`
   }
   if (opt === value) return `${base} border-blue-600 bg-blue-50 text-blue-700`
-  return `${base} border-slate-300 bg-white text-slate-700 active:bg-slate-50`
+  return `${base} border-slate-300 bg-white text-slate-700`
 }
 
 // 눈으로 풀기용 문제 카드

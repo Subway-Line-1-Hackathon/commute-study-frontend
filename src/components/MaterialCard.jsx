@@ -83,7 +83,7 @@ export default function MaterialCard({ material, onRetry }) {
             <button
               type="button"
               onClick={() => onRetry(material.id)}
-              className="shrink-0 rounded-lg border border-line bg-surface px-3 py-1.5 text-caption font-bold text-ink active:bg-background"
+              className="shrink-0 rounded-lg border border-line bg-surface px-3 py-1.5 text-caption font-bold text-ink"
             >
               다시 시도
             </button>

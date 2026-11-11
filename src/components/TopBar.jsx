@@ -18,18 +18,12 @@ export default function TopBar({ backTo, showLogout = true, showSettings = false
       {backTo ? <BackButton to={backTo} /> : <span />}
       <div className="flex items-center gap-4">
         {showSettings && (
-          <button
-            onClick={() => navigate(ROUTES.SETTINGS)}
-            className="py-2 text-sm text-slate-500 active:text-slate-800"
-          >
+          <button onClick={() => navigate(ROUTES.SETTINGS)} className="py-2 text-sm text-slate-500">
             설정
           </button>
         )}
         {showLogout && (
-          <button
-            onClick={handleLogout}
-            className="py-2 text-sm text-slate-500 active:text-slate-800"
-          >
+          <button onClick={handleLogout} className="py-2 text-sm text-slate-500">
             로그아웃
           </button>
         )}

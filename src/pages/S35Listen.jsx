@@ -112,10 +112,7 @@ export default function S35Listen() {
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col bg-slate-50 px-5 py-4">
       <div className="flex items-center justify-between">
-        <button
-          onClick={() => setConfirm('end')}
-          className="py-2 text-sm text-slate-500 active:text-slate-800"
-        >
+        <button onClick={() => setConfirm('end')} className="py-2 text-sm text-slate-500">
           ‹ 학습 종료
         </button>
         <TimerBadge seconds={cur.conceptRemainingSec} />
@@ -164,7 +161,7 @@ export default function S35Listen() {
           </button>
           <button
             onClick={togglePlay}
-            className="flex h-20 w-20 items-center justify-center rounded-full bg-blue-600 text-3xl text-white shadow-lg active:bg-blue-700"
+            className="flex h-20 w-20 items-center justify-center rounded-full bg-blue-600 text-3xl text-white shadow-lg"
           >
             {playing ? '⏸' : '▶'}
           </button>
@@ -186,7 +183,7 @@ export default function S35Listen() {
       <div className="pt-6">
         <button
           onClick={() => setConfirm('skip')}
-          className="w-full rounded-xl border border-slate-300 bg-white py-3.5 font-semibold text-slate-700 active:bg-slate-50"
+          className="w-full rounded-xl border border-slate-300 bg-white py-3.5 font-semibold text-slate-700"
         >
           문제 풀기로 건너뛰기
         </button>
