@@ -17,7 +17,7 @@ export default function ListenQuestion({ question, paused, onDone }) {
   // onDone을 ref에 담아 두면, 부모가 리렌더링으로 새 함수를 넘겨도 읽기 effect가 다시 시작되지 않는다
   const onDoneRef = useRef(onDone)
   // 서버 단답형은 정답이 오지 않아서 해설을 대신 읽는다
-  const { explanation } = useExplanation(question)
+  const { explanation, sourcePage } = useExplanation(question)
   const explanationRef = useRef(explanation)
 
   useEffect(() => {
@@ -96,6 +96,7 @@ export default function ListenQuestion({ question, paused, onDone }) {
               </>
             )}
             {explanation && <p className="mt-2 text-sm opacity-80">{explanation}</p>}
+            {sourcePage != null && <p className="mt-1 text-xs opacity-60">자료 {sourcePage}쪽</p>}
           </>
         ) : (
           <p className="text-center text-sm">잠시 후 정답을 알려 드려요</p>
