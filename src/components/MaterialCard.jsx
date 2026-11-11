@@ -20,7 +20,7 @@ function formatSize(bytes) {
   return `${Math.max(1, Math.round(bytes / 1024))}KB`
 }
 
-export default function MaterialCard({ material, onRetry }) {
+export default function MaterialCard({ material, onRetry, onRemove }) {
   const { status } = material
   const badge = BADGE[status]
 
@@ -78,16 +78,25 @@ export default function MaterialCard({ material, onRetry }) {
               ? '다시 시도해도 처리하지 못했어요. 다른 파일로 올려 주세요.'
               : material.errorMessage}
           </p>
-          {/* 재시도는 1번만 가능 */}
-          {!material.retried && (
+          <div className="flex shrink-0 gap-2">
+            {/* 재시도는 1번만 가능 */}
+            {!material.retried && (
+              <button
+                type="button"
+                onClick={() => onRetry(material.id)}
+                className="rounded-lg border border-line bg-surface px-3 py-1.5 text-caption font-bold text-ink"
+              >
+                다시 시도
+              </button>
+            )}
             <button
               type="button"
-              onClick={() => onRetry(material.id)}
-              className="shrink-0 rounded-lg border border-line bg-surface px-3 py-1.5 text-caption font-bold text-ink"
+              onClick={() => onRemove(material.id)}
+              className="rounded-lg border border-line bg-surface px-3 py-1.5 text-caption text-muted"
             >
-              다시 시도
+              지우기
             </button>
-          )}
+          </div>
         </div>
       )}
     </li>

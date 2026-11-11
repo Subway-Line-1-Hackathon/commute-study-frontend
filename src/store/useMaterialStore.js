@@ -5,6 +5,7 @@ import { MATERIAL_STATUS as M, UPLOAD } from '../lib/constants'
 import {
   createSubject as apiCreateSubject,
   getCategories,
+  getMaterials,
   getMaterialStatus,
   getSubjects,
   retryMaterial as apiRetryMaterial,
@@ -36,6 +37,7 @@ function toUnit(c, subjectId) {
     id: String(c.id),
     categoryId: c.id,
     subjectId,
+    materialId: c.materialId != null ? String(c.materialId) : null,
     title: c.name,
     pages,
     progress: c.progress ?? 0, // 0~1
@@ -159,6 +161,20 @@ export const useMaterialStore = create(
         subjects: [], // [{ id, name, examDate, dDay }]
         materials: [], // 업로드한 자료 목록 (상태, 진행률, 에러 문구 등)
         categories: {}, // { [subjectId]: unit[] } 서버 단원
+        serverMaterials: [],
+
+        syncMaterials: async () => {
+          if (!supabase) return
+          const res = await getMaterials()
+          const serverMaterials = (res?.materials ?? []).map((m) => ({
+            id: String(m.id),
+            subjectId: String(m.subjectId),
+            fileName: m.fileName,
+            status: m.status,
+            createdAt: Date.parse(m.createdAt),
+          }))
+          set({ serverMaterials })
+        },
 
         // 과목 등록. 서버가 연결돼 있으면 서버에 만들고 받은 id를 쓴다
         addSubject: async (name, examDate = null) => {
@@ -189,6 +205,9 @@ export const useMaterialStore = create(
         // 과목별 단원(진도·정답률 포함)을 서버에서 받는다. subjectId가 없으면 모든 과목
         syncCategories: async (subjectId) => {
           if (!supabase) return
+          get()
+            .syncMaterials()
+            .catch(() => {})
           const ids = subjectId ? [subjectId] : get().subjects.map((s) => s.id)
           const results = await Promise.all(
             ids.map((id) =>
@@ -278,6 +297,12 @@ export const useMaterialStore = create(
 
         // 분석이 끝난 자료가 하나라도 있는지
         hasReadyMaterial: () => get().materials.some((m) => m.status === M.READY),
+
+        removeFailedMaterial: (id) => {
+          set((s) => ({
+            materials: s.materials.filter((m) => !(m.id === id && m.status === M.FAILED)),
+          }))
+        },
       }
     },
     {
@@ -327,8 +352,51 @@ export function getSubjectUnits({ materials, categories }, subjectId) {
 
 // 단원 선택 화면의 묶음. 서버 단원은 자료 구분이 없어서 과목별로 묶는다
 // -> [{ key, title, subjectName, units, isNew }]
-export function getUnitGroups({ materials, categories, subjects }, newMaterialIds = []) {
+function hasServerMaterialInfo({ categories, serverMaterials = [] }) {
+  if (serverMaterials.length === 0) return false
+  return Object.values(categories)
+    .flat()
+    .some((u) => u.materialId != null)
+}
+
+export function isGroupedByMaterial(state) {
+  return !supabase || hasServerMaterialInfo(state)
+}
+
+function getServerMaterialGroups(
+  { materials, categories, subjects, serverMaterials },
+  newMaterialIds,
+) {
   const subjectName = (id) => subjects.find((s) => s.id === id)?.name ?? ''
+  const allUnits = Object.values(categories).flat()
+  const newServerIds = materials
+    .filter((m) => newMaterialIds.includes(m.id))
+    .map((m) => String(m.serverId))
+
+  return getRecentMaterials(serverMaterials)
+    .filter((m) => m.status === M.READY)
+    .map((m) => ({
+      key: m.id,
+      title: m.fileName,
+      subjectName: subjectName(m.subjectId),
+      units: allUnits.filter((u) => u.materialId === m.id),
+      isNew: newServerIds.includes(m.id),
+    }))
+    .filter((g) => g.units.length > 0)
+}
+
+export function getUnitGroups(
+  { materials, categories, subjects, serverMaterials = [] },
+  newMaterialIds = [],
+) {
+  const subjectName = (id) => subjects.find((s) => s.id === id)?.name ?? ''
+
+  if (supabase && hasServerMaterialInfo({ categories, serverMaterials })) {
+    return getServerMaterialGroups(
+      { materials, categories, subjects, serverMaterials },
+      newMaterialIds,
+    )
+  }
 
   if (supabase) {
     const newSubjectIds = materials

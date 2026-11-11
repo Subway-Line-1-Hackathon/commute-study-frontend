@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import Button from '../components/Button'
 import MaterialCard from '../components/MaterialCard'
+import { useReviewOnly } from '../hooks/useReviewOnly'
 import Screen from '../layouts/Screen'
 import ScreenTitle from '../layouts/ScreenTitle'
 import { MATERIAL_STATUS as M, ROUTES, UPLOAD } from '../lib/constants'
@@ -20,6 +21,8 @@ export default function S10Waiting() {
   const allMaterials = useMaterialStore((s) => s.materials)
   const uploadMaterial = useMaterialStore((s) => s.uploadMaterial)
   const retryMaterial = useMaterialStore((s) => s.retryMaterial)
+  const removeFailedMaterial = useMaterialStore((s) => s.removeFailedMaterial)
+  const reviewOnly = useReviewOnly()
   const resumePending = useMaterialStore((s) => s.resumePending)
 
   const [errors, setErrors] = useState([]) // 파일 검사 에러 문구
@@ -41,6 +44,8 @@ export default function S10Waiting() {
   useEffect(() => {
     resumePending()
   }, [resumePending])
+
+  if (reviewOnly) return <Navigate to={ROUTES.HOME} replace />
 
   // 과목이 하나도 없으면 과목 등록부터
   if (!subject) {
@@ -141,7 +146,12 @@ export default function S10Waiting() {
       {materials.length > 0 && (
         <ul className="mt-4 space-y-3">
           {materials.map((m) => (
-            <MaterialCard key={m.id} material={m} onRetry={retryMaterial} />
+            <MaterialCard
+              key={m.id}
+              material={m}
+              onRetry={retryMaterial}
+              onRemove={removeFailedMaterial}
+            />
           ))}
         </ul>
       )}

@@ -5,9 +5,9 @@ import ConfirmModal from '../components/ConfirmModal'
 import MaterialGroup from '../components/MaterialGroup'
 import Screen from '../layouts/Screen'
 import ScreenTitle from '../layouts/ScreenTitle'
-import { isUnitPreparing, ROUTES, UPLOAD } from '../lib/constants'
-import { supabase } from '../lib/supabase'
-import { getUnitGroups, useMaterialStore } from '../store/useMaterialStore'
+import { useReviewOnly } from '../hooks/useReviewOnly'
+import { COMMUTE, isUnitPreparing, ROUTES, UPLOAD } from '../lib/constants'
+import { getUnitGroups, isGroupedByMaterial, useMaterialStore } from '../store/useMaterialStore'
 import { useSessionStore } from '../store/useSessionStore'
 
 // S11 단원 선택: 분석으로 나뉜 단원 중 공부할 단원을 골라 문제 설정 화면(S30)으로 넘어간다
@@ -22,8 +22,11 @@ export default function S11UnitPreview() {
   const subjects = useMaterialStore((s) => s.subjects)
   const materials = useMaterialStore((s) => s.materials)
   const categories = useMaterialStore((s) => s.categories)
+  const serverMaterials = useMaterialStore((s) => s.serverMaterials)
+  const reviewOnly = useReviewOnly()
 
-  const groups = getUnitGroups({ materials, categories, subjects }, newMaterialIds)
+  const groups = getUnitGroups({ materials, categories, subjects, serverMaterials }, newMaterialIds)
+  const byMaterial = isGroupedByMaterial({ categories, serverMaterials })
   const units = groups.flatMap((g) => g.units)
   const newGroups = groups.filter((g) => g.isNew)
   const oldGroups = groups.filter((g) => !g.isNew)
@@ -68,10 +71,10 @@ export default function S11UnitPreview() {
   )
 
   let title = '공부할 단원을 골라요'
-  let description = supabase
-    ? '과목별로 나눈 단원이에요.'
-    : `최근 자료 ${UPLOAD.MAX_VISIBLE}개에서 나온 단원이에요.`
-  if (newUnits.length > 0 && !supabase) {
+  let description = byMaterial
+    ? `최근 자료 ${UPLOAD.MAX_VISIBLE}개에서 나온 단원이에요.`
+    : '과목별로 나눈 단원이에요.'
+  if (newUnits.length > 0 && byMaterial) {
     title = `단원 ${newUnits.length}개로 나눴어요`
     description = '이전 자료 단원도 같이 고를 수 있어요.'
   }
@@ -113,7 +116,7 @@ export default function S11UnitPreview() {
     const first = selectedUnits[0]
     let sessionTitle = first.title
     if (selectedUnits.length > 1) {
-      sessionTitle = `${first.title} 외 ${selectedUnits.length - 1}개`
+      sessionTitle = `${first.title} 외 ${selectedUnits.length - 1}개 단원`
     }
     // 세션 초안. S30에서 유형·난이도를 더해 createSession에 넘긴다
     const draft = {
@@ -167,12 +170,19 @@ export default function S11UnitPreview() {
 
   const bottomCta = (
     <>
-      <Button onClick={handleCreate} disabled={selectedUnits.length === 0}>
+      {reviewOnly && (
+        <p className="mb-2 text-center text-caption text-muted">
+          통학 시간이 {COMMUTE.REVIEW_ONLY_MAX}분이라 오답 복습만 할 수 있어요.
+        </p>
+      )}
+      <Button onClick={handleCreate} disabled={reviewOnly || selectedUnits.length === 0}>
         문제 생성하기
       </Button>
-      <Button variant="secondary" onClick={handleUploadMore} className="mt-3">
-        다른 자료 올리기
-      </Button>
+      {!reviewOnly && (
+        <Button variant="secondary" onClick={handleUploadMore} className="mt-3">
+          다른 자료 올리기
+        </Button>
+      )}
     </>
   )
 
