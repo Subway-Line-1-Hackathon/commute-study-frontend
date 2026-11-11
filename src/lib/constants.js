@@ -71,9 +71,10 @@ export const SUBJECT_NAME = { MAX: 20 }
 // 자료 업로드 제한
 export const UPLOAD = {
   MAX_MB: 30, // 파일 하나 최대 용량
-  MAX_PER_UPLOAD: 5, // 한 번에 올릴 수 있는 자료 수 (PNG 묶음은 1개로 셈)
+  MAX_PER_UPLOAD: 5, // 한 번에 올릴 수 있는 자료 수 (사진 묶음은 1개로 셈)
   MAX_VISIBLE: 10, // 화면에 보여줄 자료 최대 개수
   MAX_DOC_PAGES: 100, // PDF/PPTX 최대 페이지
-  MAX_PNG_PAGES: 20, // PNG 한 묶음 최대 장수
-  EXTENSIONS: ['pdf', 'pptx', 'png'], // 허용 확장자
+  MAX_IMAGE_PAGES: 20, // 사진(PNG·JPG) 한 묶음 최대 장수
+  IMAGE_EXTENSIONS: ['png', 'jpg', 'jpeg'], // 사진 확장자 (섞어서 한 묶음으로 올릴 수 있음)
+  EXTENSIONS: ['pdf', 'pptx', 'png', 'jpg', 'jpeg'], // 허용 확장자 (HEIC는 서버가 안 받음)
 }
