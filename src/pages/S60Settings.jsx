@@ -7,7 +7,7 @@ import { errorMessage } from '../lib/api'
 import { COMMUTE, NICKNAME_RULE, ROUTES } from '../lib/constants'
 import { validateNickname } from '../lib/nickname'
 import { getTimePlan } from '../lib/plan'
-import { isValidCommute } from '../lib/time'
+import { isReviewOnly, isValidCommute } from '../lib/time'
 import { useAuthStore } from '../store/useAuthStore'
 
 // 초 -> 분 (반올림)
@@ -110,14 +110,18 @@ export default function S60Settings() {
             <p>
               학습 가능 시간 <b className="text-blue-600">{minutes}분</b>
             </p>
-            {plan.conceptSec > 0 ? (
+            {isReviewOnly(minutes) && (
+              <p className="mt-1 text-xs text-amber-700">
+                {COMMUTE.REVIEW_ONLY_MAX}분이면 오답 복습만 할 수 있어요.
+              </p>
+            )}
+            {!isReviewOnly(minutes) && plan.conceptSec > 0 && (
               <p className="mt-1 text-xs text-slate-500">
                 개념 듣기 {toMin(plan.conceptSec)}분 + 문제 풀이 {toMin(plan.quizSec)}분
               </p>
-            ) : (
-              <p className="mt-1 text-xs text-amber-700">
-                {COMMUTE.REVIEW_ONLY_BELOW}분 미만이라 복습 퀴즈만 이용할 수 있어요.
-              </p>
+            )}
+            {!isReviewOnly(minutes) && plan.conceptSec === 0 && (
+              <p className="mt-1 text-xs text-slate-500">개념 듣기 없이 문제 풀이 {minutes}분</p>
             )}
           </div>
         )}

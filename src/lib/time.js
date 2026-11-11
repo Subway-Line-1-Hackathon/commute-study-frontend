@@ -7,8 +7,8 @@ export const isValidCommute = (m) => Number.isInteger(m) && m >= COMMUTE.MIN && 
 // 범위를 벗어난 값을 최소/최대값으로 잘라낸다
 export const clampCommute = (m) => Math.min(COMMUTE.MAX, Math.max(COMMUTE.MIN, m))
 
-// 학습 시간이 짧아서(20분 미만) 개념 듣기 없이 문제만 푸는지
-export const isReviewOnly = (studyMin) => studyMin < COMMUTE.REVIEW_ONLY_BELOW
+// 학습 시간이 10분 이하라 오답 복습만 할 수 있는지
+export const isReviewOnly = (studyMin) => studyMin <= COMMUTE.REVIEW_ONLY_MAX
 
 // 초를 "MM:SS" 문자열로 바꾼다 (예: 125 -> "02:05")
 export const formatClock = (sec) =>

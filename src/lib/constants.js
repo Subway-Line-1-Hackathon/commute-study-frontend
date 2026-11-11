@@ -43,8 +43,8 @@ export const SOLVE_MODE_TYPES = {
 // 난이도. 서버에는 1~3 숫자로 보낸다 (lib/question.js의 DIFFICULTY_LEVEL)
 export const DIFFICULTY = { EASY: 'EASY', NORMAL: 'NORMAL', HARD: 'HARD' }
 
-// 편도 통학 시간(분) 설정 범위. REVIEW_ONLY_BELOW분 미만이면 개념 듣기 없이 문제만 푼다
-export const COMMUTE = { MIN: 10, MAX: 120, STEP: 5, DEFAULT: 50, REVIEW_ONLY_BELOW: 20 }
+// 편도 통학 시간(분) 설정 범위. REVIEW_ONLY_MAX분 이하면 오답 복습만 할 수 있다
+export const COMMUTE = { MIN: 10, MAX: 120, STEP: 5, DEFAULT: 50, REVIEW_ONLY_MAX: 10 }
 export const NICKNAME_RULE = { MIN: 2, MAX: 10 }
 export const WARNING_SEC = 180 // 문제 풀이 종료 3분 전에 "곧 끝나요" 알림
 
