@@ -108,10 +108,10 @@ export default function S10Waiting() {
       >
         <span className="text-body font-bold text-primary">파일 선택</span>
         <span className="text-caption text-muted">
-          PDF · PPTX · PNG · 파일당 최대 {UPLOAD.MAX_MB}MB
+          PDF · PPTX · PNG · JPG · 파일당 최대 {UPLOAD.MAX_MB}MB
         </span>
         <span className="text-caption text-muted">
-          PDF·PPT {UPLOAD.MAX_DOC_PAGES}쪽, PNG {UPLOAD.MAX_PNG_PAGES}장까지
+          PDF·PPT {UPLOAD.MAX_DOC_PAGES}쪽, 사진 {UPLOAD.MAX_IMAGE_PAGES}장까지
         </span>
       </button>
       <input
