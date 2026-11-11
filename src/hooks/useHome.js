@@ -87,6 +87,7 @@ export function useHome() {
   const [openedAt] = useState(() => Date.now())
 
   useEffect(() => {
+    useMaterialStore.getState().resumePending()
     syncWithServer()
   }, [])
 
@@ -99,17 +100,31 @@ export function useHome() {
   const lastSubject = findSubject(last, materials, subjects)
   const groups = getUnitGroups({ materials, categories, subjects, serverMaterials })
   const openWrongCount = getOpenNotes(wrongNotes).length
+  const pendingMaterials = materials.filter((m) => PENDING.includes(m.status))
+  const preparingUnits = groups.flatMap((g) => g.units).filter(isUnitPreparing)
+  const waiting = pendingMaterials.length > 0 || preparingUnits.length > 0
+
+  useEffect(() => {
+    if (!waiting) return
+    const id = setInterval(() => {
+      useMaterialStore
+        .getState()
+        .syncCategories()
+        .catch(() => {})
+    }, 5000)
+    return () => clearInterval(id)
+  }, [waiting])
 
   return {
     nickname: user?.nickname ?? '학습자',
     commute,
     reviewOnly: isReviewOnly(commute?.studyMin ?? COMMUTE.DEFAULT),
     isFirst: materials.length === 0 && groups.length === 0,
-    pendingMaterials: materials.filter((m) => PENDING.includes(m.status)),
+    pendingMaterials,
     failedMaterials: materials.filter(
       (m) => m.status === M.FAILED && openedAt - m.createdAt < ONE_DAY,
     ),
-    preparingUnits: groups.flatMap((g) => g.units).filter(isUnitPreparing),
+    preparingUnits,
     hasUnits: groups.some((g) => g.units.length > 0),
     resumable,
     last,
