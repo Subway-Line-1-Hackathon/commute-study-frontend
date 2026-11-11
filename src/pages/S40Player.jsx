@@ -32,7 +32,7 @@ export default function S40Player() {
 
   const [value, setValue] = useState('') // 지금 입력/선택한 답
   const [feedback, setFeedback] = useState(null) // { question, correct, reason, completed }
-  const [judging, setJudging] = useState(false) // 단답형 서버 판정 중
+  const [judging, setJudging] = useState(null) // 채점 중인 문제
   const [selfCheck, setSelfCheck] = useState(null) // AI 판정이 늦을 때 { question, value }
   const [timeUp, setTimeUp] = useState(false) // 시간이 다 돼서 끝났는지 (팝업 표시)
   const [confirmEnd, setConfirmEnd] = useState(false) // '학습 종료' 확인 팝업
@@ -75,7 +75,7 @@ export default function S40Player() {
 
   // 이미 끝난 세션이면 홈으로. 단, 마지막 문제 채점 결과나 '시간 끝' 팝업을 보여주는 중이면 그대로 둔다
   const finished = status === S.COMPLETED || status === S.ENDED
-  if (!feedback && !timeUp && finished) return <Navigate to={ROUTES.HOME} replace />
+  if (!feedback && !timeUp && !judging && finished) return <Navigate to={ROUTES.HOME} replace />
   if (!finished && cur.phase !== PHASE.QUIZ) {
     return <Navigate to={getSessionRoute(cur)} replace />
   }
@@ -84,7 +84,7 @@ export default function S40Player() {
   const answered = cur.answers.length
   // 화면에 보여줄 문제: 채점 결과를 보는 중이면 방금 푼 문제, 아니면 다음에 풀 문제
   // (답을 기록하면 answers가 늘어나서 cur.questions[answered]는 이미 다음 문제를 가리킨다)
-  const question = feedback?.question ?? selfCheck?.question ?? cur.questions[answered]
+  const question = feedback?.question ?? selfCheck?.question ?? judging ?? cur.questions[answered]
   if (!question) return <Navigate to={ROUTES.HOME} replace />
 
   const canSubmit = String(value).trim() !== '' && !judging
@@ -102,9 +102,9 @@ export default function S40Player() {
   const handleSubmit = async (v = value) => {
     if (String(v).trim() === '' || judging) return
     setValue(v)
-    setJudging(true)
+    setJudging(cur.questions[answered])
     const result = await submitAnswer(v)
-    setJudging(false)
+    setJudging(null)
     if (!result) return
     if (result.needsSelfJudge) {
       setSelfCheck({ question: result.question, value: v })
