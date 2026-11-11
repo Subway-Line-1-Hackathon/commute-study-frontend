@@ -3,6 +3,8 @@
 // - createSpeaker: 여러 문단을 이어 읽는 플레이어 (개념 듣기 화면)
 // - speak: 한 문장 읽고 끝나면 콜백 (듣고 풀기 화면)
 
+import { stripMarkdown, stripPageRefs } from './text'
+
 // 이 브라우저가 음성 읽기를 지원하는지
 export const isSpeechSupported = () => typeof window !== 'undefined' && 'speechSynthesis' in window
 
@@ -39,9 +41,22 @@ if (isSpeechSupported()) {
   })
 }
 
+// AI가 만든 글에 섞인 마크다운 기호(**굵게**, # 제목, - 목록, `코드`, [링크](주소) 등)를
+// TTS가 "별표 별표"처럼 그대로 읽지 않도록 걷어낸다
+export function cleanForSpeech(text) {
+  return (
+    stripPageRefs(stripMarkdown(String(text ?? '')))
+      .replace(/\*+/g, '') // 짝이 안 맞아 남은 별표
+      // 한글 뒤 괄호 속 영어 병기: "텔넷(Telnet)"을 "텔넷 텔넷"으로 두 번 읽지 않게 한다
+      .replace(/([가-힣])\s*\(\s*[A-Za-z][A-Za-z0-9 .,&/+'-]*\)/g, '$1')
+      .replace(/\s+/g, ' ')
+      .trim()
+  )
+}
+
 // 모든 발화는 여기서 만든다
 function makeUtterance(text, rate = 1) {
-  const u = new SpeechSynthesisUtterance(text)
+  const u = new SpeechSynthesisUtterance(cleanForSpeech(text))
   if (!cachedVoice) cachedVoice = pickVoice()
   if (cachedVoice) u.voice = cachedVoice
   u.lang = cachedVoice?.lang ?? 'ko-KR'

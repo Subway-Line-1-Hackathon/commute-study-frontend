@@ -2,6 +2,11 @@
 // 서버: { id, type: 'OX'|'MC'|'SHORT', stem, choices, answer: 'O'|'X'|'1'~'4'(단답은 없음), explanation, sourcePage }
 // 화면: { id, type: 'OX'|'MCQ'|'SHORT', prompt, choices, answer(보여줄 정답 글자), explanation, sourcePage }
 import { DIFFICULTY, QUESTION_TYPE as T } from './constants'
+import { stripMarkdown, stripPageRefs } from './text'
+
+// 요약 문단 한 줄을 화면용으로 정리 (마크다운 기호, 쪽수 표기 제거)
+// 예전에 저장된 세션의 문단도 화면에 그릴 때 이걸 한 번 더 거친다
+export const cleanSummaryLine = (line) => stripPageRefs(stripMarkdown(line ?? '')).trim()
 
 const TO_SERVER_TYPE = { [T.OX]: 'OX', [T.MCQ]: 'MC', [T.SHORT]: 'SHORT' }
 const FROM_SERVER_TYPE = { OX: T.OX, MC: T.MCQ, SHORT: T.SHORT }
@@ -26,10 +31,10 @@ export function fromServerQuestion(q) {
   return {
     id: q.id,
     type,
-    prompt: q.stem ?? '',
+    prompt: stripMarkdown(q.stem ?? ''),
     choices,
     answer,
-    explanation: q.explanation ?? null,
+    explanation: stripMarkdown(q.explanation ?? null),
     sourcePage: q.sourcePage ?? null,
   }
 }
@@ -43,12 +48,13 @@ export function toServerAnswer(q, value) {
   return String(value)
 }
 
-// 요약문을 듣기 문단으로 나눈다 (줄 단위, 앞의 "- " 기호 제거)
+// 요약문을 듣기 문단으로 나눈다 (줄 단위)
+// 화면에 보이는 글에서 앞의 "- " 기호, **굵게** 같은 마크다운 기호, "(2쪽)" 쪽수 표기를 지운다
 export function summaryToScript(summary) {
   if (!summary) return []
   return summary
     .split(/\n+/)
-    .map((line) => line.replace(/^\s*[-*•]\s*/, '').trim())
+    .map((line) => cleanSummaryLine(line.replace(/^\s*[-*•]\s*/, '')))
     .filter(Boolean)
     .map((text, i) => ({ id: `seg-${i}`, text, sourcePage: null }))
 }
