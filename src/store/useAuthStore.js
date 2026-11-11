@@ -1,7 +1,8 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { AUTH_STATUS, COMMUTE, ROUTES } from '../lib/constants'
-import { getMe, saveSettings } from '../lib/endpoints'
+import { getMe, saveSettings, withdraw as apiWithdraw } from '../lib/endpoints'
+import { resetUserData } from './resetUserData'
 import { zustandStorage } from '../lib/storage'
 import { supabase } from '../lib/supabase'
 import { clampCommute, isValidCommute } from '../lib/time'
@@ -126,6 +127,17 @@ export const useAuthStore = create(
       logout: () => {
         supabase?.auth.signOut()
         set({ status: AUTH_STATUS.ANONYMOUS })
+      },
+
+      // 회원 탈퇴: 서버에서 계정·학습 기록을 지우고, 기기에 남은 데이터도 모두 비운 뒤 로그아웃한다
+      // 서버 삭제가 실패하면 에러를 던지고 아무것도 지우지 않는다 (다시 시도 가능)
+      withdraw: async () => {
+        if (supabase) {
+          await apiWithdraw()
+          await supabase.auth.signOut().catch(() => {})
+        }
+        resetUserData()
+        set({ status: AUTH_STATUS.ANONYMOUS, user: null, commute: null, activated: false })
       },
     }),
     // persist 설정: localStorage 키 이름, 저장 형식 버전, 버전이 바뀌었을 때 옛 데이터를 변환하는 migrate
