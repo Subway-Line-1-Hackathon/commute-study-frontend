@@ -20,11 +20,15 @@ export default function OptionStep({
 
   return (
     <>
-      <SetupTitle title={`${modeTitle}, 어떤 문제로 풀까요?`} studyMin={studyMin} />
+      <SetupTitle
+        title="문제 양식과 난이도를 설정해주세요"
+        studyMin={studyMin}
+        modeTitle={modeTitle}
+      />
 
       <section className="mt-5">
         <h2 className="mb-1 font-semibold text-slate-800">문제 양식</h2>
-        <p className="mb-3 text-xs text-slate-400">여러 개를 골라도 돼요.</p>
+        <p className="mb-3 text-label font-normal text-muted">복수 선택 가능</p>
         <div className="flex flex-wrap gap-2">
           {typeOptions.map((opt) => (
             <Chip
@@ -48,10 +52,6 @@ export default function OptionStep({
           onChange={onChangeDifficulty}
         />
       </section>
-
-      <p className="mt-8 text-xs text-slate-500">
-        문제 수는 학습 시간 {studyMin}분에 맞춰 정해져요.
-      </p>
     </>
   )
 }
