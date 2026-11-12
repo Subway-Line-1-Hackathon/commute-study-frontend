@@ -1,5 +1,6 @@
 import { MATERIAL_STATUS as M } from '../../lib/constants'
 import Card from '../Card'
+import Tag from '../Tag'
 
 const LABEL = {
   [M.UPLOADING]: '업로드 중',
@@ -14,9 +15,9 @@ function Row({ name, label }) {
         <span className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-line border-t-primary" />
         <span className="truncate text-caption text-ink">{name}</span>
       </span>
-      <span className="shrink-0 rounded-full bg-warning-soft px-2.5 py-1 text-label text-warning">
+      <Tag tone="warning" size="sm" pill className="shrink-0">
         {label}
-      </span>
+      </Tag>
     </li>
   )
 }
@@ -33,9 +34,9 @@ function FailedRow({ name, retried, onClick, onRemove }) {
           <span className="shrink-0 text-caption font-bold text-danger">✕</span>
           <span className="truncate text-caption text-ink">{name}</span>
         </span>
-        <span className="shrink-0 rounded-full bg-danger-soft px-2.5 py-1 text-label text-danger">
+        <Tag tone="danger" size="sm" pill className="shrink-0">
           {retried ? '실패 · 다시 올리기 ›' : '실패 · 다시 시도 ›'}
-        </span>
+        </Tag>
       </button>
       <button
         type="button"

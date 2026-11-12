@@ -7,7 +7,7 @@ import TextField from './TextField'
 // 문제에 대해 AI에게 묻는 대화창 (서버 모드에서만 보인다)
 // - 답변은 SSE로 조각조각 와서 글자가 이어 붙으며 보인다
 // - 하루 질문 횟수가 정해져 있어 남은 횟수를 같이 보여준다 (성공한 답변만 차감)
-export default function AskAi({ questionId }) {
+export default function AskAi({ questionId, flat = false }) {
   const [messages, setMessages] = useState([]) // [{ role: 'user'|'assistant', content }]
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
@@ -79,7 +79,7 @@ export default function AskAi({ questionId }) {
   }
 
   return (
-    <div className="rounded-xl border border-line bg-surface p-5">
+    <div className={flat ? 'pt-1' : 'rounded-card border border-line bg-surface p-5'}>
       <div className="flex items-center justify-between gap-2">
         <p className="text-body font-bold text-ink">AI에게 질문하기</p>
         {quota && (
@@ -96,8 +96,8 @@ export default function AskAi({ questionId }) {
               key={i}
               className={
                 m.role === 'user'
-                  ? 'ml-8 rounded-xl bg-primary px-3 py-2 text-caption text-white'
-                  : 'mr-8 rounded-xl bg-background px-3 py-2 text-caption whitespace-pre-wrap text-ink'
+                  ? 'ml-8 rounded-card bg-primary px-3 py-2 text-caption text-white'
+                  : 'mr-8 rounded-card bg-background px-3 py-2 text-caption whitespace-pre-wrap text-ink'
               }
             >
               {m.content || (streaming && i === messages.length - 1 ? '생각하는 중…' : '')}
@@ -118,7 +118,7 @@ export default function AskAi({ questionId }) {
         <button
           type="submit"
           disabled={!canSend}
-          className="h-13 shrink-0 rounded-xl bg-primary px-4 text-caption font-bold text-white disabled:opacity-40"
+          className="h-13 shrink-0 rounded-button bg-primary px-4 text-caption font-bold text-white disabled:opacity-40"
         >
           {streaming ? '답변 중' : '질문'}
         </button>

@@ -27,7 +27,7 @@ export default function OptionStep({
       />
 
       <section className="mt-5">
-        <h2 className="mb-1 font-semibold text-slate-800">문제 양식</h2>
+        <h2 className="mb-1 text-body font-bold text-ink">문제 양식</h2>
         <p className="mb-3 text-label font-normal text-muted">복수 선택 가능</p>
         <div className="flex flex-wrap gap-2">
           {typeOptions.map((opt) => (
@@ -40,12 +40,12 @@ export default function OptionStep({
           ))}
         </div>
         {types.length === 0 && (
-          <p className="mt-2 text-sm text-red-500">양식을 한 개 이상 선택해 주세요.</p>
+          <p className="mt-2 text-caption text-danger">양식을 한 개 이상 선택해 주세요.</p>
         )}
       </section>
 
       <section className="mt-8">
-        <h2 className="mb-3 font-semibold text-slate-800">난이도</h2>
+        <h2 className="mb-3 text-body font-bold text-ink">난이도</h2>
         <SegmentedToggle
           options={DIFFICULTY_OPTIONS}
           value={difficulty}

@@ -109,7 +109,7 @@ export default function S10Waiting() {
         type="button"
         onClick={() => fileRef.current?.click()}
         disabled={room <= 0}
-        className="mt-6 flex flex-col items-center gap-1 rounded-xl border-2 border-dashed border-primary/40 bg-surface px-4 py-8 text-center disabled:opacity-40"
+        className="mt-6 flex flex-col items-center gap-1 rounded-card border-2 border-dashed border-primary/40 bg-surface px-4 py-8 text-center disabled:opacity-40"
       >
         <span className="text-body font-bold text-primary">파일 선택</span>
         <span className="text-caption text-muted">
@@ -129,14 +129,14 @@ export default function S10Waiting() {
       />
 
       {oldestVisible && (
-        <p className="mt-3 rounded-xl bg-warning-soft px-4 py-3 text-caption text-warning">
+        <p className="mt-3 rounded-card bg-warning-soft px-4 py-3 text-caption text-warning">
           자료는 최근 {UPLOAD.MAX_VISIBLE}개까지 보여요. 새로 올리면 '{oldestVisible.fileName}'부터
           목록에서 정리돼요. 틀린 문제는 오답노트에 그대로 남아요.
         </p>
       )}
 
       {errors.length > 0 && (
-        <ul className="mt-3 space-y-1 rounded-xl bg-danger-soft px-4 py-3 text-caption text-danger">
+        <ul className="mt-3 space-y-1 rounded-card bg-danger-soft px-4 py-3 text-caption text-danger">
           {errors.map((message) => (
             <li key={message}>{message}</li>
           ))}

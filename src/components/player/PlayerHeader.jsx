@@ -3,7 +3,7 @@ import { formatClock } from '../../lib/time'
 
 function WarnBox({ onFinish, onClose }) {
   return (
-    <div className="mb-4 flex items-center gap-3 rounded-xl bg-warning-soft px-4 py-3">
+    <div className="mb-4 flex items-center gap-3 rounded-card bg-warning-soft px-4 py-3">
       <p className="flex-1 text-caption font-bold text-warning">
         도착 {WARNING_SEC / 60}분 전이에요
       </p>

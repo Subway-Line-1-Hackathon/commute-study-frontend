@@ -3,6 +3,8 @@ import listenIcon from '../assets/icons/mode-listen.svg'
 import { useExplanation } from '../hooks/useExplanation'
 import { QUESTION_TYPE as T } from '../lib/constants'
 import { speak } from '../lib/speaker'
+import SourceTag from './SourceTag'
+import Tag from './Tag'
 
 const GAP_MS = 3000 // 문제를 읽은 뒤, 정답을 읽은 뒤 기다리는 시간
 
@@ -58,10 +60,8 @@ export default function ListenQuestion({ question, paused, onDone }) {
   const revealed = stage === 'answer'
 
   return (
-    <div className="rounded-xl border border-line bg-surface p-5">
-      <span className="rounded-full bg-primary/10 px-3 py-1 text-caption font-bold text-primary">
-        {question.type === T.OX ? 'O/X' : '단답형'} · 듣기
-      </span>
+    <div className="rounded-card border border-line bg-surface p-5">
+      <Tag pill>{question.type === T.OX ? 'O/X' : '단답형'} · 듣기</Tag>
 
       {showText || revealed ? (
         <h2 className="mt-4 text-question leading-8 text-ink">{question.prompt}</h2>
@@ -80,7 +80,7 @@ export default function ListenQuestion({ question, paused, onDone }) {
       )}
 
       <div
-        className={`mt-5 rounded-xl p-4 ${
+        className={`mt-5 rounded-card p-4 ${
           revealed ? 'bg-success-soft text-success' : 'bg-background text-muted'
         }`}
       >
@@ -93,9 +93,7 @@ export default function ListenQuestion({ question, paused, onDone }) {
               </>
             )}
             {explanation && <p className="mt-2 text-caption">{explanation}</p>}
-            {sourcePage != null && (
-              <p className="mt-1 text-label font-normal">자료 {sourcePage}쪽</p>
-            )}
+            <SourceTag page={sourcePage} className="mt-2" />
           </>
         ) : (
           <p className="text-center text-caption">잠시 후 정답을 알려 드려요</p>

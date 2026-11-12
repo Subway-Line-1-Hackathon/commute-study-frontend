@@ -154,7 +154,7 @@ export default function S35Listen() {
       </div>
 
       {!supported && (
-        <p className="mt-4 rounded-xl bg-warning-soft p-3 text-caption text-warning">
+        <p className="mt-4 rounded-card bg-warning-soft p-3 text-caption text-warning">
           이 브라우저는 음성 읽기를 지원하지 않아요. 카드를 넘기면서 읽어 주세요.
         </p>
       )}
@@ -164,7 +164,7 @@ export default function S35Listen() {
       </div>
 
       {finished && countdown !== null && (
-        <div className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-success-soft p-3 text-caption text-success">
+        <div className="mt-4 flex items-center justify-between gap-3 rounded-card bg-success-soft p-3 text-caption text-success">
           <p>요약 노트를 모두 들었어요. {countdown}초 뒤 문제로 넘어가요.</p>
           <button
             type="button"
@@ -177,7 +177,7 @@ export default function S35Listen() {
       )}
 
       {finished && countdown === null && (
-        <p className="mt-4 rounded-xl bg-success-soft p-3 text-caption text-success">
+        <p className="mt-4 rounded-card bg-success-soft p-3 text-caption text-success">
           요약 노트를 모두 들었어요. 바로 문제를 풀거나 처음부터 다시 들을 수 있어요.
         </p>
       )}

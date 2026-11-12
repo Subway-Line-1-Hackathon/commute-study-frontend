@@ -11,7 +11,7 @@ const DIFFICULTY_LABEL = {
 
 // 보기 버튼 색: 제출 전에는 고른 것만 파랑, 제출 후(locked)에는 정답 초록 / 내가 고른 오답 빨강
 function optionClass(opt, { value, locked, answer }) {
-  const base = 'w-full rounded-xl border-2 px-4 py-3.5 text-body font-medium'
+  const base = 'w-full rounded-card border-2 px-4 py-3.5 text-body font-medium'
   if (locked) {
     if (opt === answer) return `${base} border-success bg-success-soft text-success`
     if (opt === value) return `${base} border-danger bg-danger-soft text-danger`
@@ -30,7 +30,7 @@ export default function QuestionCard({ question, difficulty, value, onChange, on
   const options = isOX ? ['O', 'X'] : (question.choices ?? [])
 
   const card = (
-    <div className="rounded-xl border border-line bg-surface p-5">
+    <div className="rounded-card border border-line bg-surface p-5">
       <p className="text-caption text-muted">
         {TYPE_LABEL[question.type]}
         {DIFFICULTY_LABEL[difficulty] && ` · 난이도 ${DIFFICULTY_LABEL[difficulty]}`}

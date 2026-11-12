@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import pencil from '../../assets/icons/pencil.svg'
 import Card from '../Card'
+import Tag from '../Tag'
 import { ROUTES } from '../../lib/constants'
 
 export default function CommuteCard({ commute }) {
@@ -35,9 +36,7 @@ export default function CommuteCard({ commute }) {
         </Link>
       )}
 
-      <span className="mt-3 inline-block rounded-lg bg-primary/10 px-2.5 py-1 text-caption font-bold text-primary">
-        학습 가능 {commute?.studyMin ?? 0}분
-      </span>
+      <Tag className="mt-3">학습 가능 {commute?.studyMin ?? 0}분</Tag>
     </Card>
   )
 }
