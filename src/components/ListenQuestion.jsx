@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import listenIcon from '../assets/icons/mode-listen.svg'
 import { useExplanation } from '../hooks/useExplanation'
 import { QUESTION_TYPE as T } from '../lib/constants'
 import { speak } from '../lib/speaker'
+import SourceTag from './SourceTag'
+import Tag from './Tag'
 
 const GAP_MS = 3000 // 문제를 읽은 뒤, 정답을 읽은 뒤 기다리는 시간
 
@@ -57,25 +60,19 @@ export default function ListenQuestion({ question, paused, onDone }) {
   const revealed = stage === 'answer'
 
   return (
-    <div className="rounded-2xl bg-white p-5 shadow-sm">
-      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
-        {question.type === T.OX ? 'O/X' : '단답형'} · 듣기
-      </span>
+    <div className="rounded-card border border-line bg-surface p-5">
+      <Tag pill>{question.type === T.OX ? 'O/X' : '단답형'} · 듣기</Tag>
 
       {showText || revealed ? (
-        <h2 className="mt-3 text-lg leading-relaxed font-semibold text-slate-900">
-          {question.prompt}
-        </h2>
+        <h2 className="mt-4 text-question leading-8 text-ink">{question.prompt}</h2>
       ) : (
-        <div className="mt-3 flex flex-col items-center py-6 text-center">
-          <span className="text-4xl" aria-hidden>
-            🎧
-          </span>
-          <p className="mt-2 text-sm text-slate-500">문제를 듣고 머릿속으로 답해 보세요</p>
+        <div className="mt-4 flex flex-col items-center py-6 text-center">
+          <img src={listenIcon} alt="" className="h-11 w-11" />
+          <p className="mt-3 text-caption text-muted">문제를 듣고 머릿속으로 답해 보세요</p>
           <button
             type="button"
             onClick={() => setShowText(true)}
-            className="mt-3 text-xs text-slate-400 underline"
+            className="mt-3 text-label font-normal text-muted underline"
           >
             글로 보기
           </button>
@@ -83,23 +80,23 @@ export default function ListenQuestion({ question, paused, onDone }) {
       )}
 
       <div
-        className={`mt-5 rounded-xl p-4 transition ${
-          revealed ? 'bg-green-50 text-green-800' : 'bg-slate-50 text-slate-400'
+        className={`mt-5 rounded-card p-4 ${
+          revealed ? 'bg-success-soft text-success' : 'bg-background text-muted'
         }`}
       >
         {revealed ? (
           <>
             {question.answer && (
               <>
-                <p className="text-sm">정답</p>
-                <p className="mt-1 text-2xl font-bold">{question.answer}</p>
+                <p className="text-caption">정답</p>
+                <p className="mt-1 text-title">{question.answer}</p>
               </>
             )}
-            {explanation && <p className="mt-2 text-sm opacity-80">{explanation}</p>}
-            {sourcePage != null && <p className="mt-1 text-xs opacity-60">자료 {sourcePage}쪽</p>}
+            {explanation && <p className="mt-2 text-caption">{explanation}</p>}
+            <SourceTag page={sourcePage} className="mt-2" />
           </>
         ) : (
-          <p className="text-center text-sm">잠시 후 정답을 알려 드려요</p>
+          <p className="text-center text-caption">잠시 후 정답을 알려 드려요</p>
         )}
       </div>
     </div>

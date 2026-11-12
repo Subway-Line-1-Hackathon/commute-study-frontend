@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import Button from '../components/Button'
 import MaterialCard from '../components/MaterialCard'
+import { useReviewOnly } from '../hooks/useReviewOnly'
 import Screen from '../layouts/Screen'
 import ScreenTitle from '../layouts/ScreenTitle'
 import { MATERIAL_STATUS as M, ROUTES, UPLOAD } from '../lib/constants'
@@ -20,6 +21,8 @@ export default function S10Waiting() {
   const allMaterials = useMaterialStore((s) => s.materials)
   const uploadMaterial = useMaterialStore((s) => s.uploadMaterial)
   const retryMaterial = useMaterialStore((s) => s.retryMaterial)
+  const removeFailedMaterial = useMaterialStore((s) => s.removeFailedMaterial)
+  const reviewOnly = useReviewOnly()
   const resumePending = useMaterialStore((s) => s.resumePending)
 
   const [errors, setErrors] = useState([]) // 파일 검사 에러 문구
@@ -41,6 +44,8 @@ export default function S10Waiting() {
   useEffect(() => {
     resumePending()
   }, [resumePending])
+
+  if (reviewOnly) return <Navigate to={ROUTES.HOME} replace />
 
   // 과목이 하나도 없으면 과목 등록부터
   if (!subject) {
@@ -104,7 +109,7 @@ export default function S10Waiting() {
         type="button"
         onClick={() => fileRef.current?.click()}
         disabled={room <= 0}
-        className="mt-6 flex flex-col items-center gap-1 rounded-xl border-2 border-dashed border-primary/40 bg-surface px-4 py-8 text-center active:bg-background disabled:opacity-40"
+        className="mt-6 flex flex-col items-center gap-1 rounded-card border-2 border-dashed border-primary/40 bg-surface px-4 py-8 text-center disabled:opacity-40"
       >
         <span className="text-body font-bold text-primary">파일 선택</span>
         <span className="text-caption text-muted">
@@ -124,14 +129,14 @@ export default function S10Waiting() {
       />
 
       {oldestVisible && (
-        <p className="mt-3 rounded-xl bg-warning-soft px-4 py-3 text-caption text-warning">
+        <p className="mt-3 rounded-card bg-warning-soft px-4 py-3 text-caption text-warning">
           자료는 최근 {UPLOAD.MAX_VISIBLE}개까지 보여요. 새로 올리면 '{oldestVisible.fileName}'부터
           목록에서 정리돼요. 틀린 문제는 오답노트에 그대로 남아요.
         </p>
       )}
 
       {errors.length > 0 && (
-        <ul className="mt-3 space-y-1 rounded-xl bg-danger-soft px-4 py-3 text-caption text-danger">
+        <ul className="mt-3 space-y-1 rounded-card bg-danger-soft px-4 py-3 text-caption text-danger">
           {errors.map((message) => (
             <li key={message}>{message}</li>
           ))}
@@ -141,7 +146,12 @@ export default function S10Waiting() {
       {materials.length > 0 && (
         <ul className="mt-4 space-y-3">
           {materials.map((m) => (
-            <MaterialCard key={m.id} material={m} onRetry={retryMaterial} />
+            <MaterialCard
+              key={m.id}
+              material={m}
+              onRetry={retryMaterial}
+              onRemove={removeFailedMaterial}
+            />
           ))}
         </ul>
       )}

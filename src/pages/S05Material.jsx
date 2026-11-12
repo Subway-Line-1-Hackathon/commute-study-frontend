@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import Button from '../components/Button'
 import TextField from '../components/TextField'
+import { useReviewOnly } from '../hooks/useReviewOnly'
 import Screen from '../layouts/Screen'
 import ScreenTitle from '../layouts/ScreenTitle'
 import { errorMessage } from '../lib/api'
@@ -22,6 +23,9 @@ export default function S05Material() {
 
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
+  const reviewOnly = useReviewOnly()
+
+  if (reviewOnly) return <Navigate to={ROUTES.HOME} replace />
 
   const save = async () => {
     if (!valid || saving) return

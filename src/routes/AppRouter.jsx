@@ -19,6 +19,8 @@ import S50Summary from '../pages/S50Summary'
 import S51Report from '../pages/S51Report'
 import S52WrongNotes from '../pages/S52WrongNotes'
 import S60Settings from '../pages/S60Settings'
+import S61CommuteEdit from '../pages/S61CommuteEdit'
+import S62Account from '../pages/S62Account'
 
 // 전체 화면 라우팅 표
 // 화면 이름 S00~S60은 기획서의 화면 번호와 같다
@@ -116,6 +118,24 @@ export default function AppRouter() {
           element={
             <RequireActive>
               <S50Summary />
+            </RequireActive>
+          }
+        />
+
+        {/* 설정 하위 화면: 통학 정보 수정, 계정 */}
+        <Route
+          path={ROUTES.SETTINGS_COMMUTE}
+          element={
+            <RequireActive>
+              <S61CommuteEdit />
+            </RequireActive>
+          }
+        />
+        <Route
+          path={ROUTES.SETTINGS_ACCOUNT}
+          element={
+            <RequireActive>
+              <S62Account />
             </RequireActive>
           }
         />

@@ -1,10 +1,10 @@
-import { COMMUTE, QUESTION_TYPE as T } from './constants'
+import { QUESTION_TYPE as T } from './constants'
 
 // 학습 가능 시간(분)에 따른 개념 듣기 비율. 이 표만 고치면 전체에 반영돼요.
 const PLAN_TABLE = [
   { minStudyMin: 60, conceptRatio: 0.5 },
   { minStudyMin: 40, conceptRatio: 0.4 },
-  { minStudyMin: COMMUTE.REVIEW_ONLY_BELOW, conceptRatio: 0.3 },
+  { minStudyMin: 20, conceptRatio: 0.3 },
 ]
 
 // 학습 시간(분)을 개념 듣기 시간과 문제 풀이 시간(초)으로 나눈다

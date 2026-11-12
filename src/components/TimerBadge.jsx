@@ -6,8 +6,8 @@ export default function TimerBadge({ seconds }) {
 
   return (
     <div
-      className={`rounded-full px-3 py-1.5 text-sm font-bold tabular-nums ${
-        urgent ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'
+      className={`shrink-0 rounded-full px-3 py-1.5 text-caption font-bold whitespace-nowrap tabular-nums ${
+        urgent ? 'bg-danger-soft text-danger' : 'bg-primary/10 text-primary'
       }`}
     >
       ⏱ {formatClock(seconds)}

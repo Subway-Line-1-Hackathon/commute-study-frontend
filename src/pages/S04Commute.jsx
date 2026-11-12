@@ -28,9 +28,10 @@ export default function S04Commute() {
   const [input, setInput] = useState(String(saved?.studyMin ?? COMMUTE.DEFAULT))
 
   const minutes = input === '' ? null : Number(input)
-  const valid = minutes !== null && isValidCommute(minutes)
-  const showError = minutes !== null && !valid // 범위 밖 숫자 입력
-  const showReviewOnly = valid && isReviewOnly(minutes) // 20분 미만 안내
+  const inRange = minutes !== null && isValidCommute(minutes)
+  const showError = minutes !== null && !inRange // 범위 밖 숫자 입력
+  const showReviewOnly = inRange && isReviewOnly(minutes) // 10분 이하 안내
+  const valid = inRange && !showReviewOnly
 
   const handleNext = async () => {
     if (!valid || saving) return
@@ -86,8 +87,9 @@ export default function S04Commute() {
       </div>
 
       {showReviewOnly && (
-        <p className="mt-4 rounded-xl bg-warning-soft p-4 text-caption text-warning">
-          {COMMUTE.REVIEW_ONLY_BELOW}분 미만은 복습 커리큘럼으로 진행돼요.
+        <p className="mt-4 rounded-card bg-warning-soft p-4 text-caption text-warning">
+          처음에는 {COMMUTE.REVIEW_ONLY_MAX + COMMUTE.STEP}분 이상으로 설정해 주세요.{' '}
+          {COMMUTE.REVIEW_ONLY_MAX}분은 오답 복습만 할 수 있어서, 시작한 뒤 설정에서 바꿀 수 있어요.
         </p>
       )}
     </Screen>

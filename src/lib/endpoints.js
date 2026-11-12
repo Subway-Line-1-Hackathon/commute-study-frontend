@@ -25,6 +25,8 @@ export const getReport = (subjectId, { scope, sessionId } = {}) =>
   api(`/api/subjects/${subjectId}/report`, { query: { scope, sessionId } })
 
 // 자료
+// { materials: [{ id, subjectId, fileName, status, createdAt }] } 최신순
+export const getMaterials = () => api('/api/materials')
 // PDF/PPTX 1개 또는 사진(PNG·JPG 섞어도 됨) 1~20장 -> { materialId, status }
 export const uploadMaterial = (subjectId, files, kind = 'LECTURE') => {
   const fd = new FormData()

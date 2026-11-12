@@ -2,12 +2,16 @@ import BackButton from '../components/BackButton'
 
 // 화면 하나의 기본 틀 (여백, 뒤로가기 버튼, 하단 고정 버튼)
 // - bottomCta: 화면 아래에 붙어 있는 버튼 영역 (스크롤해도 따라옴)
-// - back: true면 브라우저 뒤로가기, 문자열이면 그 주소로 이동하는 뒤로가기 버튼
+// - back: true면 브라우저 뒤로가기, 문자열이면 그 주소로 이동, 함수면 그 함수를 실행하는 뒤로가기 버튼
 // - withTabBar: 하단 탭바가 있는 화면이면 탭바 높이(4rem)만큼 피해서 배치
 export default function Screen({ children, bottomCta, back, withTabBar = false }) {
   let backTo
+  let onBack
   if (typeof back === 'string') {
     backTo = back
+  }
+  if (typeof back === 'function') {
+    onBack = back
   }
 
   let bottomPadding = 'pb-6'
@@ -27,7 +31,7 @@ export default function Screen({ children, bottomCta, back, withTabBar = false }
       <main className="flex flex-1 flex-col">
         {back && (
           <div className="relative -top-1 -mt-11 flex h-11 items-center">
-            <BackButton to={backTo} />
+            <BackButton to={backTo} onClick={onBack} />
           </div>
         )}
         {children}

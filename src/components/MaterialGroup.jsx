@@ -24,7 +24,7 @@ export default function MaterialGroup({
   }
 
   return (
-    <li className="rounded-xl border-2 border-line bg-surface">
+    <li className="rounded-card border-2 border-line bg-surface">
       <div className="flex items-center gap-3 px-4 py-3.5">
         <button
           type="button"

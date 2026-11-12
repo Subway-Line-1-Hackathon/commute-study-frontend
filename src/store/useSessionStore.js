@@ -84,14 +84,28 @@ function upsertWrong(notes, q, cur, now) {
 function fromServerNote(item, subjectId, unitTitles) {
   const lastWrongAt = item.lastWrongAt ? Date.parse(item.lastWrongAt) : Date.now()
   const resolved = item.status === WRONG_STATUS.RESOLVED
+  // 서버 오답에는 해설이 없다. 해설은 화면에서 따로 조회한다
+  const question = fromServerQuestion({
+    id: item.questionId,
+    type: item.type,
+    stem: item.stem,
+    choices: item.choices,
+    answer: item.answer,
+    sourcePage: item.sourcePage,
+  })
+  // 객관식 내 답도 번호("1")로 와서 보기 글자로 바꾼다
+  let lastAnswer = item.lastAnswer ?? null
+  if (lastAnswer != null && question.type === T.MCQ) {
+    lastAnswer = question.choices[Number(lastAnswer) - 1] ?? lastAnswer
+  }
   return {
     id: String(item.questionId),
     questionId: item.questionId,
     unitId: item.categoryId,
-    unitTitle: unitTitles[item.categoryId] ?? '',
+    unitTitle: item.categoryName ?? unitTitles[item.categoryId] ?? '',
     subjectId,
-    // 서버 오답에는 유형·정답이 없다. 해설은 화면에서 따로 조회한다
-    question: { id: item.questionId, type: null, prompt: item.stem ?? '', answer: null },
+    question,
+    lastAnswer,
     status: item.status,
     wrongCount: item.wrongCount ?? 1,
     lastWrongAt,
@@ -397,12 +411,17 @@ export const useSessionStore = create(
           if (!cur || cur.status !== S.IN_PROGRESS) return
 
           if (cur.phase === PHASE.LISTEN) {
-            const left = cur.conceptRemainingSec - 1
-            if (left <= 0) {
-              set({ current: { ...cur, conceptRemainingSec: 0, phase: PHASE.QUIZ } })
-            } else {
-              set({ current: { ...cur, conceptRemainingSec: left } })
+            if (cur.conceptRemainingSec > 0) {
+              set({ current: { ...cur, conceptRemainingSec: cur.conceptRemainingSec - 1 } })
+              return
             }
+            const left = cur.quizRemainingSec - 1
+            if (left <= 0) {
+              set({ current: { ...cur, quizRemainingSec: 0 } })
+              get().endSession('ARRIVED')
+              return
+            }
+            set({ current: { ...cur, quizRemainingSec: left } })
             return
           }
 
@@ -413,7 +432,7 @@ export const useSessionStore = create(
               get().endSession('ARRIVED')
               return
             }
-            // 전체 시간이 6분보다 길 때만, 남은 시간이 3분 이하가 되면 경고 표시
+            // 전체 시간이 10분보다 길 때만, 남은 시간이 5분 이하가 되면 경고 표시
             const shouldWarn = cur.plan.totalSec > WARNING_SEC * 2 && left <= WARNING_SEC
             set({ current: { ...cur, quizRemainingSec: left, warned: cur.warned || shouldWarn } })
           }
@@ -455,8 +474,12 @@ export const useSessionStore = create(
           const cur = get().current
           if (cur?.status !== S.IN_PROGRESS || !cur.serverId) return
           const res = await getCurrentSession()
-          if (!res || res.sessionId !== cur.serverId) {
-            set({ current: { ...cur, status: S.ENDED } })
+          if (!res || String(res.sessionId) !== String(cur.serverId)) {
+            const ended = { ...cur, status: S.ENDED }
+            set({
+              current: ended,
+              history: cur.answers.length > 0 ? [ended, ...get().history] : get().history,
+            })
           }
         },
 
@@ -518,5 +541,5 @@ export function resumeMessage(cur) {
   if (cur.phase === PHASE.LISTEN) {
     return `지난번 ${cur.unitTitle} 개념 듣기를 하던 중이었어요. 이어서 할까요?`
   }
-  return `지난번 ${cur.unitTitle} ${cur.answers.length}/${cur.questions.length}문제까지 풀었어요. 이어서 할까요?`
+  return `지난번 ${cur.unitTitle} ${cur.questions.length}문제 중 ${cur.answers.length}문제를 풀었어요. 이어서 할까요?`
 }
