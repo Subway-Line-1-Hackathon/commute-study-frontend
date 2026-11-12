@@ -455,8 +455,12 @@ export const useSessionStore = create(
           const cur = get().current
           if (cur?.status !== S.IN_PROGRESS || !cur.serverId) return
           const res = await getCurrentSession()
-          if (!res || res.sessionId !== cur.serverId) {
-            set({ current: { ...cur, status: S.ENDED } })
+          if (!res || String(res.sessionId) !== String(cur.serverId)) {
+            const ended = { ...cur, status: S.ENDED }
+            set({
+              current: ended,
+              history: cur.answers.length > 0 ? [ended, ...get().history] : get().history,
+            })
           }
         },
 
@@ -518,5 +522,5 @@ export function resumeMessage(cur) {
   if (cur.phase === PHASE.LISTEN) {
     return `지난번 ${cur.unitTitle} 개념 듣기를 하던 중이었어요. 이어서 할까요?`
   }
-  return `지난번 ${cur.unitTitle} ${cur.answers.length}/${cur.questions.length}문제까지 풀었어요. 이어서 할까요?`
+  return `지난번 ${cur.unitTitle} ${cur.questions.length}문제 중 ${cur.answers.length}문제를 풀었어요. 이어서 할까요?`
 }
