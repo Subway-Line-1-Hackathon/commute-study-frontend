@@ -46,7 +46,7 @@ export const DIFFICULTY = { EASY: 'EASY', NORMAL: 'NORMAL', HARD: 'HARD' }
 // 편도 통학 시간(분) 설정 범위. REVIEW_ONLY_MAX분 이하면 오답 복습만 할 수 있다
 export const COMMUTE = { MIN: 10, MAX: 120, STEP: 5, DEFAULT: 50, REVIEW_ONLY_MAX: 10 }
 export const NICKNAME_RULE = { MIN: 2, MAX: 10 }
-export const WARNING_SEC = 180 // 문제 풀이 종료 3분 전에 "곧 끝나요" 알림
+export const WARNING_SEC = 300 // 문제 풀이 종료 5분 전에 "곧 끝나요" 알림
 
 // 화면 주소. 라우터(routes/AppRouter.jsx)와 navigate()에서 같이 쓴다
 export const ROUTES = {

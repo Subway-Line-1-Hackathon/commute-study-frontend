@@ -5,6 +5,7 @@ import ConfirmModal from '../components/ConfirmModal'
 import NoteDeck from '../components/listen/NoteDeck'
 import PlayerControls from '../components/listen/PlayerControls'
 import SegmentedToggle from '../components/SegmentedToggle'
+import TimerBadge from '../components/TimerBadge'
 import { useWakeLock } from '../hooks/useWakeLock'
 import Screen from '../layouts/Screen'
 import { PHASE, ROUTES, SESSION_STATUS as S } from '../lib/constants'
@@ -35,6 +36,7 @@ export default function S35Listen() {
   const [finished, setFinished] = useState(false)
   const [confirm, setConfirm] = useState(null) // 'skip' | 'end' | null
   const [countdown, setCountdown] = useState(null) // 다 들은 뒤 문제로 넘어가기까지 남은 초
+  const [timeUp, setTimeUp] = useState(false)
 
   // 음성 플레이어는 화면이 처음 그려질 때 한 번만 만든다
   const [speaker] = useState(() => {
@@ -60,6 +62,18 @@ export default function S35Listen() {
   useEffect(() => () => speaker.stop(), [speaker])
 
   useEffect(() => {
+    if (!running) return
+    const id = setInterval(() => {
+      useSessionStore.getState().tick()
+      if (useSessionStore.getState().current?.status === S.ENDED) {
+        speaker.stop()
+        setTimeUp(true)
+      }
+    }, 1000)
+    return () => clearInterval(id)
+  }, [running, speaker])
+
+  useEffect(() => {
     if (countdown === null) return
     if (countdown === 0) {
       speaker.stop()
@@ -72,7 +86,8 @@ export default function S35Listen() {
   }, [countdown, speaker, navigate])
 
   if (!cur) return <Navigate to={ROUTES.HOME} replace />
-  if (cur.phase !== PHASE.LISTEN || cur.status === S.COMPLETED || cur.status === S.ENDED) {
+  const leaving = cur.phase !== PHASE.LISTEN || cur.status === S.COMPLETED || cur.status === S.ENDED
+  if (!timeUp && leaving) {
     return <Navigate to={getSessionRoute(cur)} replace />
   }
 
@@ -130,8 +145,13 @@ export default function S35Listen() {
 
   return (
     <Screen back={() => setConfirm('end')} bottomCta={bottomCta}>
-      <p className="text-caption text-muted">개념 듣기</p>
-      <h1 className="mt-1 text-title text-ink">{cur.unitTitle}</h1>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-caption text-muted">개념 듣기</p>
+          <h1 className="mt-1 text-title text-ink">{cur.unitTitle}</h1>
+        </div>
+        <TimerBadge seconds={cur.conceptRemainingSec + cur.quizRemainingSec} />
+      </div>
 
       {!supported && (
         <p className="mt-4 rounded-xl bg-warning-soft p-3 text-caption text-warning">
@@ -185,6 +205,15 @@ export default function S35Listen() {
           cancelLabel="계속 듣기"
           onConfirm={handleSkip}
           onCancel={() => setConfirm(null)}
+        />
+      )}
+
+      {timeUp && (
+        <ConfirmModal
+          title="학습 시간이 끝났어요"
+          message="통학 시간을 다 썼어요. 다음 통학 때 이어서 공부해요."
+          confirmLabel="홈으로"
+          onConfirm={() => navigate(ROUTES.HOME, { replace: true })}
         />
       )}
 
