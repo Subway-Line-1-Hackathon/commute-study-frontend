@@ -37,7 +37,8 @@ function findWeakUnit(openNotes) {
 }
 
 // 리포트 숫자를 한 번에 계산한다
-// -> { trend(최근 5일 정답률), accuracy(오늘 정답률), studyMin(오늘 공부한 분), wrongCount(오늘 틀린 수),
+// -> { trend(최근 5일 정답률), accuracy(오늘 정답률), average(전체 평균 정답률, 없으면 null),
+//      studyMin(오늘 공부한 분), wrongCount(오늘 틀린 수),
 //      openWrongCount(남은 오답 수), weakUnit(가장 약한 단원) }
 export function buildReport({ dailyStats, history, wrongNotes }) {
   // 문제를 푼 날만 골라 날짜순 정렬 후 최근 TREND_DAYS일
@@ -67,9 +68,18 @@ export function buildReport({ dailyStats, history, wrongNotes }) {
 
   const openNotes = wrongNotes.filter((n) => n.status === WRONG_STATUS.OPEN)
 
+  // 전체 평균 정답률: 지금까지 푼 모든 날의 합계 (서버 모드는 useReport에서 서버 average로 덮어씀)
+  let totalAnswered = 0
+  let totalCorrect = 0
+  for (const s of Object.values(dailyStats)) {
+    totalAnswered += s.answered
+    totalCorrect += s.correct
+  }
+
   return {
     trend,
     accuracy: toPercent(today.correct, today.answered),
+    average: totalAnswered ? toPercent(totalCorrect, totalAnswered) : null,
     studyMin: Math.round(studySec / 60),
     wrongCount: today.answered - today.correct,
     openWrongCount: openNotes.length,
