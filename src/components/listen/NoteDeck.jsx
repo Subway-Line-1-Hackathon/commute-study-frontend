@@ -1,5 +1,6 @@
 import { useSwipe } from '../../hooks/useSwipe'
 import { stripMarkdown, stripPageRefs } from '../../lib/text'
+import SourceTag from '../SourceTag'
 
 const THRESHOLD = 80
 
@@ -101,11 +102,7 @@ export default function NoteDeck({ script, index, playing, onChange }) {
                   : 'border border-line'
               }`}
             >
-              {seg.sourcePage != null && (
-                <span className="self-end rounded-full bg-primary/10 px-3 py-1 text-caption font-bold text-primary">
-                  자료 p.{seg.sourcePage} 참고
-                </span>
-              )}
+              <SourceTag page={seg.sourcePage} className="self-end" />
 
               <NoteBody text={seg.text} />
 

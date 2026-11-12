@@ -5,10 +5,8 @@ export default function Chip({ label, selected, onClick }) {
       type="button"
       onClick={onClick}
       aria-pressed={selected}
-      className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
-        selected
-          ? 'border-blue-600 bg-blue-600 text-white'
-          : 'border-slate-300 bg-white text-slate-600'
+      className={`rounded-full border px-4 py-2 text-caption font-medium ${
+        selected ? 'border-primary bg-primary text-white' : 'border-line bg-surface text-ink'
       }`}
     >
       {label}

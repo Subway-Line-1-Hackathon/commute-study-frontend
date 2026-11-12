@@ -87,7 +87,7 @@ export default function S04Commute() {
       </div>
 
       {showReviewOnly && (
-        <p className="mt-4 rounded-xl bg-warning-soft p-4 text-caption text-warning">
+        <p className="mt-4 rounded-card bg-warning-soft p-4 text-caption text-warning">
           처음에는 {COMMUTE.REVIEW_ONLY_MAX + COMMUTE.STEP}분 이상으로 설정해 주세요.{' '}
           {COMMUTE.REVIEW_ONLY_MAX}분은 오답 복습만 할 수 있어서, 시작한 뒤 설정에서 바꿀 수 있어요.
         </p>

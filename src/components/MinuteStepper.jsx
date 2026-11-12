@@ -12,7 +12,7 @@ export default function MinuteStepper({ label, value, onChange, required = false
   const step = (delta) => onChange(String(clampCommute(base + delta)))
 
   return (
-    <div className="rounded-xl border border-line bg-surface p-4">
+    <div className="rounded-card border border-line bg-surface p-4">
       <p className="text-caption text-muted">
         {label}
         {required && <span className="ml-0.5 text-danger">*</span>}
