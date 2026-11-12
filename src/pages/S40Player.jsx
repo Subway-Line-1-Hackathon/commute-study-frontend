@@ -152,10 +152,7 @@ export default function S40Player() {
       )}
 
       <div className="flex items-center justify-between">
-        <button
-          onClick={() => setConfirmEnd(true)}
-          className="py-2 text-sm text-slate-500 active:text-slate-800"
-        >
+        <button onClick={() => setConfirmEnd(true)} className="py-2 text-sm text-slate-500">
           ‹ 학습 종료
         </button>
         <TimerBadge seconds={cur.quizRemainingSec} />
@@ -214,14 +211,14 @@ export default function S40Player() {
         {isListen ? (
           <button
             onClick={() => setPaused((p) => !p)}
-            className="w-full rounded-xl border border-slate-300 bg-white py-3.5 font-semibold text-slate-700 active:bg-slate-50"
+            className="w-full rounded-xl border border-slate-300 bg-white py-3.5 font-semibold text-slate-700"
           >
             {paused ? '▶ 이어서 듣기' : '⏸ 잠시 멈추기'}
           </button>
         ) : selfCheck ? null : feedback ? (
           <button
             onClick={handleNext}
-            className="w-full rounded-xl bg-blue-600 py-3.5 font-semibold text-white active:bg-blue-700"
+            className="w-full rounded-xl bg-blue-600 py-3.5 font-semibold text-white"
           >
             {feedback.completed ? '결과 보기' : '다음 문제'}
           </button>
@@ -294,13 +291,13 @@ function SelfJudge({ question, value, onJudge }) {
       <div className="mt-2 grid grid-cols-2 gap-3">
         <button
           onClick={() => onJudge(true)}
-          className="rounded-xl bg-green-600 py-3 font-semibold text-white active:bg-green-700"
+          className="rounded-xl bg-green-600 py-3 font-semibold text-white"
         >
           맞았어요
         </button>
         <button
           onClick={() => onJudge(false)}
-          className="rounded-xl bg-red-500 py-3 font-semibold text-white active:bg-red-600"
+          className="rounded-xl bg-red-500 py-3 font-semibold text-white"
         >
           틀렸어요
         </button>

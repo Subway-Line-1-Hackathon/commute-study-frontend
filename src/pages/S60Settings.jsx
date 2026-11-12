@@ -179,7 +179,7 @@ export default function S60Settings() {
       <div className="mt-auto pt-8">
         <button
           onClick={handleLogout}
-          className="w-full rounded-xl border border-slate-300 bg-white py-3.5 font-semibold text-slate-600 active:bg-slate-50"
+          className="w-full rounded-xl border border-slate-300 bg-white py-3.5 font-semibold text-slate-600"
         >
           로그아웃
         </button>

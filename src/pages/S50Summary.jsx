@@ -238,13 +238,13 @@ export default function S50Summary() {
       <div className="mt-auto flex gap-3 pt-8">
         <button
           onClick={handleRetry}
-          className="flex-1 rounded-xl border border-slate-300 bg-white py-3.5 font-semibold text-slate-700 active:bg-slate-50"
+          className="flex-1 rounded-xl border border-slate-300 bg-white py-3.5 font-semibold text-slate-700"
         >
           다시 학습
         </button>
         <button
           onClick={() => navigate(ROUTES.HOME, { replace: true })}
-          className="flex-1 rounded-xl bg-blue-600 py-3.5 font-semibold text-white active:bg-blue-700"
+          className="flex-1 rounded-xl bg-blue-600 py-3.5 font-semibold text-white"
         >
           홈으로
         </button>
