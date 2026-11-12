@@ -48,13 +48,26 @@ export function toServerAnswer(q, value) {
   return String(value)
 }
 
-// 요약문을 듣기 문단으로 나눈다 (줄 단위)
-// 화면에 보이는 글에서 앞의 "- " 기호, **굵게** 같은 마크다운 기호, "(2쪽)" 쪽수 표기를 지운다
+function toSegment(raw, i) {
+  const line = String(raw.text ?? '').replace(/^\s*(?:[-*•]|#{1,6})\s*/, '')
+  return {
+    id: `seg-${i}`,
+    text: stripPageRefs(line).trim(),
+    speech: raw.speech ?? null,
+    sourcePage: raw.sourcePage ?? null,
+  }
+}
+
+// 요약을 듣기 문단으로 나눈다
+// - 배열 [{ text, speech, sourcePage }]: 백엔드가 구조로 줄 때
+// - 문자열: 예전처럼 마크다운 한 덩어리로 줄 때 (줄 단위로 자르고, 쪽수는 없음)
 export function summaryToScript(summary) {
   if (!summary) return []
-  return summary
-    .split(/\n+/)
-    .map((line) => cleanSummaryLine(line.replace(/^\s*[-*•]\s*/, '')))
-    .filter(Boolean)
-    .map((text, i) => ({ id: `seg-${i}`, text, sourcePage: null }))
+
+  let items = summary
+  if (!Array.isArray(summary)) {
+    items = summary.split(/\n+/).map((text) => ({ text }))
+  }
+
+  return items.map(toSegment).filter((seg) => seg.text)
 }
