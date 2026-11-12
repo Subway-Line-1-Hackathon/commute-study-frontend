@@ -39,6 +39,17 @@ export function fromServerQuestion(q) {
   }
 }
 
+export const CHOICE_NUMBERS = ['①', '②', '③', '④', '⑤', '⑥']
+
+// 화면에 보여 줄 답 글자. 객관식이면 앞에 ① ② 번호를 붙인다
+export function choiceLabel(q, value) {
+  if (value == null || value === '') return ''
+  if (q.type !== T.MCQ) return String(value)
+  const idx = q.choices.indexOf(value)
+  if (idx < 0) return String(value)
+  return `${CHOICE_NUMBERS[idx] ?? `${idx + 1}.`} ${value}`
+}
+
 // 답안 저장 API에 보낼 답: O/X는 "O"/"X", 객관식은 번호, 단답은 입력 글자
 export function toServerAnswer(q, value) {
   if (q.type === T.MCQ) {
