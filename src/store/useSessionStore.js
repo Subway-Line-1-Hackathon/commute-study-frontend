@@ -261,7 +261,8 @@ export const useSessionStore = create(
               questionTypes: toServerTypes(types),
               difficulty: DIFFICULTY_LEVEL[difficulty] ?? 2,
             }
-            if (!isReview) body.categoryIds = draft.categoryIds
+            // 오답 복습은 단원을 골랐을 때만 보낸다 (안 보내면 전체 오답)
+            if (!isReview || draft.categoryIds?.length) body.categoryIds = draft.categoryIds
             const res = await apiCreateSession(body)
             if (res.noReviewItems) {
               throw new ApiError(422, {
@@ -285,9 +286,10 @@ export const useSessionStore = create(
             plan = getTimePlan(studyMin)
             if (isReview) plan = { totalSec: plan.totalSec, conceptSec: 0, quizSec: plan.totalSec }
             if (isReview) {
-              const open = getOpenNotes(get().wrongNotes).filter(
-                (n) => !n.question.type || types.includes(n.question.type),
-              )
+              const unitIds = draft.unitIds ?? []
+              const open = getOpenNotes(get().wrongNotes)
+                .filter((n) => !n.question.type || types.includes(n.question.type))
+                .filter((n) => unitIds.length === 0 || unitIds.includes(n.unitId))
               questions = pickReviewNotes(open, plan.quizSec).picked.map((n) => n.question)
               if (questions.length === 0) {
                 throw new ApiError(422, { message: '고른 유형의 오답이 없어요.' })
