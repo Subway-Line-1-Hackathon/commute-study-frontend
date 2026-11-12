@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { errorMessage } from '../lib/api'
 import { askQuestion, getAiQuota } from '../lib/endpoints'
 import { supabase } from '../lib/supabase'
+import TextField from './TextField'
 
 // 문제에 대해 AI에게 묻는 대화창 (서버 모드에서만 보인다)
 // - 답변은 SSE로 조각조각 와서 글자가 이어 붙으며 보인다
@@ -43,7 +44,11 @@ export default function AskAi({ questionId }) {
     setError('')
     setStreaming(true)
     // 내 질문 + 비어 있는 AI 답변 자리를 먼저 추가하고, 조각이 올 때마다 마지막 답변에 붙인다
-    setMessages([...history, { role: 'user', content: message }, { role: 'assistant', content: '' }])
+    setMessages([
+      ...history,
+      { role: 'user', content: message },
+      { role: 'assistant', content: '' },
+    ])
     const appendToLast = (text) =>
       setMessages((prev) => {
         const next = [...prev]
@@ -74,25 +79,25 @@ export default function AskAi({ questionId }) {
   }
 
   return (
-    <div className="mt-3 border-t border-slate-200 pt-3">
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold text-slate-600">AI에게 물어보기</p>
+    <div className="rounded-xl border border-line bg-surface p-5">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-body font-bold text-ink">AI에게 질문하기</p>
         {quota && (
-          <p className="text-xs text-slate-400">
-            오늘 남은 질문 {quota.remaining}/{quota.limit}
+          <p className="text-caption text-muted">
+            오늘 남은 횟수 {quota.remaining}/{quota.limit}
           </p>
         )}
       </div>
 
       {messages.length > 0 && (
-        <ul className="mt-2 space-y-2">
+        <ul className="mt-3 space-y-2">
           {messages.map((m, i) => (
             <li
               key={i}
               className={
                 m.role === 'user'
-                  ? 'ml-8 rounded-lg bg-blue-600 px-3 py-2 text-sm text-white'
-                  : 'mr-8 whitespace-pre-wrap rounded-lg bg-white px-3 py-2 text-sm text-slate-700'
+                  ? 'ml-8 rounded-xl bg-primary px-3 py-2 text-caption text-white'
+                  : 'mr-8 rounded-xl bg-background px-3 py-2 text-caption whitespace-pre-wrap text-ink'
               }
             >
               {m.content || (streaming && i === messages.length - 1 ? '생각하는 중…' : '')}
@@ -101,23 +106,24 @@ export default function AskAi({ questionId }) {
         </ul>
       )}
 
-      <form onSubmit={send} className="mt-2 flex gap-2">
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          disabled={streaming || noQuota}
-          placeholder={noQuota ? '오늘 질문을 모두 썼어요' : '이 문제에서 궁금한 점'}
-          className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm disabled:bg-slate-100"
-        />
+      <form onSubmit={send} className="mt-3 flex gap-2">
+        <div className="min-w-0 flex-1">
+          <TextField
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            disabled={streaming || noQuota}
+            placeholder={noQuota ? '오늘 질문을 모두 썼어요' : '스택과 큐의 차이가 헷갈려요'}
+          />
+        </div>
         <button
           type="submit"
           disabled={!canSend}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:bg-slate-300"
+          className="h-13 shrink-0 rounded-xl bg-primary px-4 text-caption font-bold text-white disabled:opacity-40"
         >
           {streaming ? '답변 중' : '질문'}
         </button>
       </form>
-      {error && <p className="mt-2 text-xs text-red-500">{error}</p>}
+      {error && <p className="mt-2 text-caption text-danger">{error}</p>}
     </div>
   )
 }
