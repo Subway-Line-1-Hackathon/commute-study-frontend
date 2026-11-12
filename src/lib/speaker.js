@@ -56,68 +56,6 @@ if (isSpeechSupported()) {
   })
 }
 
-const LETTER_SOUND = {
-  A: '에이',
-  B: '비',
-  C: '씨',
-  D: '디',
-  E: '이',
-  F: '에프',
-  G: '지',
-  H: '에이치',
-  I: '아이',
-  J: '제이',
-  K: '케이',
-  L: '엘',
-  M: '엠',
-  N: '엔',
-  O: '오',
-  P: '피',
-  Q: '큐',
-  R: '알',
-  S: '에스',
-  T: '티',
-  U: '유',
-  V: '브이',
-  W: '더블유',
-  X: '엑스',
-  Y: '와이',
-  Z: '지',
-}
-
-const READ_AS_WORD = new Set([
-  'NULL',
-  'JOIN',
-  'VIEW',
-  'FROM',
-  'LIKE',
-  'DROP',
-  'CASE',
-  'WHEN',
-  'THEN',
-  'ELSE',
-  'INTO',
-  'ROLE',
-  'NOT',
-  'AND',
-  'SET',
-  'ADD',
-  'ALL',
-  'ANY',
-  'KEY',
-  'RAM',
-  'ROM',
-  'LAN',
-  'WAN',
-])
-
-function spellAcronyms(text) {
-  return text.replace(/\b[A-Z]{2,4}\b/g, (word) => {
-    if (READ_AS_WORD.has(word)) return word
-    return [...word].map((letter) => LETTER_SOUND[letter]).join('')
-  })
-}
-
 const ENGLISH_WORD = "[A-Za-z](?:[A-Za-z0-9'&+.-]*[A-Za-z0-9])?"
 const ENGLISH_RUN = new RegExp(`${ENGLISH_WORD}(?:\\s+${ENGLISH_WORD})*`, 'g')
 const hasWords = (text) => /[가-힣A-Za-z0-9]/.test(text)
@@ -164,7 +102,7 @@ function makeUtterance(text, rate, english) {
 
 // 모든 발화는 여기서 만든다. 영어 목소리가 있으면 영어 부분만 영어 목소리로 읽는다
 function makeUtterances(text, rate = 1) {
-  const clean = spellAcronyms(cleanForSpeech(text))
+  const clean = cleanForSpeech(text)
   if (!cachedVoice) cachedVoice = pickVoice()
   if (!cachedEnglishVoice) cachedEnglishVoice = pickEnglishVoice()
 
