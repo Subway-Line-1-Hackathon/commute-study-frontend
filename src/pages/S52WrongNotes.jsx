@@ -3,39 +3,64 @@ import { useNavigate } from 'react-router-dom'
 import AskAi from '../components/AskAi'
 import Button from '../components/Button'
 import Chip from '../components/Chip'
-import SourceTag from '../components/SourceTag'
 import Tag from '../components/Tag'
 import { useExplanation } from '../hooks/useExplanation'
 import Screen from '../layouts/Screen'
 import ScreenTitle from '../layouts/ScreenTitle'
 import { ROUTES, WRONG_STATUS } from '../lib/constants'
+import { choiceLabel } from '../lib/question'
 import { WRONG_LIMIT, getOpenNotes, getResolvedNotes } from '../lib/review'
 import { useSessionStore } from '../store/useSessionStore'
 
-// S52 오답노트 탭: 전체/환승 대기(미해결)/환승 완료(해결)로 나눠 틀린 문제를 보여주고, 누르면 정답·해설을 펼친다
+// S52 오답노트 탭: 전체/오답 대기(미해결)/오답 완료(해결)로 나눠 틀린 문제를 보여주고, 누르면 정답·해설을 펼친다
 
 const FILTER = { ALL: 'ALL', OPEN: WRONG_STATUS.OPEN, RESOLVED: WRONG_STATUS.RESOLVED }
 
 const FILTER_OPTIONS = [
   { value: FILTER.ALL, label: '전체' },
-  { value: FILTER.OPEN, label: '환승 대기' },
-  { value: FILTER.RESOLVED, label: '환승 완료' },
+  { value: FILTER.OPEN, label: '오답 대기' },
+  { value: FILTER.RESOLVED, label: '오답 완료' },
 ]
 
-// 정답·해설. 서버 오답노트에는 정답이 없어서 해설을 조회한다
-function AnswerDetail({ question }) {
+// 정답·해설. 정답은 오답노트에 같이 오고, 해설은 따로 조회한다
+function AnswerDetail({ question, lastAnswer }) {
   const { explanation, sourcePage, loaded } = useExplanation(question)
+  const mine = choiceLabel(question, lastAnswer)
+  const answer = choiceLabel(question, question.answer)
 
   return (
-    <div className="space-y-3 border-t border-line px-4 pt-3 pb-4">
-      {question.answer && (
-        <p className="text-caption font-bold text-success">정답: {question.answer}</p>
+    <div className="space-y-5 border-t border-line px-4 pt-4 pb-4">
+      {(mine || answer) && (
+        <div className="space-y-2">
+          {mine && <AnswerRow label="내 답" tone="danger" text={mine} />}
+          {answer && <AnswerRow label="정답" tone="success" text={answer} />}
+        </div>
       )}
-      <p className="text-caption leading-relaxed text-ink">
-        {explanation ?? (loaded ? '해설이 없어요.' : '해설을 불러오고 있어요…')}
-      </p>
-      <SourceTag page={sourcePage} />
+
+      <div>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-caption font-bold text-ink">해설</p>
+          {sourcePage != null && (
+            <span className="text-label font-normal text-muted">자료 p.{sourcePage}</span>
+          )}
+        </div>
+        <p className="mt-1.5 text-caption leading-relaxed text-ink">
+          {explanation ?? (loaded ? '해설이 없어요.' : '해설을 불러오고 있어요…')}
+        </p>
+      </div>
+
       <AskAi questionId={question.id} flat />
+    </div>
+  )
+}
+
+function AnswerRow({ label, tone, text }) {
+  return (
+    <div className="flex items-start gap-2">
+      <Tag tone={tone} size="sm" className="mt-0.5 w-11 shrink-0 text-center">
+        {label}
+      </Tag>
+      <p className="min-w-0 text-caption leading-relaxed text-ink">{text}</p>
     </div>
   )
 }
@@ -45,24 +70,24 @@ function NoteItem({ note, shown, onToggle }) {
   const meta = [note.unitTitle, `${note.wrongCount}회 오답`].filter(Boolean).join(' · ')
 
   return (
-    <li
-      className={`overflow-hidden rounded-card border bg-surface ${shown ? 'border-primary' : 'border-line'}`}
-    >
+    <li className="overflow-hidden rounded-card border border-line bg-surface">
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center gap-3 px-4 py-3.5 text-left"
+        className="flex w-full items-start gap-3 px-4 py-3.5 text-left"
       >
         <div className="min-w-0 flex-1">
-          <p className="truncate text-body font-bold text-ink">{note.question.prompt}</p>
+          <p className={`text-body font-bold text-ink ${shown ? '' : 'truncate'}`}>
+            {note.question.prompt}
+          </p>
           <p className="mt-0.5 truncate text-caption text-muted">{meta}</p>
         </div>
         <Tag tone={resolved ? 'success' : 'danger'} size="sm" pill className="shrink-0">
-          {resolved ? '환승 완료' : '환승 대기'}
+          {resolved ? '오답 완료' : '오답 대기'}
         </Tag>
       </button>
 
-      {shown && <AnswerDetail question={note.question} />}
+      {shown && <AnswerDetail question={note.question} lastAnswer={note.lastAnswer} />}
     </li>
   )
 }
@@ -97,8 +122,8 @@ export default function S52WrongNotes() {
   }
 
   let emptyText = '아직 틀린 문제가 없어요.'
-  if (filter === FILTER.OPEN) emptyText = '환승 대기 중인 문제가 없어요. 잘하고 있어요!'
-  if (filter === FILTER.RESOLVED) emptyText = '아직 환승 완료한 문제가 없어요.'
+  if (filter === FILTER.OPEN) emptyText = '오답 대기 중인 문제가 없어요. 잘하고 있어요!'
+  if (filter === FILTER.RESOLVED) emptyText = '아직 오답 완료한 문제가 없어요.'
 
   const bottomCta = (
     <Button onClick={() => navigate(ROUTES.REVIEW)} disabled={open.length === 0}>

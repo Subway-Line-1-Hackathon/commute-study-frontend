@@ -84,14 +84,28 @@ function upsertWrong(notes, q, cur, now) {
 function fromServerNote(item, subjectId, unitTitles) {
   const lastWrongAt = item.lastWrongAt ? Date.parse(item.lastWrongAt) : Date.now()
   const resolved = item.status === WRONG_STATUS.RESOLVED
+  // 서버 오답에는 해설이 없다. 해설은 화면에서 따로 조회한다
+  const question = fromServerQuestion({
+    id: item.questionId,
+    type: item.type,
+    stem: item.stem,
+    choices: item.choices,
+    answer: item.answer,
+    sourcePage: item.sourcePage,
+  })
+  // 객관식 내 답도 번호("1")로 와서 보기 글자로 바꾼다
+  let lastAnswer = item.lastAnswer ?? null
+  if (lastAnswer != null && question.type === T.MCQ) {
+    lastAnswer = question.choices[Number(lastAnswer) - 1] ?? lastAnswer
+  }
   return {
     id: String(item.questionId),
     questionId: item.questionId,
     unitId: item.categoryId,
-    unitTitle: unitTitles[item.categoryId] ?? '',
+    unitTitle: item.categoryName ?? unitTitles[item.categoryId] ?? '',
     subjectId,
-    // 서버 오답에는 유형·정답이 없다. 해설은 화면에서 따로 조회한다
-    question: { id: item.questionId, type: null, prompt: item.stem ?? '', answer: null },
+    question,
+    lastAnswer,
     status: item.status,
     wrongCount: item.wrongCount ?? 1,
     lastWrongAt,
