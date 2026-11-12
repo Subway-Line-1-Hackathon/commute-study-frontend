@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useSwipe } from '../../hooks/useSwipe'
 import { stripMarkdown, stripPageRefs } from '../../lib/text'
 
 const THRESHOLD = 80
@@ -73,29 +73,11 @@ function cardStyle(offset, dx, dragging) {
 }
 
 export default function NoteDeck({ script, index, playing, onChange }) {
-  const [dx, setDx] = useState(0)
-  const [dragging, setDragging] = useState(false)
-  const startX = useRef(null)
-
-  const handleDown = (e) => {
-    startX.current = e.clientX
-    setDragging(true)
-    e.currentTarget.setPointerCapture(e.pointerId)
-  }
-
-  const handleMove = (e) => {
-    if (startX.current === null) return
-    setDx(e.clientX - startX.current)
-  }
-
-  const handleUp = () => {
-    if (startX.current === null) return
-    startX.current = null
-    setDragging(false)
-    if (dx <= -THRESHOLD && index < script.length - 1) onChange(index + 1)
-    if (dx >= THRESHOLD && index > 0) onChange(index - 1)
-    setDx(0)
-  }
+  const { dx, dragging, handlers } = useSwipe({
+    threshold: THRESHOLD,
+    onLeft: () => index < script.length - 1 && onChange(index + 1),
+    onRight: () => index > 0 && onChange(index - 1),
+  })
 
   const visible = script
     .map((seg, i) => ({ seg, i }))
@@ -111,10 +93,7 @@ export default function NoteDeck({ script, index, playing, onChange }) {
           return (
             <article
               key={seg.id ?? i}
-              onPointerDown={top ? handleDown : undefined}
-              onPointerMove={top ? handleMove : undefined}
-              onPointerUp={top ? handleUp : undefined}
-              onPointerCancel={top ? handleUp : undefined}
+              {...(top ? handlers : {})}
               style={cardStyle(offset, dx, dragging)}
               className={`absolute inset-x-5 top-0 flex h-[18rem] flex-col rounded-2xl bg-surface p-6 select-none ${
                 top
