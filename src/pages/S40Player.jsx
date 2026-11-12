@@ -142,9 +142,7 @@ export default function S40Player() {
     )
   } else if (question.type === T.OX) {
     mainButton = (
-      <p className="py-3.5 text-center text-caption text-muted">
-        카드를 스와이프하거나 O/X를 눌러 답해 주세요
-      </p>
+      <p className="py-3.5 text-center text-caption text-muted">O/X를 눌러 답해 주세요</p>
     )
   }
 

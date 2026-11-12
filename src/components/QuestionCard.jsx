@@ -1,6 +1,5 @@
 import { DIFFICULTY, QUESTION_TYPE as T } from '../lib/constants'
 import { CHOICE_NUMBERS } from '../lib/question'
-import SwipeCard from './SwipeCard'
 import TextField from './TextField'
 
 const TYPE_LABEL = { [T.OX]: 'O/X', [T.MCQ]: '객관식', [T.SHORT]: '단답형' }
@@ -28,8 +27,7 @@ function optionClass(opt, { value, locked, answer }) {
 export default function QuestionCard({ question, difficulty, value, onChange, onSubmit, result }) {
   const locked = Boolean(result) // 제출했으면 더 못 바꾼다
   const isOX = question.type === T.OX
-  const swipe = isOX && !locked // O/X 문제는 제출 전까지 카드를 좌우로 밀어서 답할 수 있다
-  const options = isOX ? ['X', 'O'] : (question.choices ?? [])
+  const options = isOX ? ['O', 'X'] : (question.choices ?? [])
 
   const card = (
     <div className="rounded-xl border border-line bg-surface p-5">
@@ -38,19 +36,12 @@ export default function QuestionCard({ question, difficulty, value, onChange, on
         {DIFFICULTY_LABEL[difficulty] && ` · 난이도 ${DIFFICULTY_LABEL[difficulty]}`}
       </p>
       <h2 className="mt-2 text-question leading-8 text-ink">{question.prompt}</h2>
-
-      {swipe && (
-        <p className="mt-6 flex justify-between text-caption font-bold">
-          <span className="text-danger">← X</span>
-          <span className="text-success">O →</span>
-        </p>
-      )}
     </div>
   )
 
   return (
     <div>
-      {swipe ? <SwipeCard onSwipe={(v) => onSubmit?.(v)}>{card}</SwipeCard> : card}
+      {card}
 
       <div className="mt-5">
         {/* 단답형: 입력칸 (Enter로 제출) / 그 외: 보기 버튼 */}
