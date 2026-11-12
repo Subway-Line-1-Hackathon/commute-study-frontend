@@ -80,7 +80,7 @@ export default function S32Review() {
           <div className="mt-auto pt-8">
             <button
               onClick={handleStart}
-              className="w-full rounded-xl bg-blue-600 py-3.5 font-semibold text-white active:bg-blue-700"
+              className="w-full rounded-xl bg-blue-600 py-3.5 font-semibold text-white"
             >
               복습 출발
             </button>

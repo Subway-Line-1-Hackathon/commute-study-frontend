@@ -24,7 +24,7 @@ export default function MinuteStepper({ label, value, onChange, required = false
           onClick={() => step(-COMMUTE.STEP)}
           disabled={minutes !== null && minutes <= COMMUTE.MIN}
           aria-label={`${COMMUTE.STEP}분 줄이기`}
-          className="h-11 w-11 shrink-0 rounded-full border border-line bg-surface text-xl text-ink active:bg-background disabled:opacity-40"
+          className="h-11 w-11 shrink-0 rounded-full border border-line bg-surface text-xl text-ink disabled:opacity-40"
         >
           −
         </button>
@@ -49,7 +49,7 @@ export default function MinuteStepper({ label, value, onChange, required = false
           onClick={() => step(COMMUTE.STEP)}
           disabled={minutes !== null && minutes >= COMMUTE.MAX}
           aria-label={`${COMMUTE.STEP}분 늘리기`}
-          className="h-11 w-11 shrink-0 rounded-full border border-line bg-surface text-xl text-ink active:bg-background disabled:opacity-40"
+          className="h-11 w-11 shrink-0 rounded-full border border-line bg-surface text-xl text-ink disabled:opacity-40"
         >
           +
         </button>

@@ -17,14 +17,14 @@ export default function ConfirmModal({
           {onCancel && (
             <button
               onClick={onCancel}
-              className="flex-1 rounded-xl border border-slate-300 py-3 font-medium text-slate-600 active:bg-slate-50"
+              className="flex-1 rounded-xl border border-slate-300 py-3 font-medium text-slate-600"
             >
               {cancelLabel}
             </button>
           )}
           <button
             onClick={onConfirm}
-            className="flex-1 rounded-xl bg-blue-600 py-3 font-semibold text-white active:bg-blue-700"
+            className="flex-1 rounded-xl bg-blue-600 py-3 font-semibold text-white"
           >
             {confirmLabel}
           </button>
