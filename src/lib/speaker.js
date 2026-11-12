@@ -8,7 +8,7 @@ import { stripMarkdown, stripPageRefs } from './text'
 // 이 브라우저가 음성 읽기를 지원하는지
 export const isSpeechSupported = () => typeof window !== 'undefined' && 'speechSynthesis' in window
 
-// 기기에 있는 한국어 목소리 중 자연스러운 것을 먼저 고른다 (앞에 있을수록 우선)
+// 기기에 있는 한국어 목소리 중 자연스러운 것을 먼저 고른다
 const VOICE_PREFERENCE = [
   /SunHi.*Natural|Natural.*SunHi/i, // Edge
   /InJoon.*Natural|Natural.*InJoon/i, // Edge
@@ -19,6 +19,7 @@ const VOICE_PREFERENCE = [
 ]
 
 let cachedVoice // 한 번 고른 목소리를 저장해 두고 재사용
+let cachedEnglishVoice
 
 // 한국어 목소리 중 VOICE_PREFERENCE 순서대로 가장 먼저 맞는 것을 고른다. 없으면 기기 내장 목소리
 function pickVoice() {
@@ -33,12 +34,106 @@ function pickVoice() {
   return voices.find((v) => v.localService) ?? voices[0]
 }
 
+function pickEnglishVoice() {
+  const voices = window.speechSynthesis
+    .getVoices()
+    .filter((v) => v.lang?.replace('_', '-').toLowerCase().startsWith('en'))
+  return (
+    voices.find((v) => /Google US English/i.test(v.name)) ??
+    voices.find((v) => v.lang.replace('_', '-').toLowerCase() === 'en-us') ??
+    voices[0] ??
+    null
+  )
+}
+
 // 목소리 목록은 늦게 불러와지는 브라우저가 많아서, 바뀌면 다시 고른다
 if (isSpeechSupported()) {
   cachedVoice = pickVoice()
+  cachedEnglishVoice = pickEnglishVoice()
   window.speechSynthesis.addEventListener?.('voiceschanged', () => {
     cachedVoice = pickVoice()
+    cachedEnglishVoice = pickEnglishVoice()
   })
+}
+
+const LETTER_SOUND = {
+  A: '에이',
+  B: '비',
+  C: '씨',
+  D: '디',
+  E: '이',
+  F: '에프',
+  G: '지',
+  H: '에이치',
+  I: '아이',
+  J: '제이',
+  K: '케이',
+  L: '엘',
+  M: '엠',
+  N: '엔',
+  O: '오',
+  P: '피',
+  Q: '큐',
+  R: '알',
+  S: '에스',
+  T: '티',
+  U: '유',
+  V: '브이',
+  W: '더블유',
+  X: '엑스',
+  Y: '와이',
+  Z: '지',
+}
+
+const READ_AS_WORD = new Set([
+  'NULL',
+  'JOIN',
+  'VIEW',
+  'FROM',
+  'LIKE',
+  'DROP',
+  'CASE',
+  'WHEN',
+  'THEN',
+  'ELSE',
+  'INTO',
+  'ROLE',
+  'NOT',
+  'AND',
+  'SET',
+  'ADD',
+  'ALL',
+  'ANY',
+  'KEY',
+  'RAM',
+  'ROM',
+  'LAN',
+  'WAN',
+])
+
+function spellAcronyms(text) {
+  return text.replace(/\b[A-Z]{2,4}\b/g, (word) => {
+    if (READ_AS_WORD.has(word)) return word
+    return [...word].map((letter) => LETTER_SOUND[letter]).join('')
+  })
+}
+
+const ENGLISH_WORD = "[A-Za-z](?:[A-Za-z0-9'&+.-]*[A-Za-z0-9])?"
+const ENGLISH_RUN = new RegExp(`${ENGLISH_WORD}(?:\\s+${ENGLISH_WORD})*`, 'g')
+const hasWords = (text) => /[가-힣A-Za-z0-9]/.test(text)
+
+function splitByLanguage(text) {
+  const parts = []
+  let last = 0
+  for (const match of text.matchAll(ENGLISH_RUN)) {
+    if (match.index > last) parts.push({ text: text.slice(last, match.index), english: false })
+    parts.push({ text: match[0], english: true })
+    last = match.index + match[0].length
+  }
+  if (last < text.length) parts.push({ text: text.slice(last), english: false })
+  return parts
+    .map((part) => ({ ...part, text: part.text.replace(/^[\s,.;:)\]]+/, '') }))
+    .filter((part) => hasWords(part.text))
 }
 
 // AI가 만든 글에 섞인 마크다운 기호(**굵게**, # 제목, - 목록, `코드`, [링크](주소) 등)를
@@ -54,21 +149,45 @@ export function cleanForSpeech(text) {
   )
 }
 
-// 모든 발화는 여기서 만든다
-function makeUtterance(text, rate = 1) {
-  const u = new SpeechSynthesisUtterance(cleanForSpeech(text))
-  if (!cachedVoice) cachedVoice = pickVoice()
-  if (cachedVoice) u.voice = cachedVoice
-  u.lang = cachedVoice?.lang ?? 'ko-KR'
+function makeUtterance(text, rate, english) {
+  const u = new SpeechSynthesisUtterance(text)
+  if (english) {
+    u.voice = cachedEnglishVoice
+    u.lang = cachedEnglishVoice.lang
+  } else {
+    if (cachedVoice) u.voice = cachedVoice
+    u.lang = cachedVoice?.lang ?? 'ko-KR'
+  }
   u.rate = rate
   return u
+}
+
+// 모든 발화는 여기서 만든다. 영어 목소리가 있으면 영어 부분만 영어 목소리로 읽는다
+function makeUtterances(text, rate = 1) {
+  const clean = spellAcronyms(cleanForSpeech(text))
+  if (!cachedVoice) cachedVoice = pickVoice()
+  if (!cachedEnglishVoice) cachedEnglishVoice = pickEnglishVoice()
+
+  const pieces = clean.split(/\s*[,，、]\s*/).filter(hasWords)
+
+  const parts = pieces.flatMap((piece) => {
+    if (!cachedEnglishVoice) return [{ text: piece, english: false }]
+    return splitByLanguage(piece)
+  })
+
+  if (parts.length === 0) return [makeUtterance(clean, rate, false)]
+  return parts.map((part) => makeUtterance(part.text, rate, part.english))
+}
+
+function speakAll(utterances) {
+  utterances.forEach((u) => window.speechSynthesis.speak(u))
 }
 
 // 한 번만 말하는 안내 (예: "곧 끝나요")
 export function announce(text) {
   if (!isSpeechSupported()) return
   window.speechSynthesis.cancel()
-  window.speechSynthesis.speak(makeUtterance(text))
+  speakAll(makeUtterances(text))
 }
 
 // 문단 목록을 하나씩 이어서 읽는 플레이어를 만든다
@@ -98,13 +217,13 @@ export function createSpeaker({ onIndex, onFinish } = {}) {
     index = i
     if (onIndex) onIndex(i)
     const myToken = token
-    const u = makeUtterance(segments[i].text, rate)
-    u.onend = () => {
+    const utterances = makeUtterances(segments[i].speech ?? segments[i].text, rate)
+    utterances.at(-1).onend = () => {
       if (playing && myToken === token) speak(i + 1)
     }
     // cancel 직후 바로 speak하면 무시되는 브라우저가 있어 잠깐 기다린다
     setTimeout(() => {
-      if (myToken === token) window.speechSynthesis.speak(u)
+      if (myToken === token) speakAll(utterances)
     }, 80)
   }
 
@@ -162,11 +281,11 @@ export function speak(text, { onEnd, rate = 1 } = {}) {
     }
   }
   window.speechSynthesis.cancel()
-  const u = makeUtterance(text, rate)
-  u.onend = done
-  u.onerror = done
+  const utterances = makeUtterances(text, rate)
+  utterances.at(-1).onend = done
+  utterances.at(-1).onerror = done
   // cancel 직후 바로 speak하면 무시되는 브라우저가 있어 잠깐 기다린다
-  const id = setTimeout(() => !cancelled && window.speechSynthesis.speak(u), 80)
+  const id = setTimeout(() => !cancelled && speakAll(utterances), 80)
   return () => {
     cancelled = true
     clearTimeout(id)
