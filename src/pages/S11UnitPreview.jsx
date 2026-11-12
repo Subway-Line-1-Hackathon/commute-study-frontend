@@ -191,14 +191,14 @@ export default function S11UnitPreview() {
       <ScreenTitle title={title} description={description} />
 
       {preparingCount > 0 && (
-        <p className="mt-4 flex items-center gap-2 rounded-xl bg-warning-soft px-4 py-3 text-caption text-warning">
+        <p className="mt-4 flex items-center gap-2 rounded-card bg-warning-soft px-4 py-3 text-caption text-warning">
           <span className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-warning/30 border-t-warning" />
           단원 {preparingCount}개의 문제를 만들고 있어요. 끝나면 자동으로 고를 수 있게 돼요.
         </p>
       )}
 
       {units.length === 0 && (
-        <p className="mt-6 rounded-xl bg-surface p-4 text-caption text-muted">
+        <p className="mt-6 rounded-card bg-surface p-4 text-caption text-muted">
           아직 준비된 단원이 없어요.
         </p>
       )}

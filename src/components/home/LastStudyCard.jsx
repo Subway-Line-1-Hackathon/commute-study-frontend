@@ -2,6 +2,7 @@ import { SESSION_STATUS as S } from '../../lib/constants'
 import { withObject } from '../../lib/josa'
 import Button from '../Button'
 import Card from '../Card'
+import Tag from '../Tag'
 import AccuracyRing from './AccuracyRing'
 
 function CardHeader({ name, dDay }) {
@@ -10,9 +11,9 @@ function CardHeader({ name, dDay }) {
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-caption text-muted">이전 학습</h2>
         {dDay && (
-          <span className="shrink-0 rounded-lg bg-surface px-2.5 py-1 text-label text-primary">
+          <Tag tone="white" size="sm" className="shrink-0">
             시험 {dDay}
-          </span>
+          </Tag>
         )}
       </div>
       {name && <p className="mt-2 truncate text-body font-bold text-primary">{name}</p>}

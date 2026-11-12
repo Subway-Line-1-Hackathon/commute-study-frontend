@@ -1,9 +1,11 @@
+import Tag from '../Tag'
+
 export default function ModeCard({ option, onClick }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="w-full rounded-2xl border-2 border-line bg-surface p-5 text-left"
+      className="w-full rounded-card border-2 border-line bg-surface p-5 text-left"
     >
       <div className="flex items-center gap-3">
         <img src={option.icon} alt="" className="h-11 w-11 shrink-0" />
@@ -11,12 +13,9 @@ export default function ModeCard({ option, onClick }) {
           <span className="text-question text-ink">{option.title}</span>
           <div className="ml-auto flex gap-1">
             {option.types.map((type) => (
-              <span
-                key={type}
-                className="rounded-full bg-background px-2 py-0.5 text-label text-muted"
-              >
+              <Tag key={type} tone="neutral" size="sm" pill>
                 {type}
-              </span>
+              </Tag>
             ))}
           </div>
         </div>

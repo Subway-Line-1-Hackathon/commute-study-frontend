@@ -3,6 +3,7 @@ import wrongMascot from '../../assets/mascot-wrong.png'
 import { useExplanation } from '../../hooks/useExplanation'
 import { choiceLabel } from '../../lib/question'
 import AskAi from '../AskAi'
+import SourceTag from '../SourceTag'
 
 function Verdict({ correct, question, myAnswer }) {
   const mine = choiceLabel(question, myAnswer)
@@ -15,7 +16,7 @@ function Verdict({ correct, question, myAnswer }) {
 
   return (
     <div
-      className={`flex items-center gap-3 rounded-xl border px-4 py-2.5 ${
+      className={`flex items-center gap-3 rounded-card border px-4 py-2.5 ${
         correct ? 'border-success/20 bg-success-soft' : 'border-danger/20 bg-danger-soft'
       }`}
     >
@@ -41,15 +42,11 @@ export default function ResultBox({ feedback, myAnswer }) {
       <Verdict correct={correct} question={question} myAnswer={myAnswer} />
 
       {hasExplanation && (
-        <div className="rounded-xl border border-line bg-surface p-5">
+        <div className="rounded-card border border-line bg-surface p-5">
           <p className="text-body font-bold text-ink">해설</p>
           {reason && <p className="mt-2 text-body leading-7 text-ink">{reason}</p>}
           {explanation && <p className="mt-2 text-body leading-7 text-ink">{explanation}</p>}
-          {sourcePage != null && (
-            <span className="mt-3 inline-block rounded-full bg-primary/10 px-3 py-1 text-caption font-bold text-primary">
-              자료 p.{sourcePage} 참고
-            </span>
-          )}
+          <SourceTag page={sourcePage} className="mt-3" />
         </div>
       )}
 

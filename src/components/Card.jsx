@@ -7,7 +7,7 @@ export default function Card({ title, tone = 'default', className = '', children
   }
 
   return (
-    <section className={`rounded-xl p-4 ${toneClass} ${className}`}>
+    <section className={`rounded-card p-4 ${toneClass} ${className}`}>
       {title && <h2 className="mb-2 text-caption text-muted">{title}</h2>}
       {children}
     </section>
