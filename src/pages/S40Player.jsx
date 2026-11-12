@@ -1,27 +1,28 @@
 import { useEffect, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
+import Button from '../components/Button'
 import ConfirmModal from '../components/ConfirmModal'
 import ListenQuestion from '../components/ListenQuestion'
+import PlayerHeader from '../components/player/PlayerHeader'
+import ResultBox from '../components/player/ResultBox'
+import RouteProgress from '../components/player/RouteProgress'
+import SelfJudgeBox from '../components/player/SelfJudgeBox'
 import QuestionCard from '../components/QuestionCard'
-import TimerBadge from '../components/TimerBadge'
-import { useExplanation } from '../hooks/useExplanation'
+import { useQuizTimer } from '../hooks/useQuizTimer'
 import { useWakeLock } from '../hooks/useWakeLock'
+import Screen from '../layouts/Screen'
 import {
   PHASE,
   QUESTION_TYPE as T,
   ROUTES,
   SESSION_STATUS as S,
   SOLVE_MODE as M,
-  WARNING_SEC,
 } from '../lib/constants'
-import { announce, stopSpeaking } from '../lib/speaker'
+import { stopSpeaking } from '../lib/speaker'
+import { useAuthStore } from '../store/useAuthStore'
 import { getSessionRoute, useSessionStore } from '../store/useSessionStore'
 
 // S40 문제 풀이 화면
-// - 눈으로 풀기: QuestionCard로 답 입력 -> 채점 결과(Feedback) -> '다음 문제'
-// - 듣고 풀기: ListenQuestion이 문제·정답을 읽고 자동으로 다음 문제로
-// - 단답형 AI 채점이 실패하면 SelfJudge로 사용자가 직접 맞음/틀림을 고른다
-// - 타이머: 1초마다 tick, 3분 전 경고, 0초가 되면 '시간 끝' 팝업
 export default function S40Player() {
   const navigate = useNavigate()
   const cur = useSessionStore((s) => s.current)
@@ -29,48 +30,26 @@ export default function S40Player() {
   const selfJudge = useSessionStore((s) => s.selfJudge)
   const advanceListen = useSessionStore((s) => s.advanceListen)
   const endSession = useSessionStore((s) => s.endSession)
+  const commute = useAuthStore((s) => s.commute)
 
   const [value, setValue] = useState('') // 지금 입력/선택한 답
   const [feedback, setFeedback] = useState(null) // { question, correct, reason, completed }
   const [judging, setJudging] = useState(null) // 채점 중인 문제
   const [selfCheck, setSelfCheck] = useState(null) // AI 판정이 늦을 때 { question, value }
   const [timeUp, setTimeUp] = useState(false) // 시간이 다 돼서 끝났는지 (팝업 표시)
-  const [confirmEnd, setConfirmEnd] = useState(false) // '학습 종료' 확인 팝업
-  const [confirmLeave, setConfirmLeave] = useState(false)
-  const [warn, setWarn] = useState(false) // 상단 "곧 끝나요" 배너
+  const [confirmEnd, setConfirmEnd] = useState(false) // '학습 멈추기' 팝업
   const [paused, setPaused] = useState(false) // 듣고 풀기 일시정지
+  const [warnClosed, setWarnClosed] = useState(false)
 
   const status = cur?.status
   const running = status === S.IN_PROGRESS && cur?.phase === PHASE.QUIZ
   useWakeLock(running)
+  useQuizTimer(running, setTimeUp)
 
-  const mode = cur?.solveMode ?? M.READ
-  const isListen = mode === M.LISTEN
+  const isListen = (cur?.solveMode ?? M.READ) === M.LISTEN
 
   // 화면을 떠나면 읽기를 멈춘다
   useEffect(() => () => stopSpeaking(), [])
-
-  // 1초마다 문제 시간 감소. 종료 직전 알림과 시간 종료를 여기서 처리한다
-  useEffect(() => {
-    if (!running) return
-    const id = setInterval(() => {
-      const store = useSessionStore.getState()
-      // tick 전후의 warned를 비교해서, 이번 tick에 처음 경고가 켜졌을 때만 알림을 한 번 띄운다
-      const wasWarned = store.current?.warned
-      store.tick()
-      const next = useSessionStore.getState().current
-
-      if (!wasWarned && next?.warned) {
-        setWarn(true)
-        announce(`학습 종료까지 ${WARNING_SEC / 60}분 남았어요. 곧 끝나요.`)
-        if ('vibrate' in navigator) navigator.vibrate([200, 100, 200])
-        setTimeout(() => setWarn(false), 8000) // 배너는 8초 뒤 사라짐
-      }
-      // tick 안에서 시간이 0이 되면 세션이 ENDED로 바뀐다
-      if (next?.status === S.ENDED) setTimeUp(true)
-    }, 1000)
-    return () => clearInterval(id)
-  }, [running])
 
   if (!cur) return <Navigate to={ROUTES.HOME} replace />
 
@@ -90,7 +69,6 @@ export default function S40Player() {
 
   const canSubmit = String(value).trim() !== '' && !judging
 
-  // 채점 결과를 화면 상태에 넣는다
   const showResult = (result) =>
     setFeedback({
       question: result.question,
@@ -114,14 +92,12 @@ export default function S40Player() {
     showResult(result)
   }
 
-  // 사용자가 맞음/틀림을 고르면 그 결과로 기록
   const handleSelfJudge = (correct) => {
     const result = selfJudge(selfCheck.value, correct)
     setSelfCheck(null)
     if (result) showResult(result)
   }
 
-  // '다음 문제' / '결과 보기'
   const handleNext = () => {
     if (feedback.completed) {
       navigate(ROUTES.SUMMARY, { replace: true })
@@ -131,57 +107,81 @@ export default function S40Player() {
     setValue('')
   }
 
-  // 듣고 풀기: 정답까지 읽고 3초 뒤 다음 문제로
   const handleListenDone = () => {
     const result = advanceListen()
     if (result?.completed) navigate(ROUTES.SUMMARY, { replace: true })
   }
 
-  // 중간에 학습 종료
   const handleEnd = () => {
     setConfirmEnd(false)
     endSession('QUIT')
     navigate(ROUTES.HOME, { replace: true })
   }
 
+  const handleFinish = () => {
+    endSession('ARRIVED')
+    navigate(ROUTES.SUMMARY, { replace: true })
+  }
+
+  let mainButton = (
+    <Button onClick={() => handleSubmit()} disabled={!canSubmit}>
+      정답 확인
+    </Button>
+  )
+  if (isListen) {
+    mainButton = (
+      <Button variant="secondary" onClick={() => setPaused((p) => !p)}>
+        {paused ? '이어서 듣기' : '잠시 멈추기'}
+      </Button>
+    )
+  } else if (selfCheck) {
+    mainButton = null
+  } else if (feedback) {
+    mainButton = (
+      <Button onClick={handleNext}>{feedback.completed ? '결과 보기' : '다음 문제'}</Button>
+    )
+  } else if (question.type === T.OX) {
+    mainButton = (
+      <p className="py-3.5 text-center text-caption text-muted">
+        카드를 스와이프하거나 O/X를 눌러 답해 주세요
+      </p>
+    )
+  }
+
+  const bottomCta = (
+    <>
+      {mainButton}
+      <Button variant="secondary" onClick={() => setConfirmEnd(true)} className="mt-3">
+        종료하기
+      </Button>
+    </>
+  )
+
+  const departure = commute?.departure
+  const arrival = commute?.arrival
+  let routeLabel = cur.unitTitle
+  if (departure || arrival) {
+    routeLabel = `${departure || '출발'} → ${arrival || '도착'}`
+  }
+
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col overflow-x-hidden bg-slate-50 px-5 py-4">
-      {warn && (
-        <div className="fixed top-4 left-1/2 z-40 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 rounded-xl bg-amber-500 px-4 py-3 text-center text-sm font-semibold text-white shadow-lg">
-          곧 끝나요! 학습 종료까지 {WARNING_SEC / 60}분 남았어요.
-        </div>
-      )}
+    <Screen bottomCta={bottomCta}>
+      <PlayerHeader
+        routeLabel={routeLabel}
+        position={feedback ? answered : answered + 1}
+        total={total}
+        remainingSec={cur.quizRemainingSec}
+        showWarn={cur.warned && !warnClosed}
+        onFinish={handleFinish}
+        onCloseWarn={() => setWarnClosed(true)}
+      />
 
-      <div className="flex items-center justify-between">
-        <button onClick={() => setConfirmLeave(true)} className="py-2 text-sm text-slate-500">
-          ‹ 나가기
-        </button>
-        <div className="flex items-center gap-3">
-          <TimerBadge seconds={cur.quizRemainingSec} />
-          <button onClick={() => setConfirmEnd(true)} className="py-2 text-sm text-slate-500">
-            종료
-          </button>
-        </div>
+      <div className="mt-1">
+        <RouteProgress progress={(answered / total) * 100} />
       </div>
 
-      <div className="mt-2">
-        <div className="flex justify-between text-xs text-slate-500">
-          <span>{cur.unitTitle}</span>
-          <span>
-            {feedback ? answered : answered + 1} / {total}
-          </span>
-        </div>
-        <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200">
-          <div
-            className="h-full rounded-full bg-blue-500 transition-all"
-            style={{ width: `${(answered / total) * 100}%` }}
-          />
-        </div>
-      </div>
-
-      <main className="mt-6 flex-1">
+      <main className="mt-5 flex-1">
         {isListen ? (
-          // key를 문제 id로 주면 문제가 바뀔 때 컴포넌트가 새로 만들어져 내부 상태가 초기화된다
           <ListenQuestion
             key={question.id}
             question={question}
@@ -192,6 +192,7 @@ export default function S40Player() {
           <QuestionCard
             key={question.id}
             question={question}
+            difficulty={cur.difficulty}
             value={value}
             onChange={setValue}
             onSubmit={handleSubmit}
@@ -199,69 +200,29 @@ export default function S40Player() {
           />
         )}
 
-        {judging && <p className="mt-4 text-center text-sm text-slate-500">채점하고 있어요…</p>}
+        {judging && <p className="mt-4 text-center text-caption text-muted">채점하고 있어요…</p>}
 
         {selfCheck && (
-          <SelfJudge
+          <SelfJudgeBox
             question={selfCheck.question}
             value={selfCheck.value}
             onJudge={handleSelfJudge}
           />
         )}
 
-        {feedback && <Feedback feedback={feedback} />}
+        {feedback && <ResultBox feedback={feedback} myAnswer={value} />}
       </main>
-
-      {/* 하단 버튼: 듣고 풀기면 일시정지 / 자가 판정 중이면 없음 / 결과 보는 중이면 다음 / O/X면 안내 / 그 외 제출 */}
-      <div className="pt-6">
-        {isListen ? (
-          <button
-            onClick={() => setPaused((p) => !p)}
-            className="w-full rounded-xl border border-slate-300 bg-white py-3.5 font-semibold text-slate-700"
-          >
-            {paused ? '▶ 이어서 듣기' : '⏸ 잠시 멈추기'}
-          </button>
-        ) : selfCheck ? null : feedback ? (
-          <button
-            onClick={handleNext}
-            className="w-full rounded-xl bg-blue-600 py-3.5 font-semibold text-white"
-          >
-            {feedback.completed ? '결과 보기' : '다음 문제'}
-          </button>
-        ) : question.type === T.OX ? (
-          <p className="py-3.5 text-center text-sm text-slate-400">
-            카드를 밀거나 O/X를 눌러 답해 주세요
-          </p>
-        ) : (
-          <button
-            onClick={() => handleSubmit()}
-            disabled={!canSubmit}
-            className="w-full rounded-xl bg-blue-600 py-3.5 font-semibold text-white disabled:bg-slate-300"
-          >
-            제출
-          </button>
-        )}
-      </div>
 
       {confirmEnd && (
         <ConfirmModal
-          title="학습을 종료할까요?"
-          message="종료하면 이어서 풀 수 없어요. 지금까지 푼 기록은 오답 노트에 남아요."
-          confirmLabel="종료하기"
-          cancelLabel="계속 풀기"
-          onConfirm={handleEnd}
-          onCancel={() => setConfirmEnd(false)}
-        />
-      )}
-
-      {confirmLeave && (
-        <ConfirmModal
-          title="학습을 일시 중단할까요?"
-          message="나중에 멈춘 곳부터 다시 풀 수 있어요."
-          confirmLabel="나가기"
-          cancelLabel="계속 풀기"
+          title="학습을 멈출까요?"
+          message="일시 중단하면 나중에 멈춘 곳부터 다시 풀 수 있어요."
+          confirmLabel="일시 중단하기"
           onConfirm={() => navigate(ROUTES.HOME, { replace: true })}
-          onCancel={() => setConfirmLeave(false)}
+          extraLabel="학습 종료하기"
+          onExtra={handleEnd}
+          cancelLabel="계속 풀기"
+          onCancel={() => setConfirmEnd(false)}
         />
       )}
 
@@ -273,52 +234,6 @@ export default function S40Player() {
           onConfirm={() => navigate(ROUTES.SUMMARY, { replace: true })}
         />
       )}
-    </div>
-  )
-}
-
-// 채점 결과. 해설이 없으면(서버 단답형) 서버에서 조회한다
-function Feedback({ feedback }) {
-  const { question, correct, reason } = feedback
-  const { explanation, sourcePage } = useExplanation(question)
-  return (
-    <div
-      className={`mt-4 rounded-xl p-4 ${correct ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}
-    >
-      <p className="font-semibold">{correct ? '정답이에요!' : '아쉬워요'}</p>
-      {!correct && question.answer && <p className="mt-1 text-sm">정답: {question.answer}</p>}
-      {reason && <p className="mt-1 text-sm">{reason}</p>}
-      {explanation && <p className="mt-2 text-sm opacity-80">{explanation}</p>}
-      {sourcePage != null && <p className="mt-1 text-xs opacity-60">자료 {sourcePage}쪽</p>}
-    </div>
-  )
-}
-
-// AI 판정이 늦거나 실패했을 때: 해설을 보여주고 맞음/틀림을 직접 고른다
-function SelfJudge({ question, value, onJudge }) {
-  const { explanation, sourcePage } = useExplanation(question)
-  return (
-    <div className="mt-4 rounded-xl bg-amber-50 p-4 text-amber-900">
-      <p className="font-semibold">자동 채점이 늦어지고 있어요</p>
-      <p className="mt-1 text-sm">내 답: {value}</p>
-      {question.answer && <p className="mt-1 text-sm">정답: {question.answer}</p>}
-      {explanation && <p className="mt-2 text-sm opacity-80">{explanation}</p>}
-      {sourcePage != null && <p className="mt-1 text-xs opacity-60">자료 {sourcePage}쪽</p>}
-      <p className="mt-3 text-sm">내 답이 맞았나요?</p>
-      <div className="mt-2 grid grid-cols-2 gap-3">
-        <button
-          onClick={() => onJudge(true)}
-          className="rounded-xl bg-green-600 py-3 font-semibold text-white"
-        >
-          맞았어요
-        </button>
-        <button
-          onClick={() => onJudge(false)}
-          className="rounded-xl bg-red-500 py-3 font-semibold text-white"
-        >
-          틀렸어요
-        </button>
-      </div>
-    </div>
+    </Screen>
   )
 }

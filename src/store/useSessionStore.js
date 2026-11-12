@@ -397,12 +397,17 @@ export const useSessionStore = create(
           if (!cur || cur.status !== S.IN_PROGRESS) return
 
           if (cur.phase === PHASE.LISTEN) {
-            const left = cur.conceptRemainingSec - 1
-            if (left <= 0) {
-              set({ current: { ...cur, conceptRemainingSec: 0, phase: PHASE.QUIZ } })
-            } else {
-              set({ current: { ...cur, conceptRemainingSec: left } })
+            if (cur.conceptRemainingSec > 0) {
+              set({ current: { ...cur, conceptRemainingSec: cur.conceptRemainingSec - 1 } })
+              return
             }
+            const left = cur.quizRemainingSec - 1
+            if (left <= 0) {
+              set({ current: { ...cur, quizRemainingSec: 0 } })
+              get().endSession('ARRIVED')
+              return
+            }
+            set({ current: { ...cur, quizRemainingSec: left } })
             return
           }
 
@@ -413,7 +418,7 @@ export const useSessionStore = create(
               get().endSession('ARRIVED')
               return
             }
-            // 전체 시간이 6분보다 길 때만, 남은 시간이 3분 이하가 되면 경고 표시
+            // 전체 시간이 10분보다 길 때만, 남은 시간이 5분 이하가 되면 경고 표시
             const shouldWarn = cur.plan.totalSec > WARNING_SEC * 2 && left <= WARNING_SEC
             set({ current: { ...cur, quizRemainingSec: left, warned: cur.warned || shouldWarn } })
           }

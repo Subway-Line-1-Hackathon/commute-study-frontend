@@ -39,6 +39,17 @@ export function fromServerQuestion(q) {
   }
 }
 
+export const CHOICE_NUMBERS = ['①', '②', '③', '④', '⑤', '⑥']
+
+// 화면에 보여 줄 답 글자. 객관식이면 앞에 ① ② 번호를 붙인다
+export function choiceLabel(q, value) {
+  if (value == null || value === '') return ''
+  if (q.type !== T.MCQ) return String(value)
+  const idx = q.choices.indexOf(value)
+  if (idx < 0) return String(value)
+  return `${CHOICE_NUMBERS[idx] ?? `${idx + 1}.`} ${value}`
+}
+
 // 답안 저장 API에 보낼 답: O/X는 "O"/"X", 객관식은 번호, 단답은 입력 글자
 export function toServerAnswer(q, value) {
   if (q.type === T.MCQ) {
@@ -48,13 +59,26 @@ export function toServerAnswer(q, value) {
   return String(value)
 }
 
-// 요약문을 듣기 문단으로 나눈다 (줄 단위)
-// 화면에 보이는 글에서 앞의 "- " 기호, **굵게** 같은 마크다운 기호, "(2쪽)" 쪽수 표기를 지운다
+function toSegment(raw, i) {
+  const line = String(raw.text ?? '').replace(/^\s*(?:[-*•]|#{1,6})\s*/, '')
+  return {
+    id: `seg-${i}`,
+    text: stripPageRefs(line).trim(),
+    speech: raw.speech ?? null,
+    sourcePage: raw.sourcePage ?? null,
+  }
+}
+
+// 요약을 듣기 문단으로 나눈다
+// - 배열 [{ text, speech, sourcePage }]: 백엔드가 구조로 줄 때
+// - 문자열: 예전처럼 마크다운 한 덩어리로 줄 때 (줄 단위로 자르고, 쪽수는 없음)
 export function summaryToScript(summary) {
   if (!summary) return []
-  return summary
-    .split(/\n+/)
-    .map((line) => cleanSummaryLine(line.replace(/^\s*[-*•]\s*/, '')))
-    .filter(Boolean)
-    .map((text, i) => ({ id: `seg-${i}`, text, sourcePage: null }))
+
+  let items = summary
+  if (!Array.isArray(summary)) {
+    items = summary.split(/\n+/).map((text) => ({ text }))
+  }
+
+  return items.map(toSegment).filter((seg) => seg.text)
 }
