@@ -63,6 +63,8 @@ export const ROUTES = {
   PLAYER: '/study/play',
   SUMMARY: '/study/summary',
   SETTINGS: '/settings',
+  SETTINGS_COMMUTE: '/settings/commute',
+  SETTINGS_ACCOUNT: '/settings/account',
   REVIEW: '/study/review',
   WRONG_NOTES: '/wrong-notes',
   REPORT: '/report',

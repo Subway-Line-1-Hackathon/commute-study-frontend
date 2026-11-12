@@ -12,7 +12,7 @@ export default function CommuteCard({ commute }) {
     <Card>
       <div className="mb-2 flex items-center justify-between gap-2">
         <h2 className="text-caption text-muted">오늘의 통학</h2>
-        <Link to={ROUTES.SETTINGS} aria-label="통학 정보 수정" className="-m-1 p-1">
+        <Link to={ROUTES.SETTINGS_COMMUTE} aria-label="통학 정보 수정" className="-m-1 p-1">
           <img src={pencil} alt="" className="h-4 w-4" />
         </Link>
       </div>
@@ -30,7 +30,7 @@ export default function CommuteCard({ commute }) {
           </div>
         </div>
       ) : (
-        <Link to={ROUTES.SETTINGS} className="block text-caption text-muted">
+        <Link to={ROUTES.SETTINGS_COMMUTE} className="block text-caption text-muted">
           출발역·도착역을 입력하면 노선이 보여요 ›
         </Link>
       )}
