@@ -9,6 +9,7 @@ import { useReviewOnly } from '../hooks/useReviewOnly'
 import { COMMUTE, isUnitPreparing, ROUTES, UPLOAD } from '../lib/constants'
 import { getUnitGroups, isGroupedByMaterial, useMaterialStore } from '../store/useMaterialStore'
 import { useSessionStore } from '../store/useSessionStore'
+import { ApiError, errorMessage } from '../lib/api'
 
 // S11 단원 선택: 분석으로 나뉜 단원 중 공부할 단원을 골라 문제 설정 화면(S30)으로 넘어간다
 // 단원은 자료(Mock) 또는 과목(서버) 단위 묶음으로 접었다 폈다 할 수 있다
@@ -34,8 +35,15 @@ export default function S11UnitPreview() {
 
   const [selectedIds, setSelectedIds] = useState([]) // 체크한 단원 id
   const [confirmRestart, setConfirmRestart] = useState(false) // "새로 시작할까요?" 팝업 표시
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
   // 펼쳐진 묶음 key. 처음에는 방금 올린 자료 묶음, 없으면 첫 묶음만 펼친다
   const [openIds, setOpenIds] = useState(() => {
+    const readyMaterialId = location.state?.readyMaterialId
+    if (readyMaterialId && groups.some((group) => group.key === readyMaterialId)) {
+      return [readyMaterialId]
+    }
     if (newGroups.length > 0) {
       return newGroups.map((g) => g.key)
     }
@@ -163,6 +171,7 @@ export default function S11UnitPreview() {
           selectedIds={selectedIds}
           onToggleUnit={toggleUnit}
           onToggleAll={() => toggleAll(group)}
+          onRemove={byMaterial && !deleting ? () => setDeleteTarget(group) : undefined}
         />
       ))}
     </ul>
@@ -189,6 +198,7 @@ export default function S11UnitPreview() {
   return (
     <Screen back bottomCta={bottomCta}>
       <ScreenTitle title={title} description={description} />
+      {deleteError && <p className="mt-3 text-caption text-danger">{deleteError}</p>}
 
       {preparingCount > 0 && (
         <p className="mt-4 flex items-center gap-2 rounded-card bg-warning-soft px-4 py-3 text-caption text-warning">
@@ -217,6 +227,34 @@ export default function S11UnitPreview() {
           )}
           {renderGroups(oldGroups)}
         </section>
+      )}
+
+      {deleteTarget && (
+        <ConfirmModal
+          title={`'${deleteTarget.title}' 자료를 지울까요?`}
+          message="자료와 단원이 목록에서 사라져요. 지금까지 푼 기록은 남아요."
+          confirmLabel="지우기"
+          onConfirm={async () => {
+            if (deleting) return
+            setDeleting(true)
+            setDeleteError('')
+            try {
+              await useMaterialStore.getState().removeMaterial(deleteTarget.key)
+              const removed = new Set(deleteTarget.units.map((u) => u.id))
+              setSelectedIds((ids) => ids.filter((id) => !removed.has(id)))
+            } catch (err) {
+              setDeleteError(
+                err instanceof ApiError && err.status === 409
+                  ? '분석 중인 자료는 지울 수 없어요.'
+                  : errorMessage(err, '자료를 지우지 못했어요. 잠시 후 다시 시도해 주세요.'),
+              )
+            } finally {
+              setDeleting(false)
+              setDeleteTarget(null)
+            }
+          }}
+          onCancel={() => setDeleteTarget(null)}
+        />
       )}
 
       {confirmRestart && (

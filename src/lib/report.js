@@ -105,13 +105,14 @@ export function getFeedback(report) {
   const parts = []
 
   if (trend.length >= 2) {
-    const diff = trend[trend.length - 1].accuracy - trend[trend.length - 2].accuracy
-    if (diff > 0) {
-      parts.push(`지난번보다 정답률이 ${diff}%p 올랐어요.`)
-    } else if (diff < 0) {
-      parts.push(`지난번보다 정답률이 ${-diff}%p 내려갔어요.`)
+    const last = trend[trend.length - 1].accuracy
+    const prev = trend[trend.length - 2].accuracy
+    if (last > prev) {
+      parts.push(`정답률이 ${prev}%에서 ${last}%로 올랐어요.`)
+    } else if (last < prev) {
+      parts.push(`정답률이 ${prev}%에서 ${last}%로 내려갔어요.`)
     } else {
-      parts.push('지난번과 정답률이 같아요.')
+      parts.push(`정답률이 지난번과 같은 ${last}%예요.`)
     }
   }
 

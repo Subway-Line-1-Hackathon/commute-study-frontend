@@ -9,6 +9,7 @@ import { getDDay } from '../lib/date'
 import { getOpenNotes } from '../lib/review'
 import { supabase } from '../lib/supabase'
 import { isReviewOnly } from '../lib/time'
+import { getUploadReadiness } from '../lib/materialReadiness'
 import { useAuthStore } from '../store/useAuthStore'
 import { getUnitGroups, useMaterialStore } from '../store/useMaterialStore'
 import { useSessionStore } from '../store/useSessionStore'
@@ -80,6 +81,7 @@ export function useHome() {
   const materials = useMaterialStore((s) => s.materials)
   const categories = useMaterialStore((s) => s.categories)
   const serverMaterials = useMaterialStore((s) => s.serverMaterials)
+  const dismissedReadyIds = useMaterialStore((s) => s.dismissedReadyIds)
   const current = useSessionStore((s) => s.current)
   const history = useSessionStore((s) => s.history)
   const wrongNotes = useSessionStore((s) => s.wrongNotes)
@@ -100,8 +102,18 @@ export function useHome() {
   const lastSubject = findSubject(last, materials, subjects)
   const groups = getUnitGroups({ materials, categories, subjects, serverMaterials })
   const openWrongCount = getOpenNotes(wrongNotes).length
-  const pendingMaterials = materials.filter((m) => PENDING.includes(m.status))
-  const preparingUnits = groups.flatMap((g) => g.units).filter(isUnitPreparing)
+  const { readyMaterials, waitingMaterials } = getUploadReadiness(
+    { materials, categories, subjects, dismissedReadyIds },
+    Boolean(supabase),
+  )
+  const pendingMaterials = [
+    ...materials.filter((m) => PENDING.includes(m.status)),
+    ...waitingMaterials,
+  ]
+  const waitingIds = new Set(waitingMaterials.map((m) => String(m.serverId ?? m.id)))
+  const preparingUnits = groups
+    .flatMap((g) => g.units)
+    .filter((unit) => isUnitPreparing(unit) && !waitingIds.has(String(unit.materialId)))
   const waiting = pendingMaterials.length > 0 || preparingUnits.length > 0
 
   useEffect(() => {
@@ -125,6 +137,7 @@ export function useHome() {
       (m) => m.status === M.FAILED && openedAt - m.createdAt < ONE_DAY,
     ),
     preparingUnits,
+    readyMaterials,
     hasUnits: groups.some((g) => g.units.length > 0),
     resumable,
     last,

@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import Button from '../components/Button'
+import ConfirmModal from '../components/ConfirmModal'
 import MaterialCard from '../components/MaterialCard'
 import { useReviewOnly } from '../hooks/useReviewOnly'
 import Screen from '../layouts/Screen'
 import ScreenTitle from '../layouts/ScreenTitle'
 import { MATERIAL_STATUS as M, ROUTES, UPLOAD } from '../lib/constants'
 import { pickFiles } from '../lib/pickFiles'
+import { errorMessage } from '../lib/api'
 import { getRecentMaterials, useMaterialStore } from '../store/useMaterialStore'
 
 // S10 자료 업로드 + 분석 대기
@@ -21,11 +23,13 @@ export default function S10Waiting() {
   const allMaterials = useMaterialStore((s) => s.materials)
   const uploadMaterial = useMaterialStore((s) => s.uploadMaterial)
   const retryMaterial = useMaterialStore((s) => s.retryMaterial)
-  const removeFailedMaterial = useMaterialStore((s) => s.removeFailedMaterial)
+  const removeMaterial = useMaterialStore((s) => s.removeMaterial)
   const reviewOnly = useReviewOnly()
   const resumePending = useMaterialStore((s) => s.resumePending)
 
   const [errors, setErrors] = useState([]) // 파일 검사 에러 문구
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [deleting, setDeleting] = useState(false)
   const [uploadedIds, setUploadedIds] = useState([]) // 이 화면에서 이번에 올린 자료 id
 
   // 주소의 과목을 찾고, 없으면 가장 최근 과목
@@ -150,10 +154,30 @@ export default function S10Waiting() {
               key={m.id}
               material={m}
               onRetry={retryMaterial}
-              onRemove={removeFailedMaterial}
+              onRemove={() => !deleting && setDeleteTarget(m)}
             />
           ))}
         </ul>
+      )}
+      {deleteTarget && (
+        <ConfirmModal
+          title={`'${deleteTarget.fileName}' 자료를 지울까요?`}
+          message="자료와 단원이 목록에서 사라져요. 지금까지 푼 기록은 남아요."
+          confirmLabel="지우기"
+          onConfirm={async () => {
+            if (deleting) return
+            setDeleting(true)
+            try {
+              await removeMaterial(deleteTarget.id)
+            } catch (err) {
+              setErrors([errorMessage(err, '자료를 지우지 못했어요. 잠시 후 다시 시도해 주세요.')])
+            } finally {
+              setDeleting(false)
+              setDeleteTarget(null)
+            }
+          }}
+          onCancel={() => setDeleteTarget(null)}
+        />
       )}
     </Screen>
   )

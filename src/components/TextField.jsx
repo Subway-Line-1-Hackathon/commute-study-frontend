@@ -7,20 +7,23 @@ export default function TextField({
   className = '',
   ...props
 }) {
-  // 날짜 입력칸은 placeholder를 지원하지 않아서, 비어 있으면 글자를 투명하게 하고 위에 안내 문구를 겹쳐 보여준다
+  // 빈 날짜는 안내 문구를 보여주고, 포커스 중에는 기본 연·월·일 입력을 표시한다.
   const isEmptyDate = props.type === 'date' && !props.value
 
   const input = (
     <div className="relative">
       <input
         {...props}
-        className={`h-13 w-full rounded-button border bg-surface px-3.5 outline-none placeholder:text-placeholder placeholder:text-muted focus:ring-2 ${
+        className={`peer h-13 w-full rounded-button border bg-surface px-3.5 outline-none placeholder:text-placeholder placeholder:text-muted focus:ring-2 ${
           invalid ? 'border-danger focus:ring-danger/20' : 'border-line focus:ring-primary/20'
-        } ${isEmptyDate ? 'text-transparent' : ''} ${className}`}
+        } ${isEmptyDate ? 'text-transparent focus:text-ink' : ''} ${className}`}
       />
 
       {isEmptyDate && (
-        <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-placeholder text-muted">
+        <span
+          className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-placeholder text-muted peer-focus:hidden"
+          aria-hidden="true"
+        >
           {props.placeholder ?? '날짜를 선택해 주세요'}
         </span>
       )}

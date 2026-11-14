@@ -41,7 +41,7 @@ export default function S01Login() {
 
   return (
     <Screen bottomCta={bottomCta}>
-      <img src={logo} alt="통학 AI 학습" className="h-14 w-14" />
+      <img src={logo} alt="SNS" className="h-14 w-14" />
 
       <div className="mt-5">
         <ScreenTitle

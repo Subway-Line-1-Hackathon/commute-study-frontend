@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { ROUTES } from '../lib/constants'
 import { useAuthStore } from '../store/useAuthStore'
+import { useMaterialStore } from '../store/useMaterialStore'
 import Screen from '../layouts/Screen'
 import ScreenTitle from '../layouts/ScreenTitle'
 
@@ -32,6 +33,7 @@ export default function S60Settings() {
   const navigate = useNavigate()
   const commute = useAuthStore((s) => s.commute)
   const logout = useAuthStore((s) => s.logout)
+  const subjectCount = useMaterialStore((s) => s.subjects.length)
 
   // 예: '연천역 → 인천역 · 50분'. 역을 안 넣었으면 시간만
   const departure = commute?.departure
@@ -41,8 +43,8 @@ export default function S60Settings() {
     commuteLabel = `${departure || '출발역'} → ${arrival || '도착역'} · ${commuteLabel}`
   }
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
+    await logout()
     navigate(ROUTES.LOGIN, { replace: true })
   }
 
@@ -62,6 +64,11 @@ export default function S60Settings() {
 
       <div className="mt-6 space-y-3">
         <SettingRow label="통학 시간" value={commuteLabel} to={ROUTES.SETTINGS_COMMUTE} />
+        <SettingRow
+          label="과목 관리"
+          value={subjectCount > 0 ? `${subjectCount}개` : '없음'}
+          to={ROUTES.SETTINGS_SUBJECTS}
+        />
         <SettingRow label="학습 알림" value="준비 중" />
         <SettingRow label="계정" value="Google 연동" to={ROUTES.SETTINGS_ACCOUNT} />
       </div>
