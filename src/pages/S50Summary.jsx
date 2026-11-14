@@ -1,27 +1,21 @@
 import { useEffect, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
-import StatCard from '../components/StatCard'
-import TopBar from '../components/TopBar'
+import Button from '../components/Button'
 import FeedbackCard from '../components/report/FeedbackCard'
-import { useExplanation } from '../hooks/useExplanation'
-import {
-  MATERIAL_STATUS as M,
-  ROUTES,
-  SESSION_STATUS as S,
-  SOLVE_MODE,
-  WRONG_STATUS,
-} from '../lib/constants'
+import Screen from '../layouts/Screen'
+import ScreenTitle from '../layouts/ScreenTitle'
+import { ROUTES, SESSION_STATUS as S, SOLVE_MODE } from '../lib/constants'
 import { getReport } from '../lib/endpoints'
-import { cleanSummaryLine } from '../lib/question'
 import { wait } from '../lib/storage'
-import { useMaterialStore } from '../store/useMaterialStore'
+import { useAuthStore } from '../store/useAuthStore'
 import { useSessionStore } from '../store/useSessionStore'
 
 // 통학 후 AI 피드백. 세션이 끝난 뒤 서버가 따로 만들어서(최대 약 15초) 몇 번 다시 조회한다
+// 조회 중이면 undefined, 끝내 못 받으면 null
 function useSessionFeedback(cur) {
   const serverId = cur?.serverId
   const subjectId = cur?.subjectId
-  const [feedback, setFeedback] = useState(null)
+  const [feedback, setFeedback] = useState(undefined)
 
   useEffect(() => {
     if (!serverId || !subjectId) return
@@ -42,6 +36,7 @@ function useSessionFeedback(cur) {
         }
         await wait(3000)
       }
+      if (!cancelled) setFeedback(null)
     }
     run()
     return () => {
@@ -52,42 +47,41 @@ function useSessionFeedback(cur) {
   return feedback
 }
 
-// 문제 해설 한 줄 + 근거 쪽수 (둘 다 없으면 아무것도 안 그림)
-function Explanation({ question }) {
-  const { explanation, sourcePage } = useExplanation(question)
-  if (!explanation && sourcePage == null) return null
+function withStation(name) {
+  if (name.endsWith('역')) return name
+  return `${name}역`
+}
+
+function withoutStation(name) {
+  return name.replace(/역$/, '')
+}
+
+function TicketRoute({ departure, arrival }) {
   return (
-    <p className="mt-2 text-xs leading-relaxed text-slate-500">
-      {explanation}
-      {sourcePage != null && <span className="ml-1 text-slate-400">(자료 {sourcePage}쪽)</span>}
-    </p>
+    <div className="mt-2 flex items-center gap-2 text-body font-bold text-ink">
+      <span className="shrink-0">{withoutStation(departure)}</span>
+      <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-primary" />
+      <span className="h-1 flex-1 rounded-full bg-primary" />
+      <span className="h-2.5 w-2.5 shrink-0 rounded-full border-2 border-primary bg-surface" />
+      <span className="shrink-0">{withoutStation(arrival)}</span>
+    </div>
   )
 }
 
-// 초 -> "3분 20초" / "45초"
-const formatDuration = (sec) => {
-  const m = Math.floor(sec / 60)
-  const s = sec % 60
-  return m > 0 ? `${m}분 ${s}초` : `${s}초`
+function Stat({ label, value }) {
+  return (
+    <div className="flex-1">
+      <p className="text-label font-normal text-muted">{label}</p>
+      <p className="mt-0.5 text-title text-ink">{value}</p>
+    </div>
+  )
 }
 
-// 정답률에 따른 응원 문구
-const getComment = (percent) => {
-  if (percent >= 80) return '아주 잘했어요! 🎉'
-  if (percent >= 50) return '좋아요, 조금만 더 다져봐요.'
-  return '복습하면 금방 늘어요. 💪'
-}
-
-// S50 통학 후 요약: 방금 끝난 세션의 결과
-// 눈으로 풀기 -> 정답률, 정답/오답 수, AI 피드백, 자료 요약, 틀린 문제
-// 듣고 풀기 -> 들은 문제 수와 문제·정답 다시 보기
+// S50 통학 후 요약: 방금 끝난 세션의 결과를 승차권 모양 카드로 보여준다
 export default function S50Summary() {
   const navigate = useNavigate()
   const cur = useSessionStore((s) => s.current)
-  const openWrongCount = useSessionStore(
-    (s) => s.wrongNotes.filter((n) => n.status === WRONG_STATUS.OPEN).length,
-  )
-  const materials = useMaterialStore((s) => s.materials)
+  const commute = useAuthStore((s) => s.commute)
   const aiFeedback = useSessionFeedback(cur)
 
   // 끝난 세션이 없으면 보여줄 게 없으니 홈으로
@@ -95,160 +89,80 @@ export default function S50Summary() {
     cur && (cur.status === S.COMPLETED || cur.status === S.ENDED) && cur.questions.length > 0
   if (!finished) return <Navigate to={ROUTES.HOME} replace />
 
-  const total = cur.questions.length
+  const isListen = cur.solveMode === SOLVE_MODE.LISTEN
   const answered = cur.answers.length
-  const correctCount = cur.answers.filter((a) => a.correct).length
-  const wrongCount = answered - correctCount
-  const percent = answered > 0 ? Math.round((correctCount / answered) * 100) : 0
+  const graded = cur.answers.filter((a) => a.correct != null)
+  const correctCount = graded.filter((a) => a.correct).length
+  const wrongCount = graded.length - correctCount
+  let percent = 0
+  if (graded.length > 0) percent = Math.round((correctCount / graded.length) * 100)
+
   // 실제로 쓴 시간 = 전체 시간 - 남은 개념 시간 - 남은 문제 시간
   const elapsedSec = Math.max(0, cur.plan.totalSec - cur.conceptRemainingSec - cur.quizRemainingSec)
+  const studiedMin = Math.max(1, Math.round(elapsedSec / 60))
 
-  // 틀린 답과 그 문제를 짝지은 목록
-  const wrongItems = cur.answers
-    .filter((a) => !a.correct)
-    .map((a) => ({ answer: a, question: cur.questions.find((q) => q.id === a.questionId) }))
-    .filter((item) => item.question)
+  const departure = commute?.departure ?? ''
+  const arrival = commute?.arrival ?? ''
+  const hasStations = Boolean(departure && arrival)
 
-  const unit = materials
-    .filter((m) => m.status === M.READY)
-    .flatMap((m) => m.units)
-    .find((u) => u.id === cur.unitId)
-  // 서버 세션은 받은 요약문을, Mock은 자료 요약을 보여준다
-  const summaryLines = cur.serverId
-    ? cur.script.map((seg) => cleanSummaryLine(seg.text))
-    : [unit?.summary].filter(Boolean)
+  let title = '오늘 통학 학습 끝!'
+  if (arrival) title = `${withStation(arrival)} 도착!\n오늘 통학 학습 끝`
 
-  const timeUp = cur.status === S.ENDED // 다 풀기 전에 끝남 (시간 종료 또는 중단)
-  const isListen = cur.solveMode === SOLVE_MODE.LISTEN
-  // 듣고 풀기에서 들은 문제 목록
-  const listened = cur.answers
-    .map((a) => cur.questions.find((q) => q.id === a.questionId))
-    .filter(Boolean)
+  let meta = `${studiedMin}분 학습`
+  if (hasStations) meta += ` · ${withStation(departure)} → ${withStation(arrival)}`
 
-  // 같은 단원을 새 세션으로 다시 출발 (문제 설정부터)
-  const handleRetry = () => {
-    if (cur.mode === 'review') {
-      navigate(ROUTES.REVIEW, { replace: true })
-      return
-    }
-    const draft = {
-      source: 'categories',
-      categoryIds: cur.categoryIds ?? [],
-      unitId: cur.unitId,
-      unitTitle: cur.unitTitle,
-      subjectId: cur.subjectId,
-    }
-    navigate(ROUTES.SETUP, { replace: true, state: { draft } })
-  }
+  let wrongText = '틀린 문제가 없어요. 완벽해요!'
+  if (wrongCount > 0) wrongText = `오답 ${wrongCount}개는 오답노트에 저장했어요`
+
+  let feedbackText = null
+  if (cur.serverId && aiFeedback === undefined) feedbackText = 'AI가 피드백을 만들고 있어요…'
+  if (aiFeedback) feedbackText = aiFeedback
+
+  const bottomCta = (
+    <div className="space-y-2">
+      <Button onClick={() => navigate(ROUTES.REPORT, { replace: true })}>성장 리포트 보기</Button>
+      <Button variant="secondary" onClick={() => navigate(ROUTES.HOME, { replace: true })}>
+        홈으로
+      </Button>
+    </div>
+  )
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-slate-50 px-5 py-4">
-      <TopBar backTo={ROUTES.HOME} showLogout={false} />
+    <Screen bottomCta={bottomCta}>
+      <ScreenTitle title={title} />
 
-      <p className="mt-2 text-sm text-slate-500">통학 후 요약</p>
-      <h1 className="text-2xl font-bold text-slate-900">{cur.unitTitle}</h1>
-
-      {timeUp && (
-        <div className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
-          학습이 끝나서 {total}문제 중 {answered}문제를 {isListen ? '들었어요' : '풀었어요'}.
+      <section className="relative mt-6 overflow-hidden rounded-card border border-line bg-surface">
+        <div className="px-4 pt-4 pb-5">
+          <p className="text-label font-normal text-muted">승차권 · 통학 학습</p>
+          {hasStations && <TicketRoute departure={departure} arrival={arrival} />}
+          <p className="mt-2 text-caption text-muted">{meta}</p>
         </div>
-      )}
 
-      {isListen ? (
-        <>
-          <section className="mt-5 rounded-2xl bg-blue-600 p-6 text-center text-white">
-            <p className="text-sm opacity-80">들은 문제</p>
-            <p className="mt-1 text-5xl font-bold">{answered}개</p>
-            <p className="mt-2 text-sm">걸린 시간 {formatDuration(elapsedSec)}</p>
-          </section>
+        <div className="relative border-t border-dashed border-line">
+          <span className="absolute -top-2 -left-2 h-4 w-4 rounded-full border border-line bg-background" />
+          <span className="absolute -top-2 -right-2 h-4 w-4 rounded-full border border-line bg-background" />
+        </div>
 
-          <section className="mt-6">
-            <h2 className="mb-3 font-semibold text-slate-800">들은 문제 다시 보기</h2>
-            <ul className="space-y-3">
-              {listened.map((q) => (
-                <li key={q.id} className="rounded-xl bg-white p-4 shadow-sm">
-                  <p className="font-medium text-slate-900">{q.prompt}</p>
-                  {q.answer && <p className="mt-2 text-sm text-green-600">정답: {q.answer}</p>}
-                  <Explanation question={q} />
-                </li>
-              ))}
-            </ul>
-          </section>
-        </>
-      ) : (
-        <>
-          <section className="mt-5 rounded-2xl bg-blue-600 p-6 text-center text-white">
-            <p className="text-sm opacity-80">정답률</p>
-            <p className="mt-1 text-5xl font-bold">{percent}%</p>
-            <p className="mt-2 text-sm">{getComment(percent)}</p>
-          </section>
-
-          <div className="mt-3 flex gap-3">
-            <StatCard label="정답" value={`${correctCount}개`} tone="good" />
-            <StatCard
-              label="오답"
-              value={`${wrongCount}개`}
-              tone={wrongCount > 0 ? 'bad' : 'default'}
-            />
-            <StatCard label="걸린 시간" value={formatDuration(elapsedSec)} />
-          </div>
-
-          {aiFeedback && <FeedbackCard message={aiFeedback} className="mt-6" />}
-
-          {summaryLines.length > 0 && (
-            <section className="mt-6 rounded-xl bg-white p-4 shadow-sm">
-              <h2 className="font-semibold text-slate-800">자료 요약</h2>
-              {summaryLines.map((line, i) => (
-                <p key={i} className="mt-2 text-sm leading-relaxed text-slate-600">
-                  {line}
-                </p>
-              ))}
-            </section>
+        <div className="px-4 pt-5 pb-4">
+          {isListen ? (
+            <div className="flex gap-3">
+              <Stat label="들은 문제" value={`${answered}개`} />
+              <Stat label="학습 시간" value={`${studiedMin}분`} />
+            </div>
+          ) : (
+            <>
+              <div className="flex gap-3">
+                <Stat label="푼 문제" value={`${answered}개`} />
+                <Stat label="정답률" value={`${percent}%`} />
+                <Stat label="오답" value={`${wrongCount}개`} />
+              </div>
+              <p className="mt-3 text-caption text-muted">{wrongText}</p>
+            </>
           )}
+        </div>
+      </section>
 
-          <section className="mt-6">
-            <h2 className="mb-3 font-semibold text-slate-800">틀린 문제</h2>
-            {wrongItems.length === 0 ? (
-              <p className="rounded-xl bg-white p-4 text-sm text-slate-500">
-                틀린 문제가 없어요. 완벽해요!
-              </p>
-            ) : (
-              <ul className="space-y-3">
-                {wrongItems.map(({ answer, question }) => (
-                  <li key={question.id} className="rounded-xl bg-white p-4 shadow-sm">
-                    <p className="font-medium text-slate-900">{question.prompt}</p>
-                    <p className="mt-2 text-sm text-red-500">내 답: {answer.value}</p>
-                    {question.answer && (
-                      <p className="text-sm text-green-600">정답: {question.answer}</p>
-                    )}
-                    <Explanation question={question} />
-                  </li>
-                ))}
-              </ul>
-            )}
-            {openWrongCount > 0 && (
-              <p className="mt-3 text-center text-xs text-slate-400">
-                오답 노트에 {openWrongCount}문제가 저장되어 있어요.
-              </p>
-            )}
-          </section>
-        </>
-      )}
-
-      <div className="mt-auto flex gap-3 pt-8">
-        <button
-          onClick={handleRetry}
-          className="flex-1 rounded-xl border border-slate-300 bg-white py-3.5 font-semibold text-slate-700"
-        >
-          다시 학습
-        </button>
-        <button
-          onClick={() => navigate(ROUTES.HOME, { replace: true })}
-          className="flex-1 rounded-xl bg-blue-600 py-3.5 font-semibold text-white"
-        >
-          홈으로
-        </button>
-      </div>
-    </div>
+      {feedbackText && <FeedbackCard message={feedbackText} className="mt-4" />}
+    </Screen>
   )
 }
