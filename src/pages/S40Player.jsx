@@ -127,7 +127,9 @@ export default function S40Player() {
     navigate(ROUTES.HOME, { replace: true })
   }
 
+  // '마무리하기'(5분 남음 알림)·도착: 세션을 끝내기 전에 '요약으로 가는 중'을 먼저 반영해 둔다 (홈으로 튕기지 않게)
   const handleFinish = () => {
+    flushSync(() => setToSummary(true))
     endSession('ARRIVED')
     navigate(ROUTES.SUMMARY, { replace: true })
   }
