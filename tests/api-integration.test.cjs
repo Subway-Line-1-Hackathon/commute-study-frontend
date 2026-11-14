@@ -23,8 +23,6 @@ function materialStore(overrides = {}) {
     create, persist: (init) => init, createJSONStorage: () => ({}), zustandStorage: {},
     M, ApiError, UPLOAD: { MAX_VISIBLE: 10 }, supabase: {},
     apiDeleteMaterial: async (id) => calls.push(['deleteMaterial', id]),
-    apiDeleteSubject: async (id) => calls.push(['deleteSubject', id]),
-    apiUpdateSubject: async (id, body) => { calls.push(['updateSubject', id, body]); return { id, name: 'updated', examDate: null, dDay: null } },
     errorMessage: (e) => e.message,
     ...overrides,
   }
@@ -74,32 +72,6 @@ test('R8: server rejection preserves the material; already absent 404 removes st
   absent.setState({ materials: [{ id: 'temp', serverId: 8, status: 'FAILED' }] })
   await absent.getState().removeMaterial('temp')
   assert.equal(absent.getState().materials.length, 0)
-})
-
-test('R9: PATCH preserves null examDate and uses the authoritative server response', async () => {
-  const { store, calls } = materialStore()
-  store.setState({ subjects: [{ id: '3', name: 'old', examDate: '2026-12-15' }] })
-  await store.getState().updateSubject('3', { examDate: null })
-  assert.deepEqual(calls, [['updateSubject', '3', { examDate: null }]])
-  assert.deepEqual(store.getState().subjects[0], { id: '3', name: 'updated', examDate: null, dDay: null })
-})
-
-test('R9: rejected subject deletion keeps all local data', async () => {
-  const { store, ApiError } = materialStore({ apiDeleteSubject: async () => { throw new ApiError(409) } })
-  store.setState({ subjects: [{ id: '3' }], materials: [{ id: 'm', subjectId: '3' }], categories: { 3: [{ id: 'c' }] } })
-  const before = store.getState()
-  await assert.rejects(before.removeSubject('3'), { status: 409 })
-  assert.equal(store.getState(), before)
-})
-
-test('R9: deleted subject IDs remain available for history queries, including after refresh', async () => {
-  const { store } = materialStore({ getSubjects: async () => ({ subjects: [] }) })
-  store.setState({ subjects: [{ id: '3', name: '과목' }], materials: [], serverMaterials: [], categories: {} })
-  await store.getState().removeSubject('3')
-  assert.deepEqual(store.getState().subjects, [])
-  assert.deepEqual(store.getState().archivedSubjects, [{ id: '3', name: '과목' }])
-  await store.getState().syncSubjects()
-  assert.equal(store.getState().archivedSubjects[0].id, '3')
 })
 
 test('subjects removed on another device are retained for local history lookup', async () => {

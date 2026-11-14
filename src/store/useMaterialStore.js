@@ -5,8 +5,6 @@ import { MATERIAL_STATUS as M, UPLOAD } from '../lib/constants'
 import {
   createSubject as apiCreateSubject,
   deleteMaterial as apiDeleteMaterial,
-  deleteSubject as apiDeleteSubject,
-  updateSubject as apiUpdateSubject,
   getCategories,
   getMaterials,
   getMaterialStatus,
@@ -196,35 +194,6 @@ export const useMaterialStore = create(
           const subject = { id, ...body }
           set((s) => ({ subjects: [...s.subjects, subject] }))
           return subject
-        },
-
-        updateSubject: async (id, changes) => {
-          let next = changes
-          if (supabase) {
-            const res = await apiUpdateSubject(id, changes)
-            next = { name: res.name, examDate: res.examDate ?? null, dDay: res.dDay ?? null }
-          }
-          set((s) => ({
-            subjects: s.subjects.map((sub) => (sub.id === id ? { ...sub, ...next } : sub)),
-          }))
-        },
-
-        removeSubject: async (id) => {
-          if (supabase) await apiDeleteSubject(id)
-          set((s) => {
-            const categories = { ...s.categories }
-            delete categories[id]
-            return {
-              archivedSubjects: [
-                ...(s.archivedSubjects ?? []).filter((sub) => sub.id !== id),
-                ...s.subjects.filter((sub) => sub.id === id),
-              ],
-              subjects: s.subjects.filter((sub) => sub.id !== id),
-              materials: s.materials.filter((m) => m.subjectId !== id),
-              serverMaterials: s.serverMaterials.filter((m) => m.subjectId !== id),
-              categories,
-            }
-          })
         },
 
         // 서버의 과목 목록으로 바꾼다. id는 URL 쿼리와 비교하기 쉽게 문자열로 둔다
