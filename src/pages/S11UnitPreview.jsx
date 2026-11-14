@@ -8,7 +8,7 @@ import ScreenTitle from '../layouts/ScreenTitle'
 import { useReviewOnly } from '../hooks/useReviewOnly'
 import { COMMUTE, isUnitPreparing, ROUTES, UPLOAD } from '../lib/constants'
 import { getUnitGroups, isGroupedByMaterial, useMaterialStore } from '../store/useMaterialStore'
-import { useSessionStore } from '../store/useSessionStore'
+import { getRemainingSec, useSessionStore } from '../store/useSessionStore'
 import { ApiError, errorMessage } from '../lib/api'
 
 // S11 단원 선택: 분석으로 나뉜 단원 중 공부할 단원을 골라 문제 설정 화면(S30)으로 넘어간다
@@ -25,6 +25,9 @@ export default function S11UnitPreview() {
   const categories = useMaterialStore((s) => s.categories)
   const serverMaterials = useMaterialStore((s) => s.serverMaterials)
   const reviewOnly = useReviewOnly()
+  // S50 '이어서 하기'로 들어왔으면 남은 시간을 안내한다
+  const continueFrom = useSessionStore((s) => (s.continuing ? s.getContinueFrom() : null))
+  const continueMin = continueFrom ? Math.floor(getRemainingSec(continueFrom) / 60) : 0
 
   const groups = getUnitGroups({ materials, categories, subjects, serverMaterials }, newMaterialIds)
   const byMaterial = isGroupedByMaterial({ categories, serverMaterials })
@@ -198,6 +201,11 @@ export default function S11UnitPreview() {
   return (
     <Screen back bottomCta={bottomCta}>
       <ScreenTitle title={title} description={description} />
+      {continueFrom && (
+        <p className="mt-4 rounded-card bg-primary/10 px-4 py-3 text-caption text-primary">
+          남은 {continueMin}분 동안 이어서 공부해요. 단원을 고르거나 새 자료를 올려 주세요.
+        </p>
+      )}
       {deleteError && <p className="mt-3 text-caption text-danger">{deleteError}</p>}
 
       {preparingCount > 0 && (

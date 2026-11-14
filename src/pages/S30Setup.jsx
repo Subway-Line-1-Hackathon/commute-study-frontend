@@ -9,12 +9,15 @@ import Screen from '../layouts/Screen'
 import { errorMessage } from '../lib/api'
 import { COMMUTE, DIFFICULTY, ROUTES } from '../lib/constants'
 import { useAuthStore } from '../store/useAuthStore'
-import { getSessionRoute, useSessionStore } from '../store/useSessionStore'
+import { getRemainingSec, getSessionRoute, useSessionStore } from '../store/useSessionStore'
 
 export default function S30Setup() {
   const navigate = useNavigate()
   const draft = useLocation().state?.draft
-  const studyMin = useAuthStore((s) => s.commute?.studyMin ?? COMMUTE.DEFAULT)
+  const commuteMin = useAuthStore((s) => s.commute?.studyMin ?? COMMUTE.DEFAULT)
+  // S50 '이어서 하기'로 왔으면 통학 시간 대신 방금 세션의 남은 시간만큼 푼다
+  const continueFrom = useSessionStore((s) => (s.continuing ? s.getContinueFrom() : null))
+  const studyMin = continueFrom ? Math.floor(getRemainingSec(continueFrom) / 60) : commuteMin
 
   const [mode, setMode] = useState(null)
   const [types, setTypes] = useState([])
@@ -45,7 +48,7 @@ export default function S30Setup() {
     try {
       const session = await useSessionStore
         .getState()
-        .createSession({ draft, solveMode: mode, types, difficulty, studyMin })
+        .createSession({ draft, solveMode: mode, types, difficulty, studyMin, continueFrom })
       navigate(getSessionRoute(session), { replace: true })
     } catch (err) {
       setError(errorMessage(err, '문제를 만들지 못했어요. 잠시 후 다시 시도해 주세요.'))

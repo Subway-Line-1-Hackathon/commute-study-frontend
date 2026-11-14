@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import mascot from '../assets/mascot-cheer.png'
 import Button from '../components/Button'
@@ -10,11 +11,16 @@ import { useHome } from '../hooks/useHome'
 import Screen from '../layouts/Screen'
 import { ROUTES } from '../lib/constants'
 import { useMaterialStore } from '../store/useMaterialStore'
-import { getSessionRoute } from '../store/useSessionStore'
+import { getSessionRoute, useSessionStore } from '../store/useSessionStore'
 
 export default function S20Home() {
   const navigate = useNavigate()
   const home = useHome()
+
+  // 홈으로 돌아오면 S50 '이어서 하기'는 그만둔 것으로 본다 (이후 새 학습은 통학 시간 기준)
+  useEffect(() => {
+    useSessionStore.getState().cancelContinue()
+  }, [])
 
   const startUnit = (unit) => {
     const draft = {

@@ -42,6 +42,18 @@ import { useMaterialStore } from './useMaterialStore'
 
 const SUMMARY_SEC = 180 // 서버는 CURRICULUM 세션에서 요약 3분을 빼고 문제 수를 정한다
 
+// 세션에 남은 시간(초) = 남은 개념 듣기 시간 + 남은 문제 풀이 시간
+export const getRemainingSec = (cur) => (cur?.conceptRemainingSec ?? 0) + (cur?.quizRemainingSec ?? 0)
+// 지금까지 공부한 시간(초). 이어서 하기 세션도 처음 세션의 전체 시간을 그대로 쓰므로 처음부터 누적된 값이다
+export const getElapsedSec = (cur) => Math.max(0, cur.plan.totalSec - getRemainingSec(cur))
+// '이어서 하기'를 보여 줄 최소 남은 시간 (서버는 분 단위로 문제 수를 정한다)
+export const MIN_CONTINUE_SEC = 60
+// 끝난 세션이고 남은 시간이 있으면 이어서 할 수 있다
+export const canContinue = (cur) =>
+  Boolean(cur) &&
+  (cur.status === S.COMPLETED || cur.status === S.ENDED) &&
+  getRemainingSec(cur) >= MIN_CONTINUE_SEC
+
 // 단답 비교용: 앞뒤 공백 제거 + 소문자
 const norm = (v) => String(v).trim().toLowerCase()
 // Mock(서버 없음) 채점: 단답은 대소문자·공백 무시하고 비교, 나머지는 정확히 같은지
@@ -237,17 +249,21 @@ export const useSessionStore = create(
         unitProgress: {}, // Mock 모드 단원별 진도 { [unitId]: { solved, total } }
         dailyStats: {}, // { 'YYYY-MM-DD': { answered, correct } } 한국 시간 기준
         pendingAttempts: [], // 서버로 아직 못 보낸 답안
+        continuing: false, // S50 '이어서 하기'로 단원을 고르는 중인지
 
         // 세션을 만들고 바로 출발(IN_PROGRESS)한다
         // draft: { source: 'categories'|'wrongNotes', categoryIds, unitId, unitTitle, subjectId }
+        // continueFrom: '이어서 하기'일 때 방금 끝난 세션. 남은 시간만큼 개념 듣기 없이 문제를 새로 받는다
         createSession: async ({
           draft,
           solveMode = SOLVE_MODE.READ,
           types,
           difficulty,
           studyMin,
+          continueFrom = null,
         }) => {
           const isReview = draft.source === 'wrongNotes'
+          const remainingSec = continueFrom ? getRemainingSec(continueFrom) : 0
           let serverId = null
           let questions
           let script
@@ -263,6 +279,11 @@ export const useSessionStore = create(
             }
             // 오답 복습은 단원을 골랐을 때만 보낸다 (안 보내면 전체 오답)
             if (!isReview || draft.categoryIds?.length) body.categoryIds = draft.categoryIds
+            // 이어서 하기: 남은 시간(분)만큼 문제를 받고, 요약(개념 듣기)은 건너뛴다
+            if (continueFrom) {
+              body.studyMinOverride = Math.max(1, Math.floor(remainingSec / 60))
+              body.skipSummary = true
+            }
             const res = await apiCreateSession(body)
             if (res.noReviewItems) {
               throw new ApiError(422, {
@@ -284,7 +305,10 @@ export const useSessionStore = create(
           } else {
             // Mock 모드: 시간 계획을 직접 계산하고 가짜 문제·대본을 만든다. 복습은 개념 듣기 없이 문제만
             plan = getTimePlan(studyMin)
-            if (isReview) plan = { totalSec: plan.totalSec, conceptSec: 0, quizSec: plan.totalSec }
+            if (isReview || continueFrom) {
+              const totalSec = continueFrom ? remainingSec : plan.totalSec
+              plan = { totalSec, conceptSec: 0, quizSec: totalSec }
+            }
             if (isReview) {
               const unitIds = draft.unitIds ?? []
               const open = getOpenNotes(get().wrongNotes)
@@ -310,6 +334,13 @@ export const useSessionStore = create(
             set({ current: { ...prev, status: S.ENDED } })
           }
 
+          // 이어서 하기: 시간 계획은 처음 세션 것을 그대로 두고 남은 시간부터 이어 간다.
+          // 그래야 전체 시간 - 남은 시간 = 처음부터 지금까지 공부한 시간이 된다
+          if (continueFrom) {
+            script = []
+            plan = { ...continueFrom.plan, quizSec: remainingSec }
+          }
+
           // 들을 대본이 있으면 개념 듣기부터, 없으면 바로 문제 풀이
           const listening = script.length > 0
           set({
@@ -326,9 +357,11 @@ export const useSessionStore = create(
               script, // 개념 듣기 문단 [{ id, text, sourcePage }]
               listenIndex: 0, // 지금 읽고 있는 문단 번호 (이어 듣기용)
               phase: listening ? PHASE.LISTEN : PHASE.QUIZ,
-              conceptRemainingSec: plan.conceptSec, // 남은 개념 듣기 시간
+              conceptRemainingSec: continueFrom ? 0 : plan.conceptSec, // 남은 개념 듣기 시간
               quizRemainingSec: plan.quizSec, // 남은 문제 풀이 시간
-              warned: false, // "곧 끝나요" 알림을 띄웠는지
+              // 이어서 하기 전까지 공부한 시간(초). 서버 리포트 시간은 이번 세션 것만이라 요약 화면에서 쓴다
+              prevElapsedSec: continueFrom ? getElapsedSec(continueFrom) : 0,
+              warned: continueFrom?.warned ?? false, // "곧 끝나요" 알림을 띄웠는지
               solveMode, // 눈으로 풀기 / 듣고 풀기
               types,
               difficulty,
@@ -338,8 +371,26 @@ export const useSessionStore = create(
               status: S.IN_PROGRESS,
               startedAt: Date.now(),
             },
+            continuing: false, // 이어서 하기는 새 세션을 만들면 끝난다
           })
           return get().current
+        },
+
+        // S50 '이어서 하기': 단원 선택(S11)·자료 업로드를 거쳐 문제 설정(S30)에서 새 세션을 만들 때까지
+        // "남은 시간으로 이어서 하는 중"임을 기억해 둔다. 화면 이동(업로드 등)을 거쳐도 유지되게 스토어에 둔다
+        startContinue: () => {
+          if (!canContinue(get().current)) return false
+          set({ continuing: true })
+          return true
+        },
+        // 이어서 하기를 그만둔다 (홈으로 돌아가면 부른다)
+        cancelContinue: () => {
+          if (get().continuing) set({ continuing: false })
+        },
+        // 이어서 하는 중이면 이어 갈 (방금 끝난) 세션, 아니면 null
+        getContinueFrom: () => {
+          const cur = get().current
+          return get().continuing && canContinue(cur) ? cur : null
         },
 
         // 개념 듣기에서 몇 번째 문단까지 읽었는지 저장 (앱을 다시 열면 거기서 이어 듣기)
@@ -526,6 +577,7 @@ export const useSessionStore = create(
         unitProgress: s.unitProgress,
         dailyStats: s.dailyStats,
         pendingAttempts: s.pendingAttempts,
+        continuing: s.continuing,
       }),
     },
   ),
