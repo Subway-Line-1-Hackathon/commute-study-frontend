@@ -28,8 +28,8 @@ export default function S02Nickname() {
     navigate(ROUTES.COMMUTE, { replace: true })
   }
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
+    await logout()
     navigate(ROUTES.LOGIN, { replace: true })
   }
 
