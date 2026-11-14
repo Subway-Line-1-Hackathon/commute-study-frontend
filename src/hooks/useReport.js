@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { kstDateKey } from '../lib/date'
 import { getReport } from '../lib/endpoints'
 import { buildReport, dayLabel, TREND_DAYS } from '../lib/report'
+import { getRecordSubjects } from '../lib/recordSubjects'
 import { supabase } from '../lib/supabase'
 import { useMaterialStore } from '../store/useMaterialStore'
 import { useSessionStore } from '../store/useSessionStore'
@@ -57,10 +58,18 @@ function mergeAverage(reports) {
 // 서버 리포트 조회. 아직 못 받았으면 LOADING, 한 과목이라도 실패하면 ERROR
 function useServerReport() {
   const subjects = useMaterialStore((s) => s.subjects)
+  const archivedSubjects = useMaterialStore((s) => s.archivedSubjects)
+  const history = useSessionStore((s) => s.history)
+  const wrongNotes = useSessionStore((s) => s.wrongNotes)
+  const current = useSessionStore((s) => s.current)
+  const accountId = useSessionStore((s) => s.accountId)
   // 과목 배열은 매번 새 객체라 의존성으로 쓰면 계속 다시 조회된다. id 문자열로 바꿔서 과목이 바뀔 때만 조회
-  const key = subjects.map((s) => s.id).join(',')
+  const key = getRecordSubjects({ subjects, archivedSubjects }, { history, wrongNotes, current })
+    .map((s) => s.id)
+    .sort()
+    .join(',')
   const [attempt, setAttempt] = useState(0) // '다시 시도'를 누를 때마다 1씩 올려 재조회
-  const requestKey = `${key}#${attempt}`
+  const requestKey = `${accountId}#${key}#${attempt}`
   const [result, setResult] = useState(null) // { requestKey, status, trend, today }
 
   useEffect(() => {
@@ -70,7 +79,6 @@ function useServerReport() {
     useSessionStore
       .getState()
       .flushAttempts()
-      .catch(() => {})
       .then(() =>
         Promise.all(key.split(',').map((id) => getReport(id, { scope: 'all' }).catch(() => null))),
       )
@@ -81,6 +89,10 @@ function useServerReport() {
         } else {
           setResult({ requestKey, status: REPORT_STATUS.OK, ...mergeTrend(reports) })
         }
+      })
+      .catch(() => {
+        if (!cancelled)
+          setResult({ requestKey, status: REPORT_STATUS.ERROR, trend: [], today: null })
       })
     return () => {
       cancelled = true

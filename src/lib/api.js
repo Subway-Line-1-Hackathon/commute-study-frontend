@@ -38,14 +38,14 @@ export function errorMessage(err, fallback = '잠시 후 다시 시도해 주세
 // - body: 객체면 JSON으로, FormData면 그대로 보낸다 (파일 업로드)
 // - 응답 본문은 JSON이면 파싱하고, 아니면 문자열, 비어 있으면(204 등) null을 돌려준다
 // - 실패(4xx/5xx)면 ApiError를 던진다
-export async function api(path, { method = 'GET', body, query, signal } = {}) {
+export async function api(path, { method = 'GET', body, query, signal, accountId } = {}) {
   const qs = query
     ? '?' +
       new URLSearchParams(
         Object.entries(query).filter(([, v]) => v !== undefined && v !== null),
       ).toString()
     : ''
-  const token = await getToken()
+  const token = await getToken(accountId)
   const isForm = body instanceof FormData
 
   const res = await fetch(`${BASE}${path}${qs}`, {

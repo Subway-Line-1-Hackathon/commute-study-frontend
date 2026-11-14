@@ -92,6 +92,24 @@ test('R9: rejected subject deletion keeps all local data', async () => {
   assert.equal(store.getState(), before)
 })
 
+test('R9: deleted subject IDs remain available for history queries, including after refresh', async () => {
+  const { store } = materialStore({ getSubjects: async () => ({ subjects: [] }) })
+  store.setState({ subjects: [{ id: '3', name: '과목' }], materials: [], serverMaterials: [], categories: {} })
+  await store.getState().removeSubject('3')
+  assert.deepEqual(store.getState().subjects, [])
+  assert.deepEqual(store.getState().archivedSubjects, [{ id: '3', name: '과목' }])
+  await store.getState().syncSubjects()
+  assert.equal(store.getState().archivedSubjects[0].id, '3')
+})
+
+test('subjects removed on another device are retained for local history lookup', async () => {
+  const { store } = materialStore({ getSubjects: async () => ({ subjects: [{ id: 4, name: '남은 과목' }] }) })
+  store.setState({ subjects: [{ id: '3', name: '삭제된 과목' }, { id: '4', name: '남은 과목' }] })
+  await store.getState().syncSubjects()
+  assert.deepEqual(store.getState().subjects.map((s) => s.id), ['4'])
+  assert.deepEqual(store.getState().archivedSubjects.map((s) => s.id), ['3'])
+})
+
 async function sessionReport(responses) {
   let result = null
   let effect

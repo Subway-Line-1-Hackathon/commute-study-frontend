@@ -76,12 +76,13 @@ export const startSession = (id) => api(`/api/sessions/${id}/start`, { method: '
 // { sessionId, today: { answered, correct, accuracy }, feedback, feedbackStatus: PENDING|READY|SKIPPED|FAILED }
 export const getSessionReport = (id) => api(`/api/sessions/${id}/report`)
 // reason: 'QUIT' | 'ARRIVED' | 'NEW_START' | 'NEXT_DAY'
-export const endSession = (id, reason) =>
-  api(`/api/sessions/${id}/end`, { method: 'POST', body: { reason } })
+export const endSession = (id, reason, { accountId } = {}) =>
+  api(`/api/sessions/${id}/end`, { method: 'POST', body: { reason }, accountId })
 
 // 답안
 // { sessionId, attempts: [{ questionId, answer, correct, selfJudged, answeredAt }] }
-export const saveAttempts = (body) => api('/api/attempts', { method: 'POST', body })
+export const saveAttempts = (body, { accountId } = {}) =>
+  api('/api/attempts', { method: 'POST', body, accountId })
 // { correct: true|false|null, reason, timeout }
 export const judgeAnswer = (questionId, answer) =>
   api('/api/answers/judge', { method: 'POST', body: { questionId, answer } })

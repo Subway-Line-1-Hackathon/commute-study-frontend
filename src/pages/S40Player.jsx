@@ -30,6 +30,7 @@ export default function S40Player() {
   const submitAnswer = useSessionStore((s) => s.submitAnswer)
   const selfJudge = useSessionStore((s) => s.selfJudge)
   const advanceListen = useSessionStore((s) => s.advanceListen)
+  const backListen = useSessionStore((s) => s.backListen)
   const endSession = useSessionStore((s) => s.endSession)
   const commute = useAuthStore((s) => s.commute)
 
@@ -126,7 +127,9 @@ export default function S40Player() {
     navigate(ROUTES.HOME, { replace: true })
   }
 
+  // '마무리하기'(5분 남음 알림)·도착: 세션을 끝내기 전에 '요약으로 가는 중'을 먼저 반영해 둔다 (홈으로 튕기지 않게)
   const handleFinish = () => {
+    flushSync(() => setToSummary(true))
     endSession('ARRIVED')
     navigate(ROUTES.SUMMARY, { replace: true })
   }
@@ -137,10 +140,19 @@ export default function S40Player() {
     </Button>
   )
   if (isListen) {
+    // 이전 문제로 돌아가면 그 문제를 처음부터 다시 읽는다 (멈춰 있었으면 다시 재생)
+    const handleBack = () => {
+      if (backListen()) setPaused(false)
+    }
     mainButton = (
-      <Button variant="secondary" onClick={() => setPaused((p) => !p)}>
-        {paused ? '이어서 듣기' : '잠시 멈추기'}
-      </Button>
+      <div className="flex gap-2">
+        <Button variant="secondary" onClick={handleBack} disabled={answered === 0}>
+          이전 문제
+        </Button>
+        <Button variant="secondary" onClick={() => setPaused((p) => !p)}>
+          {paused ? '이어서 듣기' : '잠시 멈추기'}
+        </Button>
+      </div>
     )
   } else if (selfCheck) {
     mainButton = null
