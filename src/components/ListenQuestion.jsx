@@ -11,6 +11,8 @@ const GAP_MS = 3000 // 문제를 읽은 뒤, 정답을 읽은 뒤 기다리는 �
 const KIND = { [T.OX]: '오엑스 문제', [T.SHORT]: '단답형 문제', [T.MCQ]: '객관식 문제' }
 // O/X를 글자 그대로 읽으면 어색해서 소리 나는 대로 바꾼다
 const sayAnswer = (a) => (a === 'O' ? '오' : a === 'X' ? '엑스' : a)
+// 해설의 첫 문장만 잘라낸다. 서버 단답형은 정답이 없어서 해설 전체 대신 핵심 한 문장만 읽는다
+const firstSentence = (s) => s.trim().match(/^.*?[.!?。](?=\s|$)/s)?.[0] ?? s.trim()
 
 // 듣고 풀기: 문제 읽기 → 3초 → 정답 읽기 → 3초 → onDone
 // question이 바뀌면 key로 새로 만들어 처음부터 진행한다
@@ -19,7 +21,7 @@ export default function ListenQuestion({ question, paused, onDone }) {
   const [showText, setShowText] = useState(false) // '글로 보기'를 눌렀는지
   // onDone을 ref에 담아 두면, 부모가 리렌더링으로 새 함수를 넘겨도 읽기 effect가 다시 시작되지 않는다
   const onDoneRef = useRef(onDone)
-  // 서버 단답형은 정답이 오지 않아서 해설을 대신 읽는다
+  // 서버 단답형은 정답이 오지 않아서 해설 첫 문장을 대신 읽는다
   const { explanation, sourcePage } = useExplanation(question)
   const explanationRef = useRef(explanation)
 
@@ -38,7 +40,7 @@ export default function ListenQuestion({ question, paused, onDone }) {
     let text = `${KIND[question.type]}. ${question.prompt}`
     if (stage === 'answer') {
       if (question.answer) text = `정답은 ${sayAnswer(question.answer)}입니다.`
-      else if (explanationRef.current) text = `해설입니다. ${explanationRef.current}`
+      else if (explanationRef.current) text = firstSentence(explanationRef.current)
       else text = '정답은 화면에서 확인해 주세요.'
     }
     // 다 읽으면 3초 뒤: 문제 단계면 정답 단계로, 정답 단계면 다음 문제로(onDone)
