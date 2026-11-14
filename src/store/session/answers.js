@@ -131,5 +131,16 @@ export function createSessionAnswers(set, get, flushAttempts) {
           .catch(() => {})
       return { completed: isLast }
     },
+
+    // 듣고 풀기: 이전 문제로 돌아간다. 마지막으로 '들은' 기록을 지우면 그 문제가 다시 현재 문제가 된다
+    // 들은 기록은 서버로 보내지 않으므로 지워도 서버와 어긋나지 않는다
+    backListen: () => {
+      const cur = get().current
+      if (!cur || cur.status !== S.IN_PROGRESS || cur.phase !== PHASE.QUIZ) return false
+      const last = cur.answers[cur.answers.length - 1]
+      if (!last?.listened) return false
+      set({ current: { ...cur, answers: cur.answers.slice(0, -1) } })
+      return true
+    },
   }
 }
