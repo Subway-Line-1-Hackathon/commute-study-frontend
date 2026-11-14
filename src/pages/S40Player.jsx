@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { Navigate, useNavigate } from 'react-router-dom'
 import Button from '../components/Button'
 import ConfirmModal from '../components/ConfirmModal'
@@ -40,6 +41,9 @@ export default function S40Player() {
   const [confirmEnd, setConfirmEnd] = useState(false) // '학습 멈추기' 팝업
   const [paused, setPaused] = useState(false) // 듣고 풀기 일시정지
   const [warnClosed, setWarnClosed] = useState(false)
+  // 듣고 풀기 마지막 문제를 마치고 요약으로 가는 중인지.
+  // 이게 없으면 세션이 끝난 상태로 바뀐 직후 '끝난 세션이면 홈으로'가 먼저 렌더링돼서 요약 대신 홈으로 가 버린다
+  const [toSummary, setToSummary] = useState(false)
 
   const status = cur?.status
   const running = status === S.IN_PROGRESS && cur?.phase === PHASE.QUIZ
@@ -52,6 +56,7 @@ export default function S40Player() {
   useEffect(() => () => stopSpeaking(), [])
 
   if (!cur) return <Navigate to={ROUTES.HOME} replace />
+  if (toSummary) return null
 
   // 이미 끝난 세션이면 홈으로. 단, 마지막 문제 채점 결과나 '시간 끝' 팝업을 보여주는 중이면 그대로 둔다
   const finished = status === S.COMPLETED || status === S.ENDED
@@ -108,8 +113,11 @@ export default function S40Player() {
   }
 
   const handleListenDone = () => {
+    // 마지막 문제면 세션을 끝내기 전에 '요약으로 가는 중'을 먼저 화면에 반영해 둔다 (홈으로 튕기지 않게)
+    if (answered === total - 1) flushSync(() => setToSummary(true))
     const result = advanceListen()
     if (result?.completed) navigate(ROUTES.SUMMARY, { replace: true })
+    else setToSummary(false)
   }
 
   const handleEnd = () => {
