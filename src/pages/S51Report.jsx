@@ -63,7 +63,7 @@ export default function S51Report() {
           label="전체 평균"
           value={statValue(report.average == null ? '-' : `${report.average}%`)}
         />
-        <StatTile label="정답률" value={statValue(`${report.accuracy}%`)} />
+        <StatTile label="오늘 정답률" value={statValue(`${report.accuracy}%`)} />
         <StatTile label="오답" value={statValue(`${report.wrongCount}개`)} />
       </div>
 

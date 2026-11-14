@@ -65,6 +65,7 @@ export const ROUTES = {
   SETTINGS: '/settings',
   SETTINGS_COMMUTE: '/settings/commute',
   SETTINGS_ACCOUNT: '/settings/account',
+  SETTINGS_SUBJECTS: '/settings/subjects',
   REVIEW: '/study/review',
   WRONG_NOTES: '/wrong-notes',
   REPORT: '/report',

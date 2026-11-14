@@ -20,7 +20,7 @@ export const MODE_OPTIONS = [
 ]
 
 export const TYPE_LABEL = {
-  [M.READ]: { [T.OX]: 'O/X 스와이프', [T.SHORT]: '단답형', [T.MCQ]: '객관식' },
+  [M.READ]: { [T.OX]: 'O/X', [T.SHORT]: '단답형', [T.MCQ]: '객관식' },
   [M.LISTEN]: { [T.OX]: 'O/X', [T.SHORT]: '단답형' },
 }
 

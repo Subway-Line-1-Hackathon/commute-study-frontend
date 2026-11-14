@@ -5,56 +5,49 @@ import FeedbackCard from '../components/report/FeedbackCard'
 import Screen from '../layouts/Screen'
 import ScreenTitle from '../layouts/ScreenTitle'
 import { ROUTES, SESSION_STATUS as S, SOLVE_MODE } from '../lib/constants'
-import { getReport, getSessionReport } from '../lib/endpoints'
+import { getSessionReport } from '../lib/endpoints'
 import { wait } from '../lib/storage'
 import { useAuthStore } from '../store/useAuthStore'
 import { useSessionStore } from '../store/useSessionStore'
 
-async function getOldFeedback(subjectId, sessionId) {
-  if (!subjectId) return null
-  const res = await getReport(subjectId, { scope: 'session', sessionId }).catch(() => null)
-  return res?.feedback ?? null
-}
-
 // 통학 후 AI 피드백. 세션이 끝난 뒤 서버가 따로 만들어서, PENDING인 동안만 다시 조회한다
-// 조회 중이면 undefined, 끝내 못 받으면 null
+// 세션 전체 수치와 피드백 상태를 함께 받는다.
 function useSessionFeedback(cur) {
   const serverId = cur?.serverId
-  const subjectId = cur?.subjectId
-  const [feedback, setFeedback] = useState(undefined)
+  const [result, setResult] = useState(null)
 
   useEffect(() => {
     if (!serverId) return
     let cancelled = false
     const run = async () => {
       // 남은 답안을 먼저 보내야 서버 피드백에 반영된다
-      await useSessionStore.getState().flushAttempts()
+      await useSessionStore
+        .getState()
+        .flushAttempts()
+        .catch(() => {})
       // 3초 간격으로 최대 10번(약 30초) 조회
       for (let i = 0; i < 10 && !cancelled; i += 1) {
         try {
           const res = await getSessionReport(serverId)
+          if (!cancelled) setResult({ ...res, serverId })
           if (res?.feedbackStatus !== 'PENDING') {
-            if (!cancelled) setFeedback(res?.feedback ?? null)
             return
           }
         } catch {
-          const old = await getOldFeedback(subjectId, serverId)
-          if (old) {
-            if (!cancelled) setFeedback(old)
-            return
-          }
+          if (!cancelled) setResult((prev) => ({ ...prev, serverId, unavailable: true }))
+          return
         }
         await wait(3000)
       }
-      if (!cancelled) setFeedback(null)
+      if (!cancelled) setResult((prev) => ({ ...prev, serverId, timedOut: true }))
     }
     run()
     return () => {
       cancelled = true
     }
-  }, [serverId, subjectId])
+  }, [serverId])
 
-  return feedback
+  return result?.serverId === serverId ? result : null
 }
 
 function withStation(name) {
@@ -92,7 +85,7 @@ export default function S50Summary() {
   const navigate = useNavigate()
   const cur = useSessionStore((s) => s.current)
   const commute = useAuthStore((s) => s.commute)
-  const aiFeedback = useSessionFeedback(cur)
+  const report = useSessionFeedback(cur)
 
   // 끝난 세션이 없으면 보여줄 게 없으니 홈으로
   const finished =
@@ -100,16 +93,21 @@ export default function S50Summary() {
   if (!finished) return <Navigate to={ROUTES.HOME} replace />
 
   const isListen = cur.solveMode === SOLVE_MODE.LISTEN
-  const answered = cur.answers.length
+  const answered = !isListen && report?.today ? report.today.answered : cur.answers.length
   const graded = cur.answers.filter((a) => a.correct != null)
   const correctCount = graded.filter((a) => a.correct).length
-  const wrongCount = graded.length - correctCount
-  let percent = 0
-  if (graded.length > 0) percent = Math.round((correctCount / graded.length) * 100)
+  const wrongCount = report?.today?.wrong ?? graded.length - correctCount
+  const accuracy = report?.today
+    ? report.today.accuracy
+    : graded.length
+      ? correctCount / graded.length
+      : null
+  const percent = accuracy == null ? '—' : `${Math.round(accuracy * 100)}%`
 
   // 실제로 쓴 시간 = 전체 시간 - 남은 개념 시간 - 남은 문제 시간
   const elapsedSec = Math.max(0, cur.plan.totalSec - cur.conceptRemainingSec - cur.quizRemainingSec)
-  const studiedMin = Math.max(1, Math.round(elapsedSec / 60))
+  const studiedMin =
+    !isListen && report?.today ? report.today.minutes : Math.max(1, Math.round(elapsedSec / 60))
 
   const departure = commute?.departure ?? ''
   const arrival = commute?.arrival ?? ''
@@ -125,8 +123,15 @@ export default function S50Summary() {
   if (wrongCount > 0) wrongText = `오답 ${wrongCount}개는 오답노트에 저장했어요`
 
   let feedbackText = null
-  if (cur.serverId && aiFeedback === undefined) feedbackText = 'AI가 피드백을 만들고 있어요…'
-  if (aiFeedback) feedbackText = aiFeedback
+  if (cur.serverId && !report) feedbackText = '학습 결과를 확인하고 있어요…'
+  if (report?.feedbackStatus === 'PENDING') feedbackText = 'AI가 피드백을 만들고 있어요…'
+  if (report?.feedbackStatus === 'SKIPPED')
+    feedbackText = '이번 학습은 AI 피드백이 제공되지 않아요.'
+  if (report?.feedbackStatus === 'FAILED') feedbackText = 'AI 피드백을 만들지 못했어요.'
+  if (report?.timedOut) feedbackText = 'AI 피드백이 아직 준비 중이에요. 잠시 후 다시 확인해 주세요.'
+  if (report?.unavailable)
+    feedbackText = '서버 결과를 불러오지 못했어요. 기기에 저장된 결과를 보여드려요.'
+  if (report?.feedbackStatus === 'READY' && report.feedback) feedbackText = report.feedback
 
   const bottomCta = (
     <div className="space-y-2">
@@ -163,7 +168,7 @@ export default function S50Summary() {
             <>
               <div className="flex gap-3">
                 <Stat label="푼 문제" value={`${answered}개`} />
-                <Stat label="정답률" value={`${percent}%`} />
+                <Stat label="정답률" value={percent} />
                 <Stat label="오답" value={`${wrongCount}개`} />
               </div>
               <p className="mt-3 text-caption text-muted">{wrongText}</p>
