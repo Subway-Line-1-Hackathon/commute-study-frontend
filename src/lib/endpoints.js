@@ -32,10 +32,29 @@ export const getReport = (subjectId, { scope, sessionId } = {}) =>
 // 자료
 // { materials: [{ id, subjectId, fileName, status, createdAt }] } 최신순
 export const getMaterials = () => api('/api/materials')
+// 확장자별 정확한 Content-Type. 백엔드는 확장자와 Content-Type이 맞아야 받아 준다
+const MIME_BY_EXT = {
+  pdf: 'application/pdf',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+}
+
+// 브라우저가 붙인 파일 type은 OS 설정에 따라 다르다.
+// (예: Office가 없는 Windows에서는 .pptx가 빈 값 -> application/octet-stream으로 전송돼 400)
+// 그래서 확장자로 type을 다시 정해서 보낸다
+function withMime(file) {
+  const ext = file.name.split('.').pop()?.toLowerCase()
+  const mime = MIME_BY_EXT[ext]
+  if (!mime || file.type === mime) return file
+  return new File([file], file.name, { type: mime, lastModified: file.lastModified })
+}
+
 // PDF/PPTX 1개 또는 사진(PNG·JPG 섞어도 됨) 1~20장 -> { materialId, status }
 export const uploadMaterial = (subjectId, files, kind = 'LECTURE') => {
   const fd = new FormData()
-  for (const f of [].concat(files)) fd.append('file', f)
+  for (const f of [].concat(files)) fd.append('file', withMime(f))
   return api(`/api/subjects/${subjectId}/materials`, { method: 'POST', body: fd, query: { kind } })
 }
 // { status: UPLOADED|PROCESSING|READY|FAILED|EXPIRED, categoryCount, error }
