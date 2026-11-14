@@ -273,3 +273,29 @@ test('failed continuation leaves the previous session and unsent queues intact',
   assert.deepEqual(store.getState().pendingAttempts, pendingAttempts)
   assert.deepEqual(store.getState().pendingEnds, pendingEnds)
 })
+
+test('listen mode can go back to the previous question without touching the server', () => {
+  const { useSessionStore: store, calls } = setup()
+  const questions = [{ id: 1, type: 'OX', answer: 'O' }, { id: 2, type: 'OX', answer: 'X' }, { id: 3, type: 'OX', answer: 'O' }]
+  store.setState({ current: { serverId: 42, status: 'IN_PROGRESS', phase: 'QUIZ', solveMode: 'LISTEN', questions, answers: [] } })
+
+  // 첫 문제에서는 돌아갈 곳이 없다
+  assert.equal(store.getState().backListen(), false)
+
+  store.getState().advanceListen()
+  store.getState().advanceListen()
+  assert.equal(store.getState().current.answers.length, 2)
+
+  assert.equal(store.getState().backListen(), true)
+  assert.deepEqual(store.getState().current.answers.map((a) => a.questionId), [1])
+  assert.equal(store.getState().current.status, 'IN_PROGRESS')
+  assert.deepEqual(calls, [])
+})
+
+test('going back does not remove a graded (read mode) answer', () => {
+  const { useSessionStore: store } = setup()
+  const answers = [{ questionId: 1, value: 'O', correct: true }]
+  store.setState({ current: { status: 'IN_PROGRESS', phase: 'QUIZ', questions: [{ id: 1 }, { id: 2 }], answers } })
+  assert.equal(store.getState().backListen(), false)
+  assert.equal(store.getState().current.answers, answers)
+})
