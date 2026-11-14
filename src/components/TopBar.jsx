@@ -8,8 +8,8 @@ export default function TopBar({ backTo, showLogout = true, showSettings = false
   const navigate = useNavigate()
   const logout = useAuthStore((s) => s.logout)
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
+    await logout()
     navigate(ROUTES.LOGIN, { replace: true })
   }
 

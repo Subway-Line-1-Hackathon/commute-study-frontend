@@ -26,7 +26,10 @@ export const useAuthStore = create(
         if (supabase) {
           const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
-            options: { redirectTo: `${window.location.origin}${ROUTES.SPLASH}` },
+            options: {
+              redirectTo: `${window.location.origin}${ROUTES.SPLASH}`,
+              queryParams: { prompt: 'select_account' },
+            },
           })
           if (error) throw error
           return true
@@ -124,8 +127,8 @@ export const useAuthStore = create(
       activate: () => set({ status: AUTH_STATUS.ACTIVE, activated: true }),
 
       // 로그인 상태만 해제. 닉네임, 통학 시간, 자료는 계정 데이터라 유지
-      logout: () => {
-        supabase?.auth.signOut()
+      logout: async () => {
+        if (supabase) await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
         set({ status: AUTH_STATUS.ANONYMOUS })
       },
 

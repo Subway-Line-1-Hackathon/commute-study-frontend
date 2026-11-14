@@ -41,8 +41,8 @@ export default function S60Settings() {
     commuteLabel = `${departure || '출발역'} → ${arrival || '도착역'} · ${commuteLabel}`
   }
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
+    await logout()
     navigate(ROUTES.LOGIN, { replace: true })
   }
 
