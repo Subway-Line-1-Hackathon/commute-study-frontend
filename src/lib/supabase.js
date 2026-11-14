@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { setTokenProvider } from './api'
+import { ApiError, setTokenProvider } from './api'
 
 const url = import.meta.env.VITE_SUPABASE_URL
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -10,8 +10,11 @@ export const supabase =
 
 // 백엔드 API 요청마다 Supabase 로그인 토큰을 Authorization 헤더에 붙인다
 if (supabase) {
-  setTokenProvider(async () => {
+  setTokenProvider(async (accountId) => {
     const { data } = await supabase.auth.getSession()
+    if (accountId && data.session?.user.id !== accountId) {
+      throw new ApiError(401, { message: '답안을 작성한 계정으로 다시 로그인해 주세요.' })
+    }
     return data.session?.access_token ?? null
   })
 }

@@ -199,7 +199,9 @@ export default function S52WrongNotes() {
         key,
         title: note.unitTitle || '단원 미지정',
         subjectName:
-          subjects.find((subject) => String(subject.id) === String(note.subjectId))?.name ?? '',
+          subjects.find((subject) => String(subject.id) === String(note.subjectId))?.name ??
+          note.subjectName ??
+          '',
         notes: [],
       })
     }

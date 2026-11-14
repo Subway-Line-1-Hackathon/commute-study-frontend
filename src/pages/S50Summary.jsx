@@ -21,10 +21,12 @@ function useSessionFeedback(cur) {
     let cancelled = false
     const run = async () => {
       // 남은 답안을 먼저 보내야 서버 피드백에 반영된다
-      await useSessionStore
-        .getState()
-        .flushAttempts()
-        .catch(() => {})
+      try {
+        await useSessionStore.getState().flushAttempts()
+      } catch {
+        if (!cancelled) setResult({ serverId, unavailable: true })
+        return
+      }
       // 3초 간격으로 최대 10번(약 30초) 조회
       for (let i = 0; i < 10 && !cancelled; i += 1) {
         try {

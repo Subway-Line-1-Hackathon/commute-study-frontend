@@ -164,6 +164,7 @@ export const useMaterialStore = create(
       // ---- 여기부터 화면에서 쓰는 상태와 액션 ----
       return {
         subjects: [], // [{ id, name, examDate, dDay }]
+        archivedSubjects: [], // 삭제한 과목의 오답·리포트를 조회하기 위한 ID/이름
         materials: [], // 업로드한 자료 목록 (상태, 진행률, 에러 문구 등)
         categories: {}, // { [subjectId]: unit[] } 서버 단원
         serverMaterials: [],
@@ -214,6 +215,10 @@ export const useMaterialStore = create(
             const categories = { ...s.categories }
             delete categories[id]
             return {
+              archivedSubjects: [
+                ...(s.archivedSubjects ?? []).filter((sub) => sub.id !== id),
+                ...s.subjects.filter((sub) => sub.id === id),
+              ],
               subjects: s.subjects.filter((sub) => sub.id !== id),
               materials: s.materials.filter((m) => m.subjectId !== id),
               serverMaterials: s.serverMaterials.filter((m) => m.subjectId !== id),
@@ -232,7 +237,15 @@ export const useMaterialStore = create(
             examDate: s.examDate ?? null,
             dDay: s.dDay ?? null,
           }))
-          set({ subjects })
+          set((s) => ({
+            subjects,
+            // 다른 기기에서 삭제한 과목도, 이 기기에 있던 ID는 보존한다.
+            archivedSubjects: [...(s.archivedSubjects ?? []), ...s.subjects].filter(
+              (sub, index, all) =>
+                !subjects.some((active) => active.id === sub.id) &&
+                all.findIndex((item) => item.id === sub.id) === index,
+            ),
+          }))
         },
 
         // 과목별 단원(진도·정답률 포함)을 서버에서 받는다. subjectId가 없으면 모든 과목
