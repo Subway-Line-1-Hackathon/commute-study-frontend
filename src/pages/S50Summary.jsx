@@ -5,12 +5,18 @@ import FeedbackCard from '../components/report/FeedbackCard'
 import Screen from '../layouts/Screen'
 import ScreenTitle from '../layouts/ScreenTitle'
 import { ROUTES, SESSION_STATUS as S, SOLVE_MODE } from '../lib/constants'
-import { getReport } from '../lib/endpoints'
+import { getReport, getSessionReport } from '../lib/endpoints'
 import { wait } from '../lib/storage'
 import { useAuthStore } from '../store/useAuthStore'
 import { useSessionStore } from '../store/useSessionStore'
 
-// 통학 후 AI 피드백. 세션이 끝난 뒤 서버가 따로 만들어서(최대 약 15초) 몇 번 다시 조회한다
+async function getOldFeedback(subjectId, sessionId) {
+  if (!subjectId) return null
+  const res = await getReport(subjectId, { scope: 'session', sessionId }).catch(() => null)
+  return res?.feedback ?? null
+}
+
+// 통학 후 AI 피드백. 세션이 끝난 뒤 서버가 따로 만들어서, PENDING인 동안만 다시 조회한다
 // 조회 중이면 undefined, 끝내 못 받으면 null
 function useSessionFeedback(cur) {
   const serverId = cur?.serverId
@@ -18,21 +24,25 @@ function useSessionFeedback(cur) {
   const [feedback, setFeedback] = useState(undefined)
 
   useEffect(() => {
-    if (!serverId || !subjectId) return
+    if (!serverId) return
     let cancelled = false
     const run = async () => {
       // 남은 답안을 먼저 보내야 서버 피드백에 반영된다
       await useSessionStore.getState().flushAttempts()
-      // 3초 간격으로 최대 6번(약 18초) 조회
-      for (let i = 0; i < 6 && !cancelled; i += 1) {
+      // 3초 간격으로 최대 10번(약 30초) 조회
+      for (let i = 0; i < 10 && !cancelled; i += 1) {
         try {
-          const res = await getReport(subjectId, { scope: 'session', sessionId: serverId })
-          if (res?.feedback) {
-            if (!cancelled) setFeedback(res.feedback)
+          const res = await getSessionReport(serverId)
+          if (res?.feedbackStatus !== 'PENDING') {
+            if (!cancelled) setFeedback(res?.feedback ?? null)
             return
           }
         } catch {
-          /* 다음에 다시 */
+          const old = await getOldFeedback(subjectId, serverId)
+          if (old) {
+            if (!cancelled) setFeedback(old)
+            return
+          }
         }
         await wait(3000)
       }

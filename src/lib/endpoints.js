@@ -17,6 +17,11 @@ export const getSubjects = () => api('/api/subjects')
 export const createSubject = (body) => api('/api/subjects', { method: 'POST', body })
 // { categories: [{ id, name, pageStart, pageEnd, progress, accuracy, lastStudiedAt, state, questionStatus }], recommendedId }
 export const getCategories = (subjectId) => api(`/api/subjects/${subjectId}/categories`)
+// { name, examDate } 보낸 필드만 바뀐다. examDate: null이면 시험일 삭제 -> { id, name, examDate, dDay }
+export const updateSubject = (subjectId, body) =>
+  api(`/api/subjects/${subjectId}`, { method: 'PATCH', body })
+// 과목과 그 자료를 지운다(학습 기록은 남음). 204. 분석 중인 자료가 있으면 409
+export const deleteSubject = (subjectId) => api(`/api/subjects/${subjectId}`, { method: 'DELETE' })
 // { items: [{ questionId, categoryId, stem, wrongCount, status, lastWrongAt }] }
 export const getWrongNotes = (subjectId, categoryId) =>
   api(`/api/subjects/${subjectId}/wrong-notes`, { query: { categoryId } })
@@ -37,6 +42,9 @@ export const uploadMaterial = (subjectId, files, kind = 'LECTURE') => {
 export const getMaterialStatus = (materialId) => api(`/api/materials/${materialId}/status`)
 export const retryMaterial = (materialId) =>
   api(`/api/materials/${materialId}/retry`, { method: 'POST' })
+// 자료를 지운다(학습 기록은 남음). 204. 업로드·분석 중이면 409
+export const deleteMaterial = (materialId) =>
+  api(`/api/materials/${materialId}`, { method: 'DELETE' })
 
 // 세션
 // { source: 'categories'|'wrongNotes', categoryIds, questionTypes: ['OX'|'MC'|'SHORT'],
@@ -45,6 +53,9 @@ export const createSession = (body) => api('/api/sessions', { method: 'POST', bo
 // 진행 중 없으면 null(204) | { sessionId, categoryNames, answered, total }
 export const getCurrentSession = () => api('/api/sessions/current')
 export const startSession = (id) => api(`/api/sessions/${id}/start`, { method: 'POST' })
+// 과목 구분 없이 세션 전체 결과
+// { sessionId, today: { answered, correct, accuracy }, feedback, feedbackStatus: PENDING|READY|SKIPPED|FAILED }
+export const getSessionReport = (id) => api(`/api/sessions/${id}/report`)
 // reason: 'QUIT' | 'ARRIVED' | 'NEW_START' | 'NEXT_DAY'
 export const endSession = (id, reason) =>
   api(`/api/sessions/${id}/end`, { method: 'POST', body: { reason } })

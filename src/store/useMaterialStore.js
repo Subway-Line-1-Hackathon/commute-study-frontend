@@ -1,9 +1,12 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import { errorMessage } from '../lib/api'
+import { ApiError, errorMessage } from '../lib/api'
 import { MATERIAL_STATUS as M, UPLOAD } from '../lib/constants'
 import {
   createSubject as apiCreateSubject,
+  deleteMaterial as apiDeleteMaterial,
+  deleteSubject as apiDeleteSubject,
+  updateSubject as apiUpdateSubject,
   getCategories,
   getMaterials,
   getMaterialStatus,
@@ -189,6 +192,31 @@ export const useMaterialStore = create(
           return subject
         },
 
+        updateSubject: async (id, changes) => {
+          let next = changes
+          if (supabase) {
+            const res = await apiUpdateSubject(id, changes)
+            next = { name: res.name, examDate: res.examDate ?? null, dDay: res.dDay ?? null }
+          }
+          set((s) => ({
+            subjects: s.subjects.map((sub) => (sub.id === id ? { ...sub, ...next } : sub)),
+          }))
+        },
+
+        removeSubject: async (id) => {
+          if (supabase) await apiDeleteSubject(id)
+          set((s) => {
+            const categories = { ...s.categories }
+            delete categories[id]
+            return {
+              subjects: s.subjects.filter((sub) => sub.id !== id),
+              materials: s.materials.filter((m) => m.subjectId !== id),
+              serverMaterials: s.serverMaterials.filter((m) => m.subjectId !== id),
+              categories,
+            }
+          })
+        },
+
         // 서버의 과목 목록으로 바꾼다. id는 URL 쿼리와 비교하기 쉽게 문자열로 둔다
         syncSubjects: async () => {
           if (!supabase) return
@@ -298,10 +326,23 @@ export const useMaterialStore = create(
         // 분석이 끝난 자료가 하나라도 있는지
         hasReadyMaterial: () => get().materials.some((m) => m.status === M.READY),
 
-        removeFailedMaterial: (id) => {
-          set((s) => ({
-            materials: s.materials.filter((m) => !(m.id === id && m.status === M.FAILED)),
-          }))
+        removeFailedMaterial: async (id) => {
+          const target = find(id)
+          if (!target || target.status !== M.FAILED) return
+          if (target.serverId) {
+            try {
+              await apiDeleteMaterial(target.serverId)
+            } catch (err) {
+              if (!(err instanceof ApiError && err.status === 404)) {
+                patch(id, { errorMessage: errorMessage(err, '자료를 지우지 못했어요.') })
+                return
+              }
+            }
+          }
+          set((s) => ({ materials: s.materials.filter((m) => m.id !== id) }))
+          get()
+            .syncMaterials()
+            .catch(() => {})
         },
       }
     },
