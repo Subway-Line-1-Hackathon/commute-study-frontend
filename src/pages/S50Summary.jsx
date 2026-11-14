@@ -8,7 +8,12 @@ import { ROUTES, SESSION_STATUS as S, SOLVE_MODE } from '../lib/constants'
 import { getSessionReport } from '../lib/endpoints'
 import { wait } from '../lib/storage'
 import { useAuthStore } from '../store/useAuthStore'
-import { useSessionStore } from '../store/useSessionStore'
+import {
+  canContinue,
+  getElapsedSec,
+  getRemainingSec,
+  useSessionStore,
+} from '../store/useSessionStore'
 
 // 통학 후 AI 피드백. 세션이 끝난 뒤 서버가 따로 만들어서, PENDING인 동안만 다시 조회한다
 // 세션 전체 수치와 피드백 상태를 함께 받는다.
@@ -104,10 +109,24 @@ export default function S50Summary() {
       : null
   const percent = accuracy == null ? '—' : `${Math.round(accuracy * 100)}%`
 
-  // 실제로 쓴 시간 = 전체 시간 - 남은 개념 시간 - 남은 문제 시간
-  const elapsedSec = Math.max(0, cur.plan.totalSec - cur.conceptRemainingSec - cur.quizRemainingSec)
+  // 실제로 쓴 시간 = 전체 시간 - 남은 시간. 이어서 하기를 했으면 처음 세션부터 누적된 값이다
+  const elapsedSec = getElapsedSec(cur)
+  // 서버 리포트 시간은 이번 세션 것만이라, 이어서 하기 전에 공부한 시간을 더한다
+  const prevMin = Math.round((cur.prevElapsedSec ?? 0) / 60)
   const studiedMin =
-    !isListen && report?.today ? report.today.minutes : Math.max(1, Math.round(elapsedSec / 60))
+    !isListen && report?.today
+      ? report.today.minutes + prevMin
+      : Math.max(1, Math.round(elapsedSec / 60))
+
+  // 남은 시간이 있으면 이어서 할 수 있다. 단원을 다시 고르거나 새 자료를 올린 뒤 남은 시간만큼 푼다
+  const continuable = canContinue(cur)
+  const remainingMin = Math.floor(getRemainingSec(cur) / 60)
+
+  const handleContinue = () => {
+    if (!useSessionStore.getState().startContinue()) return
+    const query = cur.subjectId ? `?subjectId=${cur.subjectId}` : ''
+    navigate(`${ROUTES.UNIT_PREVIEW}${query}`)
+  }
 
   const departure = commute?.departure ?? ''
   const arrival = commute?.arrival ?? ''
@@ -135,7 +154,15 @@ export default function S50Summary() {
 
   const bottomCta = (
     <div className="space-y-2">
-      <Button onClick={() => navigate(ROUTES.REPORT, { replace: true })}>성장 리포트 보기</Button>
+      {continuable && (
+        <Button onClick={handleContinue}>이어서 하기 · 남은 {remainingMin}분</Button>
+      )}
+      <Button
+        variant={continuable ? 'secondary' : undefined}
+        onClick={() => navigate(ROUTES.REPORT, { replace: true })}
+      >
+        성장 리포트 보기
+      </Button>
       <Button variant="secondary" onClick={() => navigate(ROUTES.HOME, { replace: true })}>
         홈으로
       </Button>
