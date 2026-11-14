@@ -1,9 +1,12 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import { errorMessage } from '../lib/api'
+import { ApiError, errorMessage } from '../lib/api'
 import { MATERIAL_STATUS as M, UPLOAD } from '../lib/constants'
 import {
   createSubject as apiCreateSubject,
+  deleteMaterial as apiDeleteMaterial,
+  deleteSubject as apiDeleteSubject,
+  updateSubject as apiUpdateSubject,
   getCategories,
   getMaterials,
   getMaterialStatus,
@@ -25,6 +28,8 @@ const inflight = new Set()
 const baseName = (fileName) => fileName.replace(/\.[^.]+$/, '')
 // 업로드를 한 번에 하나씩 순서대로 보내기 위한 Promise 체인
 let uploadQueue = Promise.resolve()
+// 홈으로 이동해도 현재 탭에서 전송 중인 파일은 여전히 살아 있다.
+const activeUploads = new Set()
 
 const POLL_MS = 3000 // 상태 조회 간격
 const DONE = [M.READY, M.FAILED, M.EXPIRED] // 더 이상 조회할 필요 없는 상태
@@ -162,6 +167,9 @@ export const useMaterialStore = create(
         materials: [], // 업로드한 자료 목록 (상태, 진행률, 에러 문구 등)
         categories: {}, // { [subjectId]: unit[] } 서버 단원
         serverMaterials: [],
+        dismissedReadyIds: [], // 홈에서 닫은 학습 준비 완료 카드
+        dismissReadyMaterial: (id) =>
+          set((s) => ({ dismissedReadyIds: [...new Set([...(s.dismissedReadyIds ?? []), id])] })),
 
         syncMaterials: async () => {
           if (!supabase) return
@@ -187,6 +195,31 @@ export const useMaterialStore = create(
           const subject = { id, ...body }
           set((s) => ({ subjects: [...s.subjects, subject] }))
           return subject
+        },
+
+        updateSubject: async (id, changes) => {
+          let next = changes
+          if (supabase) {
+            const res = await apiUpdateSubject(id, changes)
+            next = { name: res.name, examDate: res.examDate ?? null, dDay: res.dDay ?? null }
+          }
+          set((s) => ({
+            subjects: s.subjects.map((sub) => (sub.id === id ? { ...sub, ...next } : sub)),
+          }))
+        },
+
+        removeSubject: async (id) => {
+          if (supabase) await apiDeleteSubject(id)
+          set((s) => {
+            const categories = { ...s.categories }
+            delete categories[id]
+            return {
+              subjects: s.subjects.filter((sub) => sub.id !== id),
+              materials: s.materials.filter((m) => m.subjectId !== id),
+              serverMaterials: s.serverMaterials.filter((m) => m.subjectId !== id),
+              categories,
+            }
+          })
         },
 
         // 서버의 과목 목록으로 바꾼다. id는 URL 쿼리와 비교하기 쉽게 문자열로 둔다
@@ -229,6 +262,7 @@ export const useMaterialStore = create(
         // files: PDF/PPTX 1개 또는 사진(PNG·JPG) 여러 장(한 자료로 묶임)
         uploadMaterial: (subjectId, files) => {
           const id = uid()
+          activeUploads.add(id)
           const first = files[0]
 
           let fileName = first.name
@@ -258,12 +292,16 @@ export const useMaterialStore = create(
                 units: [],
                 summary: null,
                 createdAt: Date.now(),
+                notifyWhenReady: true, // 새 업로드만 홈 완료 안내 대상. 기존 저장 자료에는 없음.
               },
             ],
           }))
           const run = supabase ? () => uploadServer(id, files) : () => uploadMock(id)
           // 앞 업로드가 끝나야 다음 업로드가 시작된다. 하나가 실패해도 큐가 멈추지 않게 catch
-          uploadQueue = uploadQueue.then(run).catch(() => {})
+          uploadQueue = uploadQueue
+            .then(run)
+            .catch(() => {})
+            .finally(() => activeUploads.delete(id))
           return id
         },
 
@@ -289,7 +327,15 @@ export const useMaterialStore = create(
         // 앱을 다시 열었을 때 호출: 전송 중에 끊긴 자료(UPLOADING)는 파일이 없어 이어갈 수 없으니 지우고,
         // 분석 중이던 자료는 상태 조회를 다시 시작한다
         resumePending: () => {
-          set((s) => ({ materials: s.materials.filter((m) => m.status !== M.UPLOADING) }))
+          set((s) => ({
+            materials: s.materials
+              .filter((m) => m.status !== M.UPLOADING || activeUploads.has(m.id))
+              .map((m) =>
+                m.status === M.UPLOADED || m.status === M.PROCESSING
+                  ? { ...m, notifyWhenReady: true }
+                  : m,
+              ),
+          }))
           get()
             .materials.filter((m) => m.status === M.UPLOADED || m.status === M.PROCESSING)
             .forEach((m) => advance(m.id))
@@ -298,9 +344,41 @@ export const useMaterialStore = create(
         // 분석이 끝난 자료가 하나라도 있는지
         hasReadyMaterial: () => get().materials.some((m) => m.status === M.READY),
 
-        removeFailedMaterial: (id) => {
+        removeFailedMaterial: async (id) => {
+          const target = find(id)
+          if (!target || target.status !== M.FAILED) return
+          try {
+            await get().removeMaterial(id)
+          } catch (err) {
+            patch(id, { errorMessage: errorMessage(err, '자료를 지우지 못했어요.') })
+          }
+        },
+
+        removeMaterial: async (id) => {
+          const local = find(id)
+          const target = local ?? get().serverMaterials.find((m) => m.id === String(id))
+          if (target && [M.UPLOADING, M.UPLOADED, M.PROCESSING].includes(target.status)) {
+            throw new ApiError(409, { message: '분석 중인 자료는 지울 수 없어요.' })
+          }
+          const serverId = local?.serverId ?? (supabase && !local ? id : null)
+          if (serverId) {
+            try {
+              await apiDeleteMaterial(serverId)
+            } catch (err) {
+              if (!(err instanceof ApiError && err.status === 404)) throw err
+            }
+          }
           set((s) => ({
-            materials: s.materials.filter((m) => !(m.id === id && m.status === M.FAILED)),
+            materials: s.materials.filter(
+              (m) => m.id !== id && !(serverId && String(m.serverId) === String(serverId)),
+            ),
+            serverMaterials: s.serverMaterials.filter((m) => m.id !== String(serverId ?? id)),
+            categories: Object.fromEntries(
+              Object.entries(s.categories).map(([subjectId, units]) => [
+                subjectId,
+                units.filter((u) => u.materialId !== String(serverId ?? id)),
+              ]),
+            ),
           }))
         },
       }

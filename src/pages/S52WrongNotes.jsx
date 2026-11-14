@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AskAi from '../components/AskAi'
 import Button from '../components/Button'
@@ -11,6 +11,7 @@ import { ROUTES, WRONG_STATUS } from '../lib/constants'
 import { choiceLabel } from '../lib/question'
 import { WRONG_LIMIT, getOpenNotes, getResolvedNotes } from '../lib/review'
 import { useSessionStore } from '../store/useSessionStore'
+import { useMaterialStore } from '../store/useMaterialStore'
 
 // S52 오답노트 탭: 전체/오답 대기(미해결)/오답 완료(해결)로 나눠 틀린 문제를 보여주고, 누르면 정답·해설을 펼친다
 
@@ -74,6 +75,7 @@ function NoteItem({ note, shown, onToggle }) {
       <button
         type="button"
         onClick={onToggle}
+        aria-expanded={shown}
         className="flex w-full items-start gap-3 px-4 py-3.5 text-left"
       >
         <div className="min-w-0 flex-1">
@@ -92,11 +94,87 @@ function NoteItem({ note, shown, onToggle }) {
   )
 }
 
+function UnitGroup({ group, expanded, onToggle, shownIds, onToggleNote }) {
+  const contentId = useId()
+  const pending = group.notes.filter((note) => note.status === WRONG_STATUS.OPEN).length
+
+  return (
+    <li className="overflow-hidden rounded-card border border-line bg-surface">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={expanded}
+        aria-controls={contentId}
+        className="relative flex w-full flex-col gap-0.5 py-2.5 pr-24 pl-3.5 text-left focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+      >
+        {group.subjectName && (
+          <p className="max-w-full truncate text-label font-normal text-muted">
+            {group.subjectName}
+          </p>
+        )}
+        <div className="flex w-full items-center gap-2">
+          <h2
+            className="min-w-0 flex-1 truncate text-caption leading-snug font-bold text-ink"
+            title={group.title}
+          >
+            {group.title}
+          </h2>
+          <span className="absolute top-1/2 right-3.5 flex -translate-y-1/2 items-center gap-2">
+            <Tag
+              tone="neutral"
+              size="sm"
+              pill
+              className="shrink-0 px-2.5 py-1 text-[13px] font-bold text-ink"
+            >
+              {group.notes.length}개
+            </Tag>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+              className={`shrink-0 text-muted transition-transform ${expanded ? 'rotate-180' : ''}`}
+            >
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </span>
+        </div>
+      </button>
+      <div id={contentId} hidden={!expanded}>
+        {expanded && (
+          <div className="border-t border-line bg-background/50 p-2.5">
+            <p className="mb-2 px-1 text-label font-normal text-muted">
+              오답 대기 {pending}개 · 오답 완료 {group.notes.length - pending}개
+            </p>
+            <ul className="space-y-2">
+              {group.notes.map((note) => (
+                <NoteItem
+                  key={note.id}
+                  note={note}
+                  shown={shownIds.includes(note.id)}
+                  onToggle={() => onToggleNote(note.id)}
+                />
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </li>
+  )
+}
+
 export default function S52WrongNotes() {
   const navigate = useNavigate()
   const wrongNotes = useSessionStore((s) => s.wrongNotes)
+  const subjects = useMaterialStore((s) => s.subjects)
   const [filter, setFilter] = useState(FILTER.ALL)
   const [shownIds, setShownIds] = useState([]) // 정답·해설을 펼친 오답 id
+  const [expandedUnits, setExpandedUnits] = useState([])
 
   // 들어올 때 서버 오답노트로 갱신
   useEffect(() => {
@@ -112,6 +190,24 @@ export default function S52WrongNotes() {
   let list = [...open, ...resolved]
   if (filter === FILTER.OPEN) list = open
   if (filter === FILTER.RESOLVED) list = resolved
+
+  const byUnit = new Map()
+  for (const note of list) {
+    const key = JSON.stringify([note.subjectId ?? null, note.unitId ?? note.unitTitle ?? null])
+    if (!byUnit.has(key)) {
+      byUnit.set(key, {
+        key,
+        title: note.unitTitle || '단원 미지정',
+        subjectName:
+          subjects.find((subject) => String(subject.id) === String(note.subjectId))?.name ?? '',
+        notes: [],
+      })
+    }
+    byUnit.get(key).notes.push(note)
+  }
+  const groups = [...byUnit.values()]
+  const allExpanded =
+    groups.length > 0 && groups.every((group) => expandedUnits.includes(group.key))
 
   const toggle = (id) => {
     if (shownIds.includes(id)) {
@@ -146,18 +242,41 @@ export default function S52WrongNotes() {
         ))}
       </div>
 
-      <ul className="mt-4 space-y-3">
+      {groups.length > 0 && (
+        <div className="mt-4 flex items-center justify-between">
+          <p className="text-caption text-muted">
+            단원 {groups.length}개 · 문제 {list.length}개
+          </p>
+          <button
+            type="button"
+            onClick={() => setExpandedUnits(allExpanded ? [] : groups.map((group) => group.key))}
+            className="min-h-11 px-2 text-caption font-bold text-primary"
+          >
+            {allExpanded ? '모두 접기' : '모두 펼치기'}
+          </button>
+        </div>
+      )}
+
+      <ul className="mt-2 space-y-2">
         {list.length === 0 && (
           <li className="rounded-card border border-line bg-surface p-6 text-center text-caption text-muted">
             {emptyText}
           </li>
         )}
-        {list.map((note) => (
-          <NoteItem
-            key={note.id}
-            note={note}
-            shown={shownIds.includes(note.id)}
-            onToggle={() => toggle(note.id)}
+        {groups.map((group) => (
+          <UnitGroup
+            key={group.key}
+            group={group}
+            expanded={expandedUnits.includes(group.key)}
+            onToggle={() =>
+              setExpandedUnits((ids) =>
+                ids.includes(group.key)
+                  ? ids.filter((id) => id !== group.key)
+                  : [...ids, group.key],
+              )
+            }
+            shownIds={shownIds}
+            onToggleNote={toggle}
           />
         ))}
       </ul>

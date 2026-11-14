@@ -52,10 +52,14 @@ export default function S20Home() {
   }
 
   const failed = home.reviewOnly ? [] : home.failedMaterials
+  const ready = home.reviewOnly ? [] : home.readyMaterials
   const showFirstUpload = home.isFirst && !home.reviewOnly
   const showLastStudy = home.reviewOnly || (!home.isFirst && (home.hasUnits || home.last))
   const showProcessing =
-    home.pendingMaterials.length > 0 || home.preparingUnits.length > 0 || failed.length > 0
+    home.pendingMaterials.length > 0 ||
+    home.preparingUnits.length > 0 ||
+    failed.length > 0 ||
+    ready.length > 0
 
   let bottomCta = null
   if (!home.isFirst && !home.reviewOnly) {
@@ -98,9 +102,18 @@ export default function S20Home() {
             materials={home.pendingMaterials}
             units={home.preparingUnits}
             failed={failed}
-            onClick={() => navigate(ROUTES.UNIT_PREVIEW)}
+            ready={ready}
+            onClick={() =>
+              navigate(ROUTES.UNIT_PREVIEW, {
+                state: ready.length === 1 ? { readyMaterialId: ready[0].key } : undefined,
+              })
+            }
             onOpenFailed={handleFailed}
             onRemoveFailed={(id) => useMaterialStore.getState().removeFailedMaterial(id)}
+            onDismissReady={() => {
+              for (const material of ready)
+                useMaterialStore.getState().dismissReadyMaterial(material.key)
+            }}
           />
         )}
 
