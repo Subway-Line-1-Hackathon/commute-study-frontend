@@ -44,6 +44,15 @@ test('legacy data is assigned to the same logged-in account without clearing its
   assert.equal(session.getState().pendingAttempts.length, 1)
 })
 
+test('continuation state is isolated and restored along with its account session', () => {
+  const { switchUserData, session } = setup()
+  session.setState({ continuing: true })
+  switchUserData('A', 'B')
+  assert.equal(session.getState().continuing, false)
+  switchUserData('B', 'A')
+  assert.equal(session.getState().continuing, true)
+})
+
 test('failed account backup leaves the old queue intact', () => {
   const { switchUserData, session, storage } = setup()
   storage.setItem = () => { throw new Error('quota') }

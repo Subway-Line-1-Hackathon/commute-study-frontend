@@ -46,7 +46,7 @@ test('persistence keeps the existing storage key, version, fields and migrations
   assert.equal(options.name, 'cs:session')
   assert.equal(options.version, 4)
   const state = store.getState()
-  assert.deepEqual(Object.keys(options.partialize(state)).sort(), ['accountId', 'current', 'history', 'wrongNotes', 'unitProgress', 'dailyStats', 'pendingAttempts', 'pendingEnds'].sort())
+  assert.deepEqual(Object.keys(options.partialize(state)).sort(), ['accountId', 'current', 'history', 'wrongNotes', 'unitProgress', 'dailyStats', 'pendingAttempts', 'pendingEnds', 'continuing'].sort())
   assert.equal(options.migrate({ current: { id: 'old' } }, 3).current, null)
   const current = { id: 'saved' }
   assert.equal(options.migrate({ current }, 4).current, current)
@@ -204,4 +204,72 @@ test('failed deleted subject lookup preserves all existing notes', async () => {
   store.setState({ wrongNotes: notes })
   await store.getState().syncWrongNotes()
   assert.deepEqual(store.getState().wrongNotes, notes)
+})
+
+test('continuation is available only for finished sessions with at least one minute remaining', () => {
+  const { useSessionStore: store, canContinue } = setup()
+  const current = { id: 'old', status: 'COMPLETED', conceptRemainingSec: 0, quizRemainingSec: 60 }
+  assert.equal(canContinue(null), false)
+  assert.equal(canContinue({ ...current, status: 'IN_PROGRESS' }), false)
+  assert.equal(canContinue({ ...current, quizRemainingSec: 59 }), false)
+  assert.equal(canContinue(current), true)
+  store.setState({ current })
+  assert.equal(store.getState().startContinue(), true)
+  assert.equal(store.getState().getContinueFrom(), current)
+  store.getState().cancelContinue()
+  assert.equal(store.getState().getContinueFrom(), null)
+})
+
+test('server continuation sends remaining minutes and skips summary while preserving cumulative time', async () => {
+  const { useSessionStore: store, calls, getElapsedSec, getRemainingSec, options } = setup({
+    summaryToScript: () => [{ id: 'unused-summary', text: 'summary' }],
+  })
+  const previous = { id: 'old', status: 'ENDED', plan: { totalSec: 1200, conceptSec: 180, quizSec: 1020 },
+    conceptRemainingSec: 25, quizRemainingSec: 400, warned: true }
+  store.setState({ current: previous })
+  store.getState().startContinue()
+  assert.equal(options.partialize(store.getState()).continuing, true)
+  const session = await store.getState().createSession({ ...input, studyMin: 7, continueFrom: store.getState().getContinueFrom() })
+  assert.deepEqual(calls[0], ['create', { source: 'categories', categoryIds: [7], questionTypes: ['MC'], difficulty: 2, studyMinOverride: 7, skipSummary: true }])
+  assert.equal(session.phase, 'QUIZ')
+  assert.deepEqual(session.script, [])
+  assert.equal(session.conceptRemainingSec, 0)
+  assert.equal(session.plan.totalSec, 1200)
+  assert.equal(getRemainingSec(session), 425)
+  assert.equal(session.prevElapsedSec, 775)
+  assert.equal(getElapsedSec(session), 775)
+  assert.equal(session.warned, true)
+  assert.equal(store.getState().continuing, false)
+  store.getState().tick()
+  assert.equal(getElapsedSec(store.getState().current), 776)
+})
+
+test('mock continuation uses only remaining time for question selection and keeps the original total', async () => {
+  let budget
+  const { useSessionStore: store, getElapsedSec } = setup({
+    supabase: null,
+    recommendCount: (_types, seconds) => { budget = seconds; return 1 },
+    generateQuestions: () => [{ id: 1, type: 'OX', answer: 'O' }],
+  })
+  const previous = { status: 'COMPLETED', plan: { totalSec: 1200, conceptSec: 180, quizSec: 1020 },
+    conceptRemainingSec: 0, quizRemainingSec: 180 }
+  const session = await store.getState().createSession({ ...input, continueFrom: previous })
+  assert.equal(budget, 180)
+  assert.equal(session.plan.totalSec, 1200)
+  assert.equal(session.quizRemainingSec, 180)
+  assert.equal(session.conceptRemainingSec, 0)
+  assert.equal(getElapsedSec(session), 1020)
+})
+
+test('failed continuation leaves the previous session and unsent queues intact', async () => {
+  const { useSessionStore: store } = setup({ apiCreateSession: async () => { throw new Error('offline') } })
+  const previous = { id: 'old', status: 'COMPLETED', plan: { totalSec: 1200 }, conceptRemainingSec: 0, quizRemainingSec: 120 }
+  const pendingAttempts = [{ key: 'a', sessionId: 1, answer: 'O' }]
+  const pendingEnds = [{ key: 'e', sessionId: 1, reason: 'QUIT' }]
+  store.setState({ current: previous, continuing: true, pendingAttempts, pendingEnds })
+  await assert.rejects(store.getState().createSession({ ...input, continueFrom: previous }))
+  assert.equal(store.getState().current, previous)
+  assert.equal(store.getState().continuing, true)
+  assert.deepEqual(store.getState().pendingAttempts, pendingAttempts)
+  assert.deepEqual(store.getState().pendingEnds, pendingEnds)
 })

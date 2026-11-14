@@ -7,6 +7,8 @@ import { createSessionCreation } from './session/creation'
 import { createSessionLifecycle } from './session/lifecycle'
 import { createSessionSync } from './session/sync'
 
+export { canContinue, getElapsedSec, getRemainingSec, MIN_CONTINUE_SEC } from './session/time'
+
 // One persisted store; action modules share the same set/get.
 export const useSessionStore = create(
   persist(
@@ -22,6 +24,7 @@ export const useSessionStore = create(
         dailyStats: {},
         pendingAttempts: [],
         pendingEnds: [],
+        continuing: false,
         ...sync,
         ...createSessionCreation(set, get),
         ...createSessionAnswers(set, get, sync.flushAttempts),
@@ -39,6 +42,7 @@ export const useSessionStore = create(
         dailyStats: persisted.dailyStats ?? {},
         pendingAttempts: persisted.pendingAttempts ?? [],
         pendingEnds: persisted.pendingEnds ?? [],
+        continuing: persisted.continuing ?? false,
       }),
       storage: createJSONStorage(() => zustandStorage),
       // localStorage에 저장할 필드만 고른다 (액션 함수는 저장하지 않음)
@@ -51,6 +55,7 @@ export const useSessionStore = create(
         dailyStats: s.dailyStats,
         pendingAttempts: s.pendingAttempts,
         pendingEnds: s.pendingEnds,
+        continuing: s.continuing,
       }),
     },
   ),

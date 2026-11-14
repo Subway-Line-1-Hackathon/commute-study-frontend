@@ -1,7 +1,20 @@
 import { PHASE, SESSION_STATUS as S, WARNING_SEC } from '../../lib/constants'
+import { canContinue } from './time'
 
 export function createSessionLifecycle(set, get) {
   return {
+    startContinue: () => {
+      if (!canContinue(get().current)) return false
+      set({ continuing: true })
+      return true
+    },
+    cancelContinue: () => {
+      if (get().continuing) set({ continuing: false })
+    },
+    getContinueFrom: () => {
+      const cur = get().current
+      return get().continuing && canContinue(cur) ? cur : null
+    },
     setListenIndex: (i) =>
       set((s) => (s.current ? { current: { ...s.current, listenIndex: i } } : s)),
     skipListening: () =>

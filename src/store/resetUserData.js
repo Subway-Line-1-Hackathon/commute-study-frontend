@@ -19,6 +19,7 @@ const emptySession = () => ({
   dailyStats: {},
   pendingAttempts: [],
   pendingEnds: [],
+  continuing: false,
 })
 const accountKey = (id) => `cs:user-data:${encodeURIComponent(id)}`
 const pick = (state, defaults) =>

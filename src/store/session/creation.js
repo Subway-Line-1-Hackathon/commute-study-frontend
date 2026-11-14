@@ -16,13 +16,22 @@ import { supabase } from '../../lib/supabase'
 import { uid } from '../../lib/storage'
 import { generateQuestions } from '../../mocks/mockQuiz'
 import { generateScript } from '../../mocks/mockScript'
+import { getElapsedSec, getRemainingSec } from './time'
 
 const SUMMARY_SEC = 180
 
 export function createSessionCreation(set, get) {
   return {
-    createSession: async ({ draft, solveMode = SOLVE_MODE.READ, types, difficulty, studyMin }) => {
+    createSession: async ({
+      draft,
+      solveMode = SOLVE_MODE.READ,
+      types,
+      difficulty,
+      studyMin,
+      continueFrom = null,
+    }) => {
       const isReview = draft.source === 'wrongNotes'
+      const remainingSec = continueFrom ? getRemainingSec(continueFrom) : 0
       let serverId = null
       let questions
       let script
@@ -38,6 +47,10 @@ export function createSessionCreation(set, get) {
         }
         // 오답 복습은 단원을 골랐을 때만 보낸다 (안 보내면 전체 오답)
         if (!isReview || draft.categoryIds?.length) body.categoryIds = draft.categoryIds
+        if (continueFrom) {
+          body.studyMinOverride = Math.max(1, Math.floor(remainingSec / 60))
+          body.skipSummary = true
+        }
         const res = await apiCreateSession(body)
         if (res.noReviewItems) {
           throw new ApiError(422, {
@@ -59,7 +72,10 @@ export function createSessionCreation(set, get) {
       } else {
         // Mock 모드: 시간 계획을 직접 계산하고 가짜 문제·대본을 만든다. 복습은 개념 듣기 없이 문제만
         plan = getTimePlan(studyMin)
-        if (isReview) plan = { totalSec: plan.totalSec, conceptSec: 0, quizSec: plan.totalSec }
+        if (isReview || continueFrom) {
+          const totalSec = continueFrom ? remainingSec : plan.totalSec
+          plan = { totalSec, conceptSec: 0, quizSec: totalSec }
+        }
         if (isReview) {
           const unitIds = draft.unitIds ?? []
           const open = getOpenNotes(get().wrongNotes)
@@ -85,6 +101,11 @@ export function createSessionCreation(set, get) {
         set({ current: { ...prev, status: S.ENDED } })
       }
 
+      if (continueFrom) {
+        script = []
+        plan = { ...continueFrom.plan, quizSec: remainingSec }
+      }
+
       // 들을 대본이 있으면 개념 듣기부터, 없으면 바로 문제 풀이
       const listening = script.length > 0
       set({
@@ -101,9 +122,10 @@ export function createSessionCreation(set, get) {
           script, // 개념 듣기 문단 [{ id, text, sourcePage }]
           listenIndex: 0, // 지금 읽고 있는 문단 번호 (이어 듣기용)
           phase: listening ? PHASE.LISTEN : PHASE.QUIZ,
-          conceptRemainingSec: plan.conceptSec, // 남은 개념 듣기 시간
+          conceptRemainingSec: continueFrom ? 0 : plan.conceptSec, // 남은 개념 듣기 시간
           quizRemainingSec: plan.quizSec, // 남은 문제 풀이 시간
-          warned: false, // "곧 끝나요" 알림을 띄웠는지
+          prevElapsedSec: continueFrom ? getElapsedSec(continueFrom) : 0,
+          warned: continueFrom?.warned ?? false, // "곧 끝나요" 알림을 띄웠는지
           solveMode, // 눈으로 풀기 / 듣고 풀기
           types,
           difficulty,
@@ -113,6 +135,7 @@ export function createSessionCreation(set, get) {
           status: S.IN_PROGRESS,
           startedAt: Date.now(),
         },
+        continuing: false,
       })
       return get().current
     },
