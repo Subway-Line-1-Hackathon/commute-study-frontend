@@ -5,7 +5,7 @@ import { getEntryRoute } from '../lib/entryRoute'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../store/useAuthStore'
 import { useMaterialStore } from '../store/useMaterialStore'
-import { resetUserData } from '../store/resetUserData'
+import { switchUserData } from '../store/resetUserData'
 import logo from '../assets/logo-sns-ko.svg'
 import mascot from '../assets/mascot-default.png'
 
@@ -22,11 +22,10 @@ export default function S00Splash() {
     const checkSession = async () => {
       if (!supabase) return
       const { data } = await supabase.auth.getSession()
-      // 다른 계정으로 로그인했으면 기기에 남은 이전 계정의 자료·학습 기록을 비운다
-      // (cs:materials, cs:session은 계정 구분 없이 localStorage에 저장되기 때문)
+      // 이전 계정의 미전송 답안을 보관한 뒤 로그인한 계정의 데이터를 복원한다.
       const prevUserId = useAuthStore.getState().user?.id
       const nextUserId = data.session?.user.id
-      if (nextUserId && prevUserId !== nextUserId) resetUserData()
+      if (nextUserId) switchUserData(prevUserId, nextUserId)
       useAuthStore.getState().applySession(data.session)
       if (!data.session) return
 

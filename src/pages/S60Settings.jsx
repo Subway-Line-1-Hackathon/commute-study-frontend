@@ -65,7 +65,7 @@ export default function S60Settings() {
       <div className="mt-6 space-y-3">
         <SettingRow label="통학 시간" value={commuteLabel} to={ROUTES.SETTINGS_COMMUTE} />
         <SettingRow
-          label="과목 관리"
+          label="과목 목록"
           value={subjectCount > 0 ? `${subjectCount}개` : '없음'}
           to={ROUTES.SETTINGS_SUBJECTS}
         />

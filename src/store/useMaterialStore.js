@@ -5,8 +5,6 @@ import { MATERIAL_STATUS as M, UPLOAD } from '../lib/constants'
 import {
   createSubject as apiCreateSubject,
   deleteMaterial as apiDeleteMaterial,
-  deleteSubject as apiDeleteSubject,
-  updateSubject as apiUpdateSubject,
   getCategories,
   getMaterials,
   getMaterialStatus,
@@ -164,6 +162,7 @@ export const useMaterialStore = create(
       // ---- 여기부터 화면에서 쓰는 상태와 액션 ----
       return {
         subjects: [], // [{ id, name, examDate, dDay }]
+        archivedSubjects: [], // 삭제한 과목의 오답·리포트를 조회하기 위한 ID/이름
         materials: [], // 업로드한 자료 목록 (상태, 진행률, 에러 문구 등)
         categories: {}, // { [subjectId]: unit[] } 서버 단원
         serverMaterials: [],
@@ -197,31 +196,6 @@ export const useMaterialStore = create(
           return subject
         },
 
-        updateSubject: async (id, changes) => {
-          let next = changes
-          if (supabase) {
-            const res = await apiUpdateSubject(id, changes)
-            next = { name: res.name, examDate: res.examDate ?? null, dDay: res.dDay ?? null }
-          }
-          set((s) => ({
-            subjects: s.subjects.map((sub) => (sub.id === id ? { ...sub, ...next } : sub)),
-          }))
-        },
-
-        removeSubject: async (id) => {
-          if (supabase) await apiDeleteSubject(id)
-          set((s) => {
-            const categories = { ...s.categories }
-            delete categories[id]
-            return {
-              subjects: s.subjects.filter((sub) => sub.id !== id),
-              materials: s.materials.filter((m) => m.subjectId !== id),
-              serverMaterials: s.serverMaterials.filter((m) => m.subjectId !== id),
-              categories,
-            }
-          })
-        },
-
         // 서버의 과목 목록으로 바꾼다. id는 URL 쿼리와 비교하기 쉽게 문자열로 둔다
         syncSubjects: async () => {
           if (!supabase) return
@@ -232,7 +206,15 @@ export const useMaterialStore = create(
             examDate: s.examDate ?? null,
             dDay: s.dDay ?? null,
           }))
-          set({ subjects })
+          set((s) => ({
+            subjects,
+            // 다른 기기에서 삭제한 과목도, 이 기기에 있던 ID는 보존한다.
+            archivedSubjects: [...(s.archivedSubjects ?? []), ...s.subjects].filter(
+              (sub, index, all) =>
+                !subjects.some((active) => active.id === sub.id) &&
+                all.findIndex((item) => item.id === sub.id) === index,
+            ),
+          }))
         },
 
         // 과목별 단원(진도·정답률 포함)을 서버에서 받는다. subjectId가 없으면 모든 과목

@@ -65,7 +65,7 @@ function syncWithServer() {
   if (!supabase) return
 
   const session = useSessionStore.getState()
-  session.flushAttempts()
+  session.flushAttempts().catch(() => {})
   useMaterialStore
     .getState()
     .syncCategories()
