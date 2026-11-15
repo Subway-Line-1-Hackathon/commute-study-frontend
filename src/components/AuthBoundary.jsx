@@ -1,6 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { createAuthController } from '../lib/authController'
 import { supabase } from '../lib/supabase'
+import { configurationError } from '../lib/runtime'
 import { suspendUserData, switchUserData } from '../store/resetUserData'
 import { useAuthStore } from '../store/useAuthStore'
 import { useMaterialStore } from '../store/useMaterialStore'
@@ -14,6 +15,7 @@ export default function AuthBoundary({ children }) {
       switchData: switchUserData,
       suspendData: suspendUserData,
       syncSubjects: () => useMaterialStore.getState().syncSubjects(),
+      syncCategories: () => useMaterialStore.getState().syncCategories(),
       resumePending: () => useMaterialStore.getState().resumePending(),
     }),
   )
@@ -27,11 +29,12 @@ export default function AuthBoundary({ children }) {
       role="status"
     >
       <p className="text-caption text-muted">
-        {error
-          ? '로그인 정보를 확인하지 못했어요. 연결을 확인하고 다시 시도해 주세요.'
-          : '로그인 상태 확인 중…'}
+        {configurationError ??
+          (error
+            ? '로그인 정보를 확인하지 못했어요. 연결을 확인하고 다시 시도해 주세요.'
+            : '로그인 상태 확인 중…')}
       </p>
-      {error && <Button onClick={controller.retry}>다시 시도</Button>}
+      {error && !configurationError && <Button onClick={controller.retry}>다시 시도</Button>}
     </div>
   )
 }

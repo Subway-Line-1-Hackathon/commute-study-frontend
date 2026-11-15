@@ -58,11 +58,38 @@ function FailedRow({ name, retried, onClick, onRemove }) {
   )
 }
 
+function VerificationRow({ material, onVerify }) {
+  return (
+    <li className="space-y-1.5" aria-live="polite">
+      <div className="flex items-center justify-between gap-3">
+        <span className="min-w-0 truncate text-caption text-ink">{material.fileName}</span>
+        <Tag tone="neutral" size="sm" pill className="shrink-0">
+          상태 확인 중
+        </Tag>
+      </div>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-label font-normal text-muted">자료의 단원 정보를 확인하고 있어요.</p>
+        <button
+          type="button"
+          onClick={() => onVerify(material.subjectId)}
+          disabled={material.refreshing}
+          aria-label={`${material.fileName} 상태 다시 확인`}
+          className="min-h-11 shrink-0 px-1 text-caption font-bold text-primary underline disabled:opacity-50"
+        >
+          {material.refreshing ? '확인 중…' : '다시 확인'}
+        </button>
+      </div>
+    </li>
+  )
+}
+
 export default function ProcessingCard({
   materials,
   units,
   failed,
   ready,
+  checking = [],
+  onVerify,
   onClick,
   onOpenFailed,
   onRemoveFailed,
@@ -110,6 +137,13 @@ export default function ProcessingCard({
         ))}
         {units.map((u) => (
           <Row key={u.id} name={u.title} label="문제 준비 중" />
+        ))}
+        {checking.map((material) => (
+          <VerificationRow
+            key={`checking-${material.id}`}
+            material={material}
+            onVerify={onVerify}
+          />
         ))}
         {ready.map((material) => (
           <Row key={`ready-${material.key}`} name={material.title} label="완료" ready />

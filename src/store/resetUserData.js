@@ -1,6 +1,7 @@
 import { useMaterialStore } from './useMaterialStore'
 import { useSessionStore } from './useSessionStore'
 import { zustandStorage } from '../lib/storage'
+import { cleanMaterialData, cleanSessionData } from '../lib/serverData'
 
 const emptyMaterials = () => ({
   subjects: [],
@@ -15,7 +16,6 @@ const emptySession = () => ({
   current: null,
   history: [],
   wrongNotes: [],
-  unitProgress: {},
   dailyStats: {},
   pendingAttempts: [],
   pendingEnds: [],
@@ -46,8 +46,11 @@ export function switchUserData(previousId, nextId) {
   }
   const raw = zustandStorage.getItem(accountKey(nextId))
   const saved = raw ? JSON.parse(raw) : null
-  useMaterialStore.setState(pick(saved?.materials ?? {}, emptyMaterials()))
-  useSessionStore.setState({ ...pick(saved?.session ?? {}, emptySession()), accountId: nextId })
+  useMaterialStore.setState(cleanMaterialData(pick(saved?.materials ?? {}, emptyMaterials())))
+  useSessionStore.setState({
+    ...cleanSessionData(pick(saved?.session ?? {}, emptySession())),
+    accountId: nextId,
+  })
 }
 
 export function suspendUserData() {

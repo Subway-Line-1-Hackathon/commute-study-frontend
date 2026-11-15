@@ -1,6 +1,4 @@
 import { MATERIAL_STATUS as M, UPLOAD } from '../../lib/constants'
-import { isServerMode } from '../../lib/runtime'
-
 // ---- 스토어 상태를 받아 화면용 데이터를 만드는 함수들 (selector) ----
 
 // 최근 올린 자료부터 최대 MAX_VISIBLE개
@@ -8,13 +6,8 @@ export function getRecentMaterials(materials) {
   const newestFirst = [...materials].sort((a, b) => b.createdAt - a.createdAt)
   return newestFirst.slice(0, UPLOAD.MAX_VISIBLE)
 }
-
-// 과목의 단원. 서버 모드는 서버 단원, Mock은 준비된 자료의 단원
-export function getSubjectUnits({ materials, categories }, subjectId) {
-  if (isServerMode) return categories[subjectId] ?? []
-  return materials
-    .filter((m) => m.subjectId === subjectId && m.status === M.READY)
-    .flatMap((m) => m.units.map((u) => ({ ...u, materialId: m.id, subjectId })))
+export function getSubjectUnits({ categories }, subjectId) {
+  return categories[subjectId] ?? []
 }
 
 // 단원 선택 화면의 묶음. 서버 단원은 자료 구분이 없어서 과목별로 묶는다
@@ -25,11 +18,9 @@ function hasServerMaterialInfo({ categories, serverMaterials = [] }) {
     .flat()
     .some((u) => u.materialId != null)
 }
-
 export function isGroupedByMaterial(state) {
-  return !isServerMode || hasServerMaterialInfo(state)
+  return hasServerMaterialInfo(state)
 }
-
 function getServerMaterialGroups(
   { materials, categories, subjects, serverMaterials },
   newMaterialIds,
@@ -39,7 +30,6 @@ function getServerMaterialGroups(
   const newServerIds = materials
     .filter((m) => newMaterialIds.includes(m.id))
     .map((m) => String(m.serverId))
-
   return getRecentMaterials(serverMaterials)
     .filter((m) => m.status === M.READY)
     .map((m) => ({
@@ -51,42 +41,36 @@ function getServerMaterialGroups(
     }))
     .filter((g) => g.units.length > 0)
 }
-
 export function getUnitGroups(
   { materials, categories, subjects, serverMaterials = [] },
   newMaterialIds = [],
 ) {
-  const subjectName = (id) => subjects.find((s) => s.id === id)?.name ?? ''
-
-  if (isServerMode && hasServerMaterialInfo({ categories, serverMaterials })) {
+  if (
+    hasServerMaterialInfo({
+      categories,
+      serverMaterials,
+    })
+  ) {
     return getServerMaterialGroups(
-      { materials, categories, subjects, serverMaterials },
+      {
+        materials,
+        categories,
+        subjects,
+        serverMaterials,
+      },
       newMaterialIds,
     )
   }
-
-  if (isServerMode) {
-    const newSubjectIds = materials
-      .filter((m) => newMaterialIds.includes(m.id))
-      .map((m) => m.subjectId)
-    return subjects
-      .map((s) => ({
-        key: s.id,
-        title: s.name,
-        subjectName: '',
-        units: categories[s.id] ?? [],
-        isNew: newSubjectIds.includes(s.id),
-      }))
-      .filter((g) => g.units.length > 0)
-  }
-
-  return getRecentMaterials(materials)
-    .filter((m) => m.status === M.READY)
-    .map((m) => ({
-      key: m.id,
-      title: m.fileName,
-      subjectName: subjectName(m.subjectId),
-      units: m.units.map((u) => ({ ...u, materialId: m.id, subjectId: m.subjectId })),
-      isNew: newMaterialIds.includes(m.id),
+  const newSubjectIds = materials
+    .filter((m) => newMaterialIds.includes(m.id))
+    .map((m) => m.subjectId)
+  return subjects
+    .map((s) => ({
+      key: s.id,
+      title: s.name,
+      subjectName: '',
+      units: categories[s.id] ?? [],
+      isNew: newSubjectIds.includes(s.id),
     }))
+    .filter((g) => g.units.length > 0)
 }

@@ -14,6 +14,7 @@ module.exports = function loadSessionStore(deps) {
     ...deps,
   }
   const files = [
+    '../lib/serverData.js',
     '../lib/answer.js',
     '../lib/recordSubjects.js',
     'session/time.js',

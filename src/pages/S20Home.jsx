@@ -64,6 +64,7 @@ export default function S20Home() {
   const showProcessing =
     home.pendingMaterials.length > 0 ||
     home.preparingUnits.length > 0 ||
+    home.checkingMaterials.length > 0 ||
     failed.length > 0 ||
     ready.length > 0
 
@@ -109,6 +110,8 @@ export default function S20Home() {
             units={home.preparingUnits}
             failed={failed}
             ready={ready}
+            checking={home.checkingMaterials}
+            onVerify={(subjectId) => useMaterialStore.getState().syncCategories(subjectId)}
             onClick={() =>
               navigate(ROUTES.UNIT_PREVIEW, {
                 state: ready.length === 1 ? { readyMaterialId: ready[0].key } : undefined,

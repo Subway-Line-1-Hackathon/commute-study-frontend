@@ -5,9 +5,10 @@ export function createAuthController({
   switchData,
   suspendData,
   syncSubjects,
+  syncCategories = async () => {},
   resumePending,
 }) {
-  let snapshot = { ready: !client, error: null }
+  let snapshot = { ready: false, error: null }
   let generation = 0
   let active = false
   let accountId
@@ -27,11 +28,21 @@ export function createAuthController({
       getAuth().applySession(session)
       accountId = nextId
       if (session) {
-        await Promise.all([getAuth().syncMe(), syncSubjects()])
+        await getAuth().syncMe()
         if (!current()) return
         resumePending()
       }
       if (current()) publish({ ready: true, error: null })
+      if (session && current()) {
+        // 화면 데이터는 인증 완료를 막지 않는다. 새 계정의 과목을 받은 뒤 단원을 갱신한다.
+        const syncLearningData = async () => {
+          await syncSubjects()
+          if (current()) await syncCategories()
+        }
+        void syncLearningData().catch(() => {
+          // 조회 실패 시 기기에 남은 데이터를 유지한다. 각 화면에서 다시 조회할 수 있다.
+        })
+      }
     } catch (error) {
       if (!current()) return
       if (error.status === 401) {
@@ -65,10 +76,12 @@ export function createAuthController({
     retry: () => initialize(),
     start: () => {
       active = true
-      if (!client)
+      if (!client) {
+        publish({ ready: false, error: new Error('로그인 설정을 확인해 주세요.') })
         return () => {
           active = false
         }
+      }
       const { data } = client.auth.onAuthStateChange((_event, session) => {
         const nextId = session?.user.id ?? null
         if (snapshot.ready && nextId === accountId) return

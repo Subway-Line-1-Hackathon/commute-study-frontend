@@ -12,7 +12,6 @@ function setup() {
     persist: (init) => init,
     createJSONStorage: () => ({}),
     zustandStorage: {},
-    isServerMode: true,
     S: { IN_PROGRESS: 'IN_PROGRESS', COMPLETED: 'COMPLETED', ENDED: 'ENDED' },
     PHASE: { QUIZ: 'QUIZ', LISTEN: 'LISTEN' },
     T: { SHORT: 'SHORT' },

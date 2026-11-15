@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { getExplanation } from '../lib/endpoints'
-import { isServerMode } from '../lib/runtime'
 import { stripMarkdown } from '../lib/text'
 import { QUESTION_TYPE as T } from '../lib/constants'
 
@@ -13,12 +12,13 @@ export function useExplanation(question, enabled = true, { includeAnswer = false
   const needsAnswer = includeAnswer && question?.type === T.SHORT && ownAnswer == null
   const id = question?.id
   // 서버에서 받은 해설. 어느 문제의 해설인지 id도 같이 저장해서, 문제가 바뀌면 다시 조회한다
-  const [fetched, setFetched] = useState({ id: null, explanation: null, sourcePage: null })
-
+  const [fetched, setFetched] = useState({
+    id: null,
+    explanation: null,
+    sourcePage: null,
+  })
   useEffect(() => {
-    // 조회할 필요가 없는 경우: 비활성, 이미 해설 있음, Mock 모드, 문제 없음, 이미 받아 옴
-    if (!enabled || (own && !needsAnswer) || !isServerMode || id == null || fetched.id === id)
-      return
+    if (!enabled || (own && !needsAnswer) || id == null || fetched.id === id) return
     // 응답 전에 문제가 바뀌거나 화면을 떠나면 늦게 온 응답을 무시한다
     let cancelled = false
     getExplanation(id)
@@ -28,11 +28,20 @@ export function useExplanation(question, enabled = true, { includeAnswer = false
           id,
           explanation: res?.explanation ?? null,
           sourcePage: res?.sourcePage ?? null,
-          ...(includeAnswer ? { answer: res?.answer ?? null } : {}),
+          ...(includeAnswer
+            ? {
+                answer: res?.answer ?? null,
+              }
+            : {}),
         })
       })
       .catch(() => {
-        if (!cancelled) setFetched({ id, explanation: null, sourcePage: null })
+        if (!cancelled)
+          setFetched({
+            id,
+            explanation: null,
+            sourcePage: null,
+          })
       })
     return () => {
       cancelled = true
@@ -43,9 +52,13 @@ export function useExplanation(question, enabled = true, { includeAnswer = false
   // 해설에 섞인 **굵게** 같은 마크다운 기호는 지워서 돌려준다
   const received = fetched.id === id ? fetched : null
   return {
-    ...(includeAnswer ? { answer: ownAnswer ?? received?.answer ?? null } : {}),
+    ...(includeAnswer
+      ? {
+          answer: ownAnswer ?? received?.answer ?? null,
+        }
+      : {}),
     explanation: stripMarkdown(own ?? received?.explanation ?? null),
     sourcePage: question?.sourcePage ?? received?.sourcePage ?? null,
-    loaded: Boolean((own && !needsAnswer) || received || !isServerMode),
+    loaded: Boolean((own && !needsAnswer) || received),
   }
 }

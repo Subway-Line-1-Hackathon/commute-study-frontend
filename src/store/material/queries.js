@@ -1,11 +1,9 @@
-import { isServerMode } from '../../lib/runtime'
 import {
   createSubject as apiCreateSubject,
   getCategories,
   getMaterials,
   getSubjects,
 } from '../../lib/endpoints'
-import { uid } from '../../lib/storage'
 
 // 서버 단원(category) -> 화면 단원
 function toUnit(c, subjectId) {
@@ -18,17 +16,85 @@ function toUnit(c, subjectId) {
     materialId: c.materialId != null ? String(c.materialId) : null,
     title: c.name,
     pages,
-    progress: c.progress ?? 0, // 0~1
-    accuracy: c.accuracy ?? null, // 0~1
+    progress: c.progress ?? 0,
+    // 0~1
+    accuracy: c.accuracy ?? null,
+    // 0~1
     state: c.state ?? null,
     questionStatus: c.questionStatus ?? null, // AVAILABLE | PREPARING ...
   }
 }
-
 export function createMaterialQueries(set, get, captureRequest) {
+  const categoryRequests = new Map()
+  const syncCategory = (id) => {
+    const key = String(id)
+    const previous = categoryRequests.get(key)
+    if (previous?.isCurrent()) return previous.promise
+    const request = {
+      isCurrent: captureRequest(),
+      promise: null,
+    }
+    categoryRequests.set(key, request)
+    request.promise = Promise.resolve().then(async () => {
+      if (!request.isCurrent()) return
+      try {
+        const res = await getCategories(id)
+        if (!request.isCurrent()) return
+        set((s) => ({
+          categories: {
+            ...s.categories,
+            [key]: (res?.categories ?? []).map((c) => toUnit(c, key)),
+          },
+          categoryQueries: {
+            ...s.categoryQueries,
+            [key]: {
+              loading: false,
+              error: false,
+            },
+          },
+        }))
+      } catch {
+        if (!request.isCurrent()) return
+        // READY 자료의 안내는 완료된 것으로 간주해 닫고, 다음 조회에도 다시 띄우지 않는다.
+        set((s) => ({
+          categoryQueries: {
+            ...s.categoryQueries,
+            [key]: {
+              loading: false,
+              error: true,
+            },
+          },
+          dismissedReadyIds: [
+            ...new Set([
+              ...(s.dismissedReadyIds ?? []),
+              ...s.materials
+                .filter(
+                  (material) =>
+                    String(material.subjectId) === key &&
+                    material.status === 'READY' &&
+                    material.notifyWhenReady,
+                )
+                .map((material) => String(material.serverId ?? material.id)),
+            ]),
+          ],
+        }))
+      } finally {
+        if (categoryRequests.get(key) === request) categoryRequests.delete(key)
+      }
+    })
+    set((s) => ({
+      categoryQueries: {
+        ...s.categoryQueries,
+        [key]: {
+          loading: true,
+          error: Boolean(s.categoryQueries?.[key]?.error),
+        },
+      },
+    }))
+    return request.promise
+  }
   return {
     syncMaterials: async () => {
-      if (!isServerMode) return
       const isCurrent = captureRequest()
       const res = await getMaterials()
       if (!isCurrent()) return
@@ -39,27 +105,34 @@ export function createMaterialQueries(set, get, captureRequest) {
         status: m.status,
         createdAt: Date.parse(m.createdAt),
       }))
-      set({ serverMaterials })
+      set({
+        serverMaterials,
+      })
     },
-
     // 과목 등록. 서버가 연결돼 있으면 서버에 만들고 받은 id를 쓴다
     addSubject: async (name, examDate = null) => {
       const isCurrent = captureRequest()
-      const body = { name: name.trim(), examDate: examDate || null }
-      let id = uid()
-      if (isServerMode) {
-        const res = await apiCreateSubject({ ...body, examDate: body.examDate ?? undefined })
-        if (!isCurrent()) throw new Error('계정이 변경되어 과목 등록을 취소했어요.')
-        id = String(res.subjectId)
+      const body = {
+        name: name.trim(),
+        examDate: examDate || null,
       }
-      const subject = { id, ...body }
-      set((s) => ({ subjects: [...s.subjects, subject] }))
+      const res = await apiCreateSubject({
+        ...body,
+        examDate: body.examDate ?? undefined,
+      })
+      if (!isCurrent()) throw new Error('계정이 변경되어 과목 등록을 취소했어요.')
+      const id = String(res.subjectId)
+      const subject = {
+        id,
+        ...body,
+      }
+      set((s) => ({
+        subjects: [...s.subjects, subject],
+      }))
       return subject
     },
-
     // 서버의 과목 목록으로 바꾼다. id는 URL 쿼리와 비교하기 쉽게 문자열로 둔다
     syncSubjects: async () => {
-      if (!isServerMode) return
       const isCurrent = captureRequest()
       const res = await getSubjects()
       if (!isCurrent()) return
@@ -79,29 +152,13 @@ export function createMaterialQueries(set, get, captureRequest) {
         ),
       }))
     },
-
     // 과목별 단원(진도·정답률 포함)을 서버에서 받는다. subjectId가 없으면 모든 과목
     syncCategories: async (subjectId) => {
-      if (!isServerMode) return
-      const isCurrent = captureRequest()
       get()
         .syncMaterials()
         .catch(() => {})
       const ids = subjectId ? [subjectId] : get().subjects.map((s) => s.id)
-      const results = await Promise.all(
-        ids.map((id) =>
-          getCategories(id)
-            .then((res) => [id, (res?.categories ?? []).map((c) => toUnit(c, id))])
-            .catch(() => null),
-        ),
-      )
-      if (!isCurrent()) return
-      // 실패한 과목(null)은 건너뛰고, 성공한 과목만 덮어쓴다
-      set((s) => {
-        const categories = { ...s.categories }
-        for (const r of results) if (r) categories[r[0]] = r[1]
-        return { categories }
-      })
+      await Promise.all(ids.map(syncCategory))
     },
   }
 }

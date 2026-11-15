@@ -17,10 +17,10 @@ function setup(flush = async () => {}) {
   const source = read('hooks/useReport.js').replace(/^import .*$/gm, '')
     .replace(/export const /g, 'const ').replace(/export function /g, 'function ')
   const hook = new Function('useState', 'useEffect', 'useMaterialStore', 'useSessionStore',
-    'isServerMode', 'getReport', 'kstDateKey', 'dayLabel', 'TREND_DAYS', helpers + '\n' + source + '\nreturn useServerReport')(
+    'getReport', 'kstDateKey', 'dayLabel', 'TREND_DAYS', helpers + '\n' + source + '\nreturn useServerReport')(
     (initial) => { const slot = index++; if (!(slot in slots)) slots[slot] = initial;
       return [slots[slot], (value) => { slots[slot] = typeof value === 'function' ? value(slots[slot]) : value }] },
-    (fn) => { effect = fn }, (selector) => selector(materials), useSessionStore, {},
+    (fn) => { effect = fn }, (selector) => selector(materials), useSessionStore,
     async (id) => { calls.push(id); return { accuracyTrend: [{ date: '2026-11-14', accuracy: id === '1' ? 1 : 0, answers: 5 }], average: id === '1' ? 1 : 0 } },
     () => '2026-11-14', (date) => date, 7,
   )

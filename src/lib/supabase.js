@@ -1,9 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
-import { isServerMode } from './runtime'
+import { configurationError } from './runtime'
 
 const url = import.meta.env.VITE_SUPABASE_URL
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-// .env.local에 키가 없으면 null이고, 이때는 Mock 로그인으로 동작한다
-export const supabase =
-  isServerMode && url && anonKey ? createClient(url, anonKey, { auth: { flowType: 'pkce' } }) : null
+export const supabase = configurationError
+  ? null
+  : createClient(url, anonKey, { auth: { flowType: 'pkce' } })

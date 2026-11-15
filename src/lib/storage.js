@@ -87,6 +87,6 @@ export const storage = {
 
 // 프론트에서 임시로 쓰는 고유 id (랜덤 8자 + 현재 시각)
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36)
-// min~max ms 사이 랜덤하게 기다린다 (Mock 응답 지연 흉내용). 사용: await wait(300, 800)
+// 상태 조회와 재시도 사이의 대기 시간을 지정한다.
 export const wait = (min, max = min) =>
   new Promise((r) => setTimeout(r, min + Math.random() * (max - min)))

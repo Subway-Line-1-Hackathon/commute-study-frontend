@@ -2,13 +2,16 @@
 import AppRouter from './routes/AppRouter'
 import AuthBoundary from './components/AuthBoundary'
 import StorageNotice from './components/StorageNotice'
+import RouteErrorBoundary from './components/RouteErrorBoundary'
 
 export default function App() {
   return (
     <>
       <StorageNotice />
       <AuthBoundary>
-        <AppRouter />
+        <RouteErrorBoundary>
+          <AppRouter />
+        </RouteErrorBoundary>
       </AuthBoundary>
     </>
   )

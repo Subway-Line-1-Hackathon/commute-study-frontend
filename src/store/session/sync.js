@@ -7,10 +7,8 @@ import {
 } from '../../lib/endpoints'
 import { getRecordSubjects } from '../../lib/recordSubjects'
 import { uid } from '../../lib/storage'
-import { isServerMode } from '../../lib/runtime'
 import { useMaterialStore } from '../useMaterialStore'
 import { fromServerNote } from './wrongNotes'
-
 export function createSessionSync(set, get) {
   let flushing = Promise.resolve()
   const flushAttempts = () => {
@@ -20,7 +18,7 @@ export function createSessionSync(set, get) {
     flushing = flushing
       .catch(() => {})
       .then(async () => {
-        if (!isServerMode || !active()) return
+        if (!active()) return
         const pending = get().pendingAttempts
         if (pending.length === 0 && get().pendingEnds.length === 0) return
         if (!accountId) throw new Error('답안을 작성한 계정을 확인할 수 없어요.')
@@ -43,11 +41,15 @@ export function createSessionSync(set, get) {
                     return rest
                   }),
                 },
-                { accountId },
+                {
+                  accountId,
+                },
               )
               if (!active()) return
               const sent = new Set(chunk.map((a) => a.key))
-              set((s) => ({ pendingAttempts: s.pendingAttempts.filter((a) => !sent.has(a.key)) }))
+              set((s) => ({
+                pendingAttempts: s.pendingAttempts.filter((a) => !sent.has(a.key)),
+              }))
             }
           } catch (err) {
             // 404도 잘못된 계정·문제일 수 있으므로 답안을 임의로 지우지 않는다.
@@ -61,9 +63,13 @@ export function createSessionSync(set, get) {
           if (get().pendingAttempts.some((a) => String(a.sessionId) === String(end.sessionId)))
             continue
           try {
-            await apiEndSession(end.sessionId, end.reason, { accountId })
+            await apiEndSession(end.sessionId, end.reason, {
+              accountId,
+            })
             if (!active()) return
-            set((s) => ({ pendingEnds: s.pendingEnds.filter((e) => e.key !== end.key) }))
+            set((s) => ({
+              pendingEnds: s.pendingEnds.filter((e) => e.key !== end.key),
+            }))
           } catch (err) {
             failure ??= err
           }
@@ -72,23 +78,33 @@ export function createSessionSync(set, get) {
       })
     return flushing
   }
-
   return {
     flushAttempts,
     queueSessionEnd: (sessionId, reason) => {
       if (!get().pendingEnds.some((e) => String(e.sessionId) === String(sessionId))) {
-        set((s) => ({ pendingEnds: [...s.pendingEnds, { key: uid(), sessionId, reason }] }))
+        set((s) => ({
+          pendingEnds: [
+            ...s.pendingEnds,
+            {
+              key: uid(),
+              sessionId,
+              reason,
+            },
+          ],
+        }))
       }
       return flushAttempts()
     },
     syncCurrent: async () => {
-      if (!isServerMode) return
       const cur = get().current
       if (cur?.status !== S.IN_PROGRESS || !cur.serverId) return
       const res = await getCurrentSession()
       if (get().current !== cur) return
       if (!res || String(res.sessionId) !== String(cur.serverId)) {
-        const ended = { ...cur, status: S.ENDED }
+        const ended = {
+          ...cur,
+          status: S.ENDED,
+        }
         set({
           current: ended,
           history: cur.answers.length > 0 ? [ended, ...get().history] : get().history,
@@ -96,7 +112,6 @@ export function createSessionSync(set, get) {
       }
     },
     syncWrongNotes: async () => {
-      if (!isServerMode) return
       const accountId = get().accountId
       await flushAttempts()
       if (get().accountId !== accountId) return
@@ -127,7 +142,9 @@ export function createSessionSync(set, get) {
         results.some((r) => r === null)
       )
         return
-      set({ wrongNotes: results.flat() })
+      set({
+        wrongNotes: results.flat(),
+      })
     },
   }
 }

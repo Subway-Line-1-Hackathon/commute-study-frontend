@@ -12,7 +12,7 @@ import { getRemainingSec, useSessionStore } from '../store/useSessionStore'
 import { ApiError, errorMessage } from '../lib/api'
 
 // S11 단원 선택: 분석으로 나뉜 단원 중 공부할 단원을 골라 문제 설정 화면(S30)으로 넘어간다
-// 단원은 자료(Mock) 또는 과목(서버) 단위 묶음으로 접었다 폈다 할 수 있다
+// 서버 단원을 자료 또는 과목 단위로 묶어 표시한다.
 export default function S11UnitPreview() {
   const navigate = useNavigate()
   const location = useLocation()
