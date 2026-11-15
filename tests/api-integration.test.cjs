@@ -82,6 +82,75 @@ test('subjects removed on another device are retained for local history lookup',
   assert.deepEqual(store.getState().archivedSubjects.map((s) => s.id), ['3'])
 })
 
+const deferred = () => {
+  let resolve
+  const promise = new Promise((done) => { resolve = done })
+  return { promise, resolve }
+}
+
+for (const action of ['syncSubjects', 'syncMaterials', 'syncCategories']) {
+  test(`${action} ignores responses started before an account switch, including A to B to A`, async () => {
+    const pending = deferred()
+    const { store } = materialStore({
+      getSubjects: () => pending.promise,
+      getMaterials: async () => ({ materials: [] }),
+      getCategories: () => pending.promise,
+    })
+    if (action === 'syncMaterials') {
+      // This endpoint is also used in the background by syncCategories.
+      const separate = materialStore({ getMaterials: () => pending.promise }).store
+      const request = separate.getState().syncMaterials()
+      separate.getState().invalidateRequests()
+      separate.setState({ serverMaterials: [{ id: 'B' }] })
+      pending.resolve({ materials: [{ id: 'A', createdAt: '2026-11-15' }] })
+      await request
+      assert.equal(separate.getState().serverMaterials[0].id, 'B')
+      return
+    }
+    store.setState({ subjects: [{ id: 'A' }] })
+    const request = store.getState()[action]()
+    store.getState().invalidateRequests()
+    store.getState().invalidateRequests()
+    store.setState({ subjects: [{ id: 'restored' }], categories: { A: [{ id: 'restored' }] } })
+    pending.resolve({ subjects: [{ id: 'stale' }], categories: [{ id: 'stale' }] })
+    await request
+    assert.equal(store.getState().subjects[0].id, 'restored')
+    assert.equal(store.getState().categories.A[0].id, 'restored')
+  })
+}
+
+test('queued uploads from the previous account never start with the new account token', async () => {
+  let sequence = 0
+  const uploaded = []
+  const first = deferred()
+  const { store } = materialStore({
+    uid: () => String(++sequence),
+    apiUploadMaterial: async (subjectId) => { uploaded.push(subjectId); return first.promise },
+  })
+  const files = [{ name: 'lecture.pdf', size: 10 }]
+  store.getState().uploadMaterial('A1', files)
+  store.getState().uploadMaterial('A2', files)
+  await new Promise(setImmediate)
+  store.getState().invalidateRequests()
+  store.setState({ materials: [] })
+  first.resolve({ materialId: 1, status: 'READY' })
+  await new Promise(setImmediate)
+  assert.deepEqual(uploaded, ['A1'])
+  assert.deepEqual(store.getState().materials, [])
+})
+
+test('late deletion cannot remove a restored material after switching accounts', async () => {
+  const pending = deferred()
+  const { store } = materialStore({ apiDeleteMaterial: () => pending.promise })
+  store.setState({ materials: [{ id: 'temp', serverId: 8, status: 'READY' }] })
+  const request = store.getState().removeMaterial('temp')
+  store.getState().invalidateRequests()
+  store.setState({ materials: [{ id: 'temp', serverId: 8, status: 'READY', restored: true }] })
+  pending.resolve()
+  await request
+  assert.equal(store.getState().materials[0].restored, true)
+})
+
 async function sessionReport(responses) {
   let result = null
   let effect

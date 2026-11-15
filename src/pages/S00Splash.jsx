@@ -1,11 +1,7 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ApiError } from '../lib/api'
 import { getEntryRoute } from '../lib/entryRoute'
-import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../store/useAuthStore'
-import { useMaterialStore } from '../store/useMaterialStore'
-import { switchUserData } from '../store/resetUserData'
 import logo from '../assets/logo-sns-ko.svg'
 import mascot from '../assets/mascot-default.png'
 
@@ -16,46 +12,14 @@ export default function S00Splash() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    let cancelled = false // 화면을 떠난 뒤에는 navigate하지 않도록
-
-    // 구글 로그인 후 이 화면으로 돌아오면 getSession이 URL의 code를 세션으로 바꿔 준다
-    const checkSession = async () => {
-      if (!supabase) return
-      const { data } = await supabase.auth.getSession()
-      // 이전 계정의 미전송 답안을 보관한 뒤 로그인한 계정의 데이터를 복원한다.
-      const prevUserId = useAuthStore.getState().user?.id
-      const nextUserId = data.session?.user.id
-      if (nextUserId) switchUserData(prevUserId, nextUserId)
-      useAuthStore.getState().applySession(data.session)
-      if (!data.session) return
-
-      // 서버의 닉네임·통학 설정·과목을 가져온다. 실패하면 기기에 저장된 값으로 계속한다
-      try {
-        await Promise.all([
-          useAuthStore.getState().syncMe(),
-          useMaterialStore.getState().syncSubjects(),
-        ])
-      } catch (err) {
-        // 401: 토큰이 만료·무효 -> 로그아웃시켜 다시 로그인하게 한다
-        if (err instanceof ApiError && err.status === 401) {
-          useAuthStore.getState().logout()
-        }
-      }
-    }
-
-    // 확인이 너무 빨리 끝나도 로고가 깜빡이지 않게 최소 0.8초는 보여준다
-    const minDelay = new Promise((resolve) => setTimeout(resolve, 800))
-
-    Promise.all([checkSession(), minDelay]).then(() => {
-      if (cancelled) return
+    // 실제 인증 확인은 AuthBoundary에서 모든 주소에 공통으로 적용한다.
+    const timer = setTimeout(() => {
       const auth = useAuthStore.getState()
-      // 분석 중이던 자료가 있으면 상태 조회를 다시 시작
-      useMaterialStore.getState().resumePending()
       navigate(getEntryRoute({ auth }), { replace: true })
-    })
+    }, 800)
 
     return () => {
-      cancelled = true
+      clearTimeout(timer)
     }
   }, [navigate])
 

@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { AUTH_STATUS, COMMUTE, ROUTES } from '../lib/constants'
 import { getMe, saveSettings, withdraw as apiWithdraw } from '../lib/endpoints'
-import { resetUserData } from './resetUserData'
+import { resetUserData, suspendUserData } from './resetUserData'
 import { zustandStorage } from '../lib/storage'
 import { supabase } from '../lib/supabase'
 import { clampCommute, isValidCommute } from '../lib/time'
@@ -14,7 +14,7 @@ import { MOCK_USER } from '../mocks/mockUser'
 // - supabase가 null이면(키 없음) 서버 없이 Mock 데이터로 동작한다
 export const useAuthStore = create(
   persist(
-    (set) => ({
+    (set, get) => ({
       status: AUTH_STATUS.ANONYMOUS, // 로그인/온보딩 단계 (constants.js의 AUTH_STATUS)
       user: null, // { id, name, email, provider, nickname }
       commute: null, // { studyMin, departure, arrival } 역 이름은 표시용
@@ -81,6 +81,7 @@ export const useAuthStore = create(
       // 서버는 닉네임과 통학 시간을 한 번에 받는다. Mock 모드면 store에만 저장한다
       saveProfile: async ({ nickname, studyMin, departure = '', arrival = '' }) => {
         if (!isValidCommute(studyMin)) return false
+        const user = get().user
         let savedMin = studyMin
         if (supabase) {
           const res = await saveSettings({
@@ -92,6 +93,9 @@ export const useAuthStore = create(
           // 서버가 보정한 학습 시간을 돌려주면 그 값을 쓴다
           savedMin = res?.studyMin ?? studyMin
         }
+        if (get().user !== user || get().status === AUTH_STATUS.ANONYMOUS) {
+          throw new Error('계정이 변경되어 저장을 취소했어요.')
+        }
         set((s) => ({
           user: { ...s.user, nickname: nickname.trim() },
           commute: { studyMin: savedMin, departure: departure.trim(), arrival: arrival.trim() },
@@ -102,7 +106,9 @@ export const useAuthStore = create(
       // 서버의 내 정보로 닉네임·통학 설정·온보딩 상태를 맞춘다. 처음 부르면 서버가 사용자를 만든다
       syncMe: async () => {
         if (!supabase) return
+        const user = get().user
         const me = await getMe()
+        if (get().user !== user || get().status === AUTH_STATUS.ANONYMOUS) return
         const settings = me?.settings
         set((s) => {
           const activated = me?.status === AUTH_STATUS.ACTIVE
@@ -128,8 +134,9 @@ export const useAuthStore = create(
 
       // 로그인 상태만 해제. 닉네임, 통학 시간, 자료는 계정 데이터라 유지
       logout: async () => {
-        if (supabase) await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
+        suspendUserData()
         set({ status: AUTH_STATUS.ANONYMOUS })
+        if (supabase) await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
       },
 
       // 회원 탈퇴: 서버에서 계정·학습 기록을 지우고, 기기에 남은 데이터도 모두 비운 뒤 로그아웃한다

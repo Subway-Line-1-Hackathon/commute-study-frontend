@@ -15,7 +15,10 @@ export function useQuizTimer(running, onTimeUp) {
         announce(`학습 종료까지 ${WARNING_SEC / 60}분 남았어요. 곧 끝나요.`)
         if ('vibrate' in navigator) navigator.vibrate([200, 100, 200])
       }
-      if (next?.status === S.ENDED) onTimeUp()
+      if (next?.status === S.ENDED) {
+        clearInterval(id)
+        onTimeUp(true)
+      }
     }, 1000)
     return () => clearInterval(id)
   }, [running, onTimeUp])

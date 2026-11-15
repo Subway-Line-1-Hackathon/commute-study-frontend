@@ -21,7 +21,7 @@ import { generateUnitsAndSummary, MOCK_FAIL_MESSAGE, shouldMockFail } from '../m
 // 서버 모드는 상태를 3초마다 조회(polling)하고, Mock 모드는 타이머로 상태를 흉내 낸다
 
 // 지금 상태 조회(advance)가 돌고 있는 자료 id. 같은 자료를 두 번 polling하지 않게 막는다
-const inflight = new Set()
+const inflight = new Map()
 // 파일명에서 확장자를 뗀다 ("강의1.pdf" -> "강의1")
 const baseName = (fileName) => fileName.replace(/\.[^.]+$/, '')
 // 업로드를 한 번에 하나씩 순서대로 보내기 위한 Promise 체인
@@ -53,6 +53,11 @@ function toUnit(c, subjectId) {
 export const useMaterialStore = create(
   persist(
     (set, get) => {
+      let requestGeneration = 0
+      const captureRequest = () => {
+        const generation = requestGeneration
+        return () => generation === requestGeneration
+      }
       // 내부 헬퍼: 자료 id 하나의 일부 필드만 바꾼다
       const patch = (id, p) =>
         set((s) => ({ materials: s.materials.map((m) => (m.id === id ? { ...m, ...p } : m)) }))
@@ -60,14 +65,17 @@ export const useMaterialStore = create(
       const find = (id) => get().materials.find((m) => m.id === id)
 
       // Mock: 일정 시간 뒤 단원과 요약을 만든다
-      const advanceMock = async (id) => {
+      const advanceMock = async (id, isCurrent) => {
         const cur = find(id)
         if (cur.status === M.UPLOADED) {
           await wait(2000, 3000)
+          if (!isCurrent() || !find(id)) return
           patch(id, { status: M.PROCESSING })
         }
         await wait(2000, 3000)
+        if (!isCurrent()) return
         const latest = find(id)
+        if (!latest) return
         if (shouldMockFail(latest.fileName) && !latest.retried) {
           patch(id, { status: M.FAILED, errorMessage: MOCK_FAIL_MESSAGE })
           return
@@ -80,8 +88,8 @@ export const useMaterialStore = create(
       }
 
       // 서버: READY/FAILED가 될 때까지 상태를 조회한다. READY면 과목의 단원을 다시 받는다
-      const pollServer = async (id) => {
-        for (;;) {
+      const pollServer = async (id, isCurrent) => {
+        while (isCurrent()) {
           const cur = find(id)
           if (!cur || DONE.includes(cur.status)) return
           let res
@@ -92,7 +100,7 @@ export const useMaterialStore = create(
             await wait(POLL_MS)
             continue
           }
-          if (!find(id)) return // 기다리는 사이 자료가 지워졌으면 중단
+          if (!isCurrent() || !find(id)) return // 계정 전환·삭제 이후 응답은 반영하지 않는다
           if (res.status === M.READY) {
             patch(id, { status: M.READY, errorMessage: null, categoryCount: res.categoryCount })
             get()
@@ -111,24 +119,24 @@ export const useMaterialStore = create(
 
       // 업로드가 끝난 자료를 READY/FAILED가 될 때까지 진행시킨다
       // serverId가 있으면 서버 polling, 없으면 Mock 진행
-      const advance = async (id) => {
-        if (inflight.has(id)) return
-        inflight.add(id)
+      const advance = async (id, isCurrent = captureRequest()) => {
+        if (!isCurrent() || inflight.has(id)) return
+        inflight.set(id, isCurrent)
         try {
           const cur = find(id)
           if (!cur || (cur.status !== M.UPLOADED && cur.status !== M.PROCESSING)) return
-          if (cur.serverId) await pollServer(id)
-          else await advanceMock(id)
+          if (cur.serverId) await pollServer(id, isCurrent)
+          else await advanceMock(id, isCurrent)
         } finally {
-          inflight.delete(id)
+          if (inflight.get(id) === isCurrent) inflight.delete(id)
         }
       }
 
       // Mock 업로드: 진행률을 10%씩 올린 뒤 UPLOADED로 바꾸고 분석을 시작한다
-      const uploadMock = async (id) => {
+      const uploadMock = async (id, isCurrent) => {
         for (let progress = 10; progress <= 100; progress += 10) {
           await wait(120, 200)
-          if (!find(id)) return
+          if (!isCurrent() || !find(id)) return
           patch(id, { progress })
         }
         patch(id, { status: M.UPLOADED, progress: null })
@@ -136,11 +144,12 @@ export const useMaterialStore = create(
       }
 
       // 서버 업로드: 파일을 보내고 받은 materialId(serverId)로 상태 조회를 시작한다
-      const uploadServer = async (id, files) => {
+      const uploadServer = async (id, files, isCurrent) => {
         const cur = find(id)
-        if (!cur) return
+        if (!isCurrent() || !cur) return
         try {
           const res = await apiUploadMaterial(cur.subjectId, files)
+          if (!isCurrent()) return
           patch(id, {
             serverId: res.materialId,
             status: res.status ?? M.UPLOADED,
@@ -148,6 +157,7 @@ export const useMaterialStore = create(
           })
           advance(id)
         } catch (err) {
+          if (!isCurrent()) return
           // 서버에 올라가지 않았으니 다시 시도할 수 없다. 파일을 다시 골라야 한다
           patch(id, {
             status: M.FAILED,
@@ -161,6 +171,13 @@ export const useMaterialStore = create(
 
       // ---- 여기부터 화면에서 쓰는 상태와 액션 ----
       return {
+        // 이전 계정의 응답, polling, 아직 시작하지 않은 업로드를 무효화한다.
+        invalidateRequests: () => {
+          requestGeneration += 1
+          inflight.clear()
+          activeUploads.clear()
+          uploadQueue = Promise.resolve()
+        },
         subjects: [], // [{ id, name, examDate, dDay }]
         archivedSubjects: [], // 삭제한 과목의 오답·리포트를 조회하기 위한 ID/이름
         materials: [], // 업로드한 자료 목록 (상태, 진행률, 에러 문구 등)
@@ -172,7 +189,9 @@ export const useMaterialStore = create(
 
         syncMaterials: async () => {
           if (!supabase) return
+          const isCurrent = captureRequest()
           const res = await getMaterials()
+          if (!isCurrent()) return
           const serverMaterials = (res?.materials ?? []).map((m) => ({
             id: String(m.id),
             subjectId: String(m.subjectId),
@@ -185,10 +204,12 @@ export const useMaterialStore = create(
 
         // 과목 등록. 서버가 연결돼 있으면 서버에 만들고 받은 id를 쓴다
         addSubject: async (name, examDate = null) => {
+          const isCurrent = captureRequest()
           const body = { name: name.trim(), examDate: examDate || null }
           let id = uid()
           if (supabase) {
             const res = await apiCreateSubject({ ...body, examDate: body.examDate ?? undefined })
+            if (!isCurrent()) throw new Error('계정이 변경되어 과목 등록을 취소했어요.')
             id = String(res.subjectId)
           }
           const subject = { id, ...body }
@@ -199,7 +220,9 @@ export const useMaterialStore = create(
         // 서버의 과목 목록으로 바꾼다. id는 URL 쿼리와 비교하기 쉽게 문자열로 둔다
         syncSubjects: async () => {
           if (!supabase) return
+          const isCurrent = captureRequest()
           const res = await getSubjects()
+          if (!isCurrent()) return
           const subjects = (res?.subjects ?? []).map((s) => ({
             id: String(s.id),
             name: s.name,
@@ -220,6 +243,7 @@ export const useMaterialStore = create(
         // 과목별 단원(진도·정답률 포함)을 서버에서 받는다. subjectId가 없으면 모든 과목
         syncCategories: async (subjectId) => {
           if (!supabase) return
+          const isCurrent = captureRequest()
           get()
             .syncMaterials()
             .catch(() => {})
@@ -231,6 +255,7 @@ export const useMaterialStore = create(
                 .catch(() => null),
             ),
           )
+          if (!isCurrent()) return
           // 실패한 과목(null)은 건너뛰고, 성공한 과목만 덮어쓴다
           set((s) => {
             const categories = { ...s.categories }
@@ -278,7 +303,11 @@ export const useMaterialStore = create(
               },
             ],
           }))
-          const run = supabase ? () => uploadServer(id, files) : () => uploadMock(id)
+          const isCurrent = captureRequest()
+          const run = () => {
+            if (!isCurrent()) return
+            return supabase ? uploadServer(id, files, isCurrent) : uploadMock(id, isCurrent)
+          }
           // 앞 업로드가 끝나야 다음 업로드가 시작된다. 하나가 실패해도 큐가 멈추지 않게 catch
           uploadQueue = uploadQueue
             .then(run)
@@ -289,12 +318,15 @@ export const useMaterialStore = create(
 
         // 분석에 실패한 자료를 한 번 더 분석시킨다 (자료당 1회)
         retryMaterial: async (id) => {
+          const isCurrent = captureRequest()
           const cur = find(id)
           if (!cur || cur.status !== M.FAILED || cur.retried) return
           if (cur.serverId) {
             try {
               await apiRetryMaterial(cur.serverId)
+              if (!isCurrent()) return
             } catch (err) {
+              if (!isCurrent()) return
               patch(id, {
                 retried: true,
                 errorMessage: errorMessage(err, '다시 시도하지 못했어요.'),
@@ -327,16 +359,19 @@ export const useMaterialStore = create(
         hasReadyMaterial: () => get().materials.some((m) => m.status === M.READY),
 
         removeFailedMaterial: async (id) => {
+          const isCurrent = captureRequest()
           const target = find(id)
           if (!target || target.status !== M.FAILED) return
           try {
             await get().removeMaterial(id)
           } catch (err) {
+            if (!isCurrent()) return
             patch(id, { errorMessage: errorMessage(err, '자료를 지우지 못했어요.') })
           }
         },
 
         removeMaterial: async (id) => {
+          const isCurrent = captureRequest()
           const local = find(id)
           const target = local ?? get().serverMaterials.find((m) => m.id === String(id))
           if (target && [M.UPLOADING, M.UPLOADED, M.PROCESSING].includes(target.status)) {
@@ -350,6 +385,7 @@ export const useMaterialStore = create(
               if (!(err instanceof ApiError && err.status === 404)) throw err
             }
           }
+          if (!isCurrent()) return
           set((s) => ({
             materials: s.materials.filter(
               (m) => m.id !== id && !(serverId && String(m.serverId) === String(serverId)),

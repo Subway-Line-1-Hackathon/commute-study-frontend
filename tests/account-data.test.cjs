@@ -8,7 +8,7 @@ function setup() {
     let state = initial
     return { getState: () => state, setState: (patch) => { state = { ...state, ...patch } } }
   }
-  const materials = makeStore({ subjects: [{ id: '3', name: 'A 과목' }], materials: [] })
+  const materials = makeStore({ subjects: [{ id: '3', name: 'A 과목' }], materials: [], invalidateRequests() {} })
   const session = makeStore({ accountId: 'A', current: null, history: [], wrongNotes: [],
     pendingAttempts: [{ key: 'a', sessionId: 42 }], pendingEnds: [{ key: 'e', sessionId: 42, reason: 'QUIT' }] })
   const data = new Map()
