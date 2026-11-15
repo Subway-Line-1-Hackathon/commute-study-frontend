@@ -3,6 +3,7 @@ import { kstDateKey } from '../../lib/date'
 import { judgeAnswer } from '../../lib/endpoints'
 import { toServerAnswer } from '../../lib/question'
 import { uid } from '../../lib/storage'
+import { prepareAnswer } from '../../lib/answer'
 import { upsertWrong } from './wrongNotes'
 
 const norm = (v) => String(v).trim().toLowerCase()
@@ -16,6 +17,7 @@ export function createSessionAnswers(set, get, flushAttempts) {
     const idx = cur.answers.length
     const q = cur.questions[idx]
     if (!q) return null
+    value = prepareAnswer(q, value)
 
     const isReview = cur.mode === 'review'
     const now = Date.now()
@@ -83,12 +85,12 @@ export function createSessionAnswers(set, get, flushAttempts) {
       if (!cur || cur.status !== S.IN_PROGRESS || cur.phase !== PHASE.QUIZ) return null
       const q = cur.questions[cur.answers.length]
       if (!q) return null
+      value = prepareAnswer(q, value)
 
       if (cur.serverId && q.type === T.SHORT) {
         let res
         try {
-          // 서버 판정 API는 30자까지만 받는다
-          res = await judgeAnswer(q.id, String(value).slice(0, 30))
+          res = await judgeAnswer(q.id, value)
         } catch {
           // 네트워크 오류도 판정 실패로 보고 자가 판정으로 넘긴다
           res = { correct: null, timeout: true }

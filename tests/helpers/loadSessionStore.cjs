@@ -3,8 +3,9 @@ const path = require('node:path')
 
 // Keep browser/API dependencies replaceable while exercising the real action modules.
 module.exports = function loadSessionStore(deps) {
-  deps = { storage: { get: () => null }, ...deps }
+  deps = { storage: { get: () => null }, ApiError: class ApiError extends Error { constructor(status, body) { super(body?.message); this.status = status; this.body = body } }, ...deps }
   const files = [
+    '../lib/answer.js',
     '../lib/recordSubjects.js',
     'session/time.js',
     'session/wrongNotes.js',

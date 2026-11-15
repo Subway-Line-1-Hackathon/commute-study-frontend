@@ -20,6 +20,7 @@ import {
   SOLVE_MODE as M,
 } from '../lib/constants'
 import { stopSpeaking } from '../lib/speaker'
+import { errorMessage } from '../lib/api'
 import { useAuthStore } from '../store/useAuthStore'
 import { getSessionRoute, useSessionStore } from '../store/useSessionStore'
 
@@ -34,6 +35,7 @@ export default function S40Player() {
   const commute = useAuthStore((s) => s.commute)
 
   const [value, setValue] = useState('') // 지금 입력/선택한 답
+  const [submitError, setSubmitError] = useState('')
   const [feedback, setFeedback] = useState(null) // { question, correct, reason, completed }
   const [judging, setJudging] = useState(null) // 채점 중인 문제
   const [selfCheck, setSelfCheck] = useState(null) // AI 판정이 늦을 때 { question, value }
@@ -86,15 +88,21 @@ export default function S40Player() {
   const handleSubmit = async (v = value) => {
     if (String(v).trim() === '' || judging) return
     setValue(v)
+    setSubmitError('')
     setJudging(cur.questions[answered])
-    const result = await submitAnswer(v)
-    setJudging(null)
-    if (!result) return
-    if (result.needsSelfJudge) {
-      setSelfCheck({ question: result.question, value: v })
-      return
+    try {
+      const result = await submitAnswer(v)
+      if (!result) return
+      if (result.needsSelfJudge) {
+        setSelfCheck({ question: result.question, value: v })
+        return
+      }
+      showResult(result)
+    } catch (err) {
+      setSubmitError(errorMessage(err, '정답을 확인하지 못했어요. 다시 시도해 주세요.'))
+    } finally {
+      setJudging(null)
     }
-    showResult(result)
   }
 
   const handleSelfJudge = (correct) => {
@@ -110,6 +118,7 @@ export default function S40Player() {
     }
     setFeedback(null)
     setValue('')
+    setSubmitError('')
   }
 
   const handleListenDone = () => {
@@ -203,10 +212,16 @@ export default function S40Player() {
             onChange={setValue}
             onSubmit={handleSubmit}
             result={feedback}
+            busy={Boolean(judging || selfCheck)}
           />
         )}
 
         {judging && <p className="mt-4 text-center text-caption text-muted">채점하고 있어요…</p>}
+        {submitError && (
+          <p role="alert" className="mt-4 text-center text-caption text-danger">
+            {submitError}
+          </p>
+        )}
 
         {selfCheck && (
           <SelfJudgeBox

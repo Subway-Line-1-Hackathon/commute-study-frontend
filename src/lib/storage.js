@@ -1,38 +1,88 @@
-// localStorage 관련 유틸
-// 사생활 보호 모드 등에서 localStorage가 막히면 에러가 나므로 전부 try/catch로 감싼다
-const PREFIX = 'cs:' // 다른 사이트/앱과 키가 겹치지 않게 붙이는 접두어
+const PREFIX = 'cs:'
+const cached = new Map()
+const failedKeys = new Set()
+const listeners = new Set()
+let degraded = false
+
+function notify() {
+  const next = failedKeys.size > 0
+  if (degraded === next) return
+  degraded = next
+  listeners.forEach((listener) => listener())
+}
+
+export const subscribeStorageStatus = (listener) => {
+  listeners.add(listener)
+  return () => listeners.delete(listener)
+}
+export const getStorageStatus = () => degraded
+
+// 저장이 막혀도 메모리의 답안 큐는 유지한다. 디스크의 오래된 값보다 미저장 값을 우선한다.
+export const zustandStorage = {
+  getItem(name) {
+    if (failedKeys.has(name) && cached.has(name)) return cached.get(name)
+    try {
+      const value = localStorage.getItem(name)
+      cached.set(name, value)
+      failedKeys.delete(name)
+      notify()
+      return value
+    } catch {
+      failedKeys.add(name)
+      notify()
+      return cached.get(name) ?? null
+    }
+  },
+  setItem(name, value) {
+    cached.set(name, value)
+    try {
+      localStorage.setItem(name, value)
+      failedKeys.delete(name)
+    } catch {
+      failedKeys.add(name)
+    }
+    notify()
+  },
+  removeItem(name) {
+    cached.set(name, null)
+    try {
+      localStorage.removeItem(name)
+      failedKeys.delete(name)
+    } catch {
+      failedKeys.add(name)
+    }
+    notify()
+  },
+}
+
+export function retryStorage() {
+  for (const name of [...failedKeys]) {
+    if (!cached.has(name)) {
+      zustandStorage.getItem(name)
+    } else if (cached.get(name) === null) {
+      zustandStorage.removeItem(name)
+    } else {
+      zustandStorage.setItem(name, cached.get(name))
+    }
+  }
+}
 
 // JSON으로 저장하고 읽는 간단한 래퍼. get은 값이 없거나 깨졌으면 fallback을 돌려준다
 export const storage = {
   get(key, fallback = null) {
     try {
-      const raw = localStorage.getItem(PREFIX + key)
+      const raw = zustandStorage.getItem(PREFIX + key)
       return raw ? JSON.parse(raw) : fallback
     } catch {
       return fallback
     }
   },
   set(key, value) {
-    try {
-      localStorage.setItem(PREFIX + key, JSON.stringify(value))
-    } catch {
-      /* 저장 실패는 무시 */
-    }
+    zustandStorage.setItem(PREFIX + key, JSON.stringify(value))
   },
   remove(key) {
-    try {
-      localStorage.removeItem(PREFIX + key)
-    } catch {
-      /* 삭제 실패는 무시 */
-    }
+    zustandStorage.removeItem(PREFIX + key)
   },
-}
-
-// zustand persist 미들웨어에 넘기는 저장소 (스토어 상태를 새로고침 후에도 유지)
-export const zustandStorage = {
-  getItem: (name) => localStorage.getItem(name),
-  setItem: (name, value) => localStorage.setItem(name, value),
-  removeItem: (name) => localStorage.removeItem(name),
 }
 
 // 프론트에서 임시로 쓰는 고유 id (랜덤 8자 + 현재 시각)

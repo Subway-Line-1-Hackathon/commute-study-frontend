@@ -2,11 +2,15 @@
 // (전역 Provider나 모달이 필요해지면 여기에 감싼다)
 import AppRouter from './routes/AppRouter'
 import AuthBoundary from './components/AuthBoundary'
+import StorageNotice from './components/StorageNotice'
 
 export default function App() {
   return (
-    <AuthBoundary>
-      <AppRouter />
-    </AuthBoundary>
+    <>
+      <StorageNotice />
+      <AuthBoundary>
+        <AppRouter />
+      </AuthBoundary>
+    </>
   )
 }

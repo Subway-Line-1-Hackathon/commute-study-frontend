@@ -20,7 +20,7 @@ function setup() {
     kstDateKey: () => '2026-11-14',
     uid: (() => { let id = 0; return () => String(++id) })(),
     toServerAnswer: (_question, value) => value,
-    judgeAnswer: () => new Promise((resolve, reject) => requests.push({ resolve, reject })),
+    judgeAnswer: (questionId, answer) => new Promise((resolve, reject) => requests.push({ questionId, answer, resolve, reject })),
     saveAttempts: async (body) => { saved.push(body) },
   }
   const { useSessionStore: store } = loadSessionStore(deps)
@@ -44,6 +44,41 @@ test('normal short-answer grading still records and sends the original answer', 
   assert.equal(store.getState().wrongNotes.length, 1)
   assert.equal(saved[0].sessionId, 1)
   assert.equal(saved[0].attempts[0].questionId, 10)
+})
+
+test('grading, recorded answers and uploads use the same trimmed 30-character answer', async () => {
+  const { store, requests, saved } = setup()
+  const answer = '가'.repeat(30)
+  const pending = store.getState().submitAnswer(`  ${answer}  `)
+  assert.equal(requests[0].answer, answer)
+  requests[0].resolve({ correct: true })
+  await pending
+  await store.getState().flushAttempts()
+  assert.equal(store.getState().current.answers[0].value, answer)
+  assert.equal(saved[0].attempts[0].answer, answer)
+})
+
+for (const answer of ['', '   ', '가'.repeat(31)]) {
+  test(`invalid short answer of length ${answer.length} is rejected before grading or saving`, async () => {
+    const { store, requests } = setup()
+    const before = store.getState()
+    await assert.rejects(store.getState().submitAnswer(answer), { status: 400 })
+    assert.equal(requests.length, 0)
+    assert.equal(store.getState(), before)
+    assert.throws(() => store.getState().selfJudge(answer, true), { status: 400 })
+    assert.equal(store.getState(), before)
+  })
+}
+
+test('self-judged answers obey the same normalization as server-judged answers', async () => {
+  const { store, requests, saved } = setup()
+  const pending = store.getState().submitAnswer('  answer  ')
+  requests[0].resolve({ correct: null })
+  assert.equal((await pending).needsSelfJudge, true)
+  store.getState().selfJudge('  answer  ', true)
+  await store.getState().flushAttempts()
+  assert.equal(saved[0].attempts[0].answer, 'answer')
+  assert.equal(saved[0].attempts[0].selfJudged, true)
 })
 
 for (const outcome of ['correct', 'selfJudge', 'networkError']) {
