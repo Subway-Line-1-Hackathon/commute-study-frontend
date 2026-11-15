@@ -1,20 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
-import { ApiError, setTokenProvider } from './api'
+import { configurationError } from './runtime'
 
 const url = import.meta.env.VITE_SUPABASE_URL
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-// .env.local에 키가 없으면 null이고, 이때는 Mock 로그인으로 동작한다
-export const supabase =
-  url && anonKey ? createClient(url, anonKey, { auth: { flowType: 'pkce' } }) : null
-
-// 백엔드 API 요청마다 Supabase 로그인 토큰을 Authorization 헤더에 붙인다
-if (supabase) {
-  setTokenProvider(async (accountId) => {
-    const { data } = await supabase.auth.getSession()
-    if (accountId && data.session?.user.id !== accountId) {
-      throw new ApiError(401, { message: '답안을 작성한 계정으로 다시 로그인해 주세요.' })
-    }
-    return data.session?.access_token ?? null
-  })
-}
+export const supabase = configurationError
+  ? null
+  : createClient(url, anonKey, { auth: { flowType: 'pkce' } })

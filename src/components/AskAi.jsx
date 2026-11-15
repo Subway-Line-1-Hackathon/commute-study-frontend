@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { errorMessage } from '../lib/api'
 import { askQuestion, getAiQuota } from '../lib/endpoints'
-import { supabase } from '../lib/supabase'
 import TextField from './TextField'
 
 // 문제에 대해 AI에게 묻는 대화창 (서버 모드에서만 보인다)
@@ -14,7 +13,6 @@ export default function AskAi({ questionId, flat = false }) {
   const [error, setError] = useState('')
   const [quota, setQuota] = useState(null) // { used, limit, remaining }
   const abortRef = useRef(null)
-
   const loadQuota = () =>
     getAiQuota()
       .then(setQuota)
@@ -22,19 +20,14 @@ export default function AskAi({ questionId, flat = false }) {
 
   // 처음 열 때 남은 횟수 조회, 화면을 떠나면 진행 중인 답변 요청을 끊는다
   useEffect(() => {
-    if (supabase) {
-      getAiQuota()
-        .then(setQuota)
-        .catch(() => {})
-    }
+    getAiQuota()
+      .then(setQuota)
+      .catch(() => {})
     return () => abortRef.current?.abort()
   }, [])
-
-  if (!supabase || questionId == null) return null
-
+  if (questionId == null) return null
   const noQuota = quota?.remaining === 0
   const canSend = input.trim() !== '' && !streaming && !noQuota
-
   const send = async (e) => {
     e.preventDefault()
     if (!canSend) return
@@ -46,17 +39,25 @@ export default function AskAi({ questionId, flat = false }) {
     // 내 질문 + 비어 있는 AI 답변 자리를 먼저 추가하고, 조각이 올 때마다 마지막 답변에 붙인다
     setMessages([
       ...history,
-      { role: 'user', content: message },
-      { role: 'assistant', content: '' },
+      {
+        role: 'user',
+        content: message,
+      },
+      {
+        role: 'assistant',
+        content: '',
+      },
     ])
     const appendToLast = (text) =>
       setMessages((prev) => {
         const next = [...prev]
         const last = next[next.length - 1]
-        next[next.length - 1] = { ...last, content: last.content + text }
+        next[next.length - 1] = {
+          ...last,
+          content: last.content + text,
+        }
         return next
       })
-
     const controller = new AbortController()
     abortRef.current = controller
     try {
@@ -77,7 +78,6 @@ export default function AskAi({ questionId, flat = false }) {
       if (!controller.signal.aborted) setStreaming(false)
     }
   }
-
   return (
     <div className={flat ? 'pt-1' : 'rounded-card border border-line bg-surface p-5'}>
       <div className="flex items-center justify-between gap-2">

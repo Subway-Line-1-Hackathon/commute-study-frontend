@@ -1,6 +1,7 @@
 import { DIFFICULTY, QUESTION_TYPE as T } from '../lib/constants'
 import { CHOICE_NUMBERS } from '../lib/question'
 import TextField from './TextField'
+import { SHORT_ANSWER_MAX_LENGTH } from '../lib/answer'
 
 const TYPE_LABEL = { [T.OX]: 'O/X', [T.MCQ]: '객관식', [T.SHORT]: '단답형' }
 const DIFFICULTY_LABEL = {
@@ -24,7 +25,15 @@ function optionClass(opt, { value, locked, answer }) {
 // 눈으로 풀기용 문제 카드
 // value: 현재 선택/입력값, result: 제출 후 { correct } (제출 전에는 null)
 // onSubmit(v): O/X처럼 고르는 즉시 제출하는 경우 사용
-export default function QuestionCard({ question, difficulty, value, onChange, onSubmit, result }) {
+export default function QuestionCard({
+  question,
+  difficulty,
+  value,
+  onChange,
+  onSubmit,
+  result,
+  busy = false,
+}) {
   const locked = Boolean(result) // 제출했으면 더 못 바꾼다
   const isOX = question.type === T.OX
   const options = isOX ? ['O', 'X'] : (question.choices ?? [])
@@ -49,8 +58,11 @@ export default function QuestionCard({ question, difficulty, value, onChange, on
           <TextField
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && !locked && onSubmit?.()}
-            disabled={locked}
+            onKeyDown={(e) =>
+              e.key === 'Enter' && !e.nativeEvent.isComposing && !locked && !busy && onSubmit?.()
+            }
+            disabled={locked || busy}
+            maxLength={SHORT_ANSWER_MAX_LENGTH}
             invalid={locked && !result.correct}
             autoFocus
             placeholder="정답을 입력하세요"
@@ -61,7 +73,7 @@ export default function QuestionCard({ question, difficulty, value, onChange, on
               <button
                 key={opt}
                 type="button"
-                disabled={locked}
+                disabled={locked || busy}
                 // O/X는 누르는 즉시 제출, 객관식은 고른 뒤 제출 버튼
                 onClick={() => (isOX ? onSubmit?.(opt) : onChange(opt))}
                 className={`${optionClass(opt, { value, locked, answer: question.answer })} ${

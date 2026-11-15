@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { PHASE, ROUTES, SESSION_STATUS as S } from '../lib/constants'
 import { storage, zustandStorage } from '../lib/storage'
+import { cleanSessionData } from '../lib/serverData'
 import { createSessionAnswers } from './session/answers'
 import { createSessionCreation } from './session/creation'
 import { createSessionLifecycle } from './session/lifecycle'
@@ -20,7 +21,6 @@ export const useSessionStore = create(
         current: null,
         history: [],
         wrongNotes: [],
-        unitProgress: {},
         dailyStats: {},
         pendingAttempts: [],
         pendingEnds: [],
@@ -33,17 +33,18 @@ export const useSessionStore = create(
     },
     {
       name: 'cs:session',
-      version: 4,
+      version: 5,
       // 예전 구조는 정리한다 (v4부터 문제 설정이 출발 전으로 바뀌어 진행 중 세션은 비운다)
-      migrate: (persisted, version) => ({
-        ...persisted,
-        current: version < 4 ? null : persisted.current,
-        wrongNotes: version < 3 ? [] : (persisted.wrongNotes ?? []),
-        dailyStats: persisted.dailyStats ?? {},
-        pendingAttempts: persisted.pendingAttempts ?? [],
-        pendingEnds: persisted.pendingEnds ?? [],
-        continuing: persisted.continuing ?? false,
-      }),
+      migrate: (persisted, version) =>
+        cleanSessionData({
+          ...persisted,
+          current: version < 4 ? null : persisted.current,
+          wrongNotes: version < 3 ? [] : (persisted.wrongNotes ?? []),
+          dailyStats: persisted.dailyStats ?? {},
+          pendingAttempts: persisted.pendingAttempts ?? [],
+          pendingEnds: persisted.pendingEnds ?? [],
+          continuing: persisted.continuing ?? false,
+        }),
       storage: createJSONStorage(() => zustandStorage),
       // localStorage에 저장할 필드만 고른다 (액션 함수는 저장하지 않음)
       partialize: (s) => ({
@@ -51,7 +52,6 @@ export const useSessionStore = create(
         current: s.current,
         history: s.history,
         wrongNotes: s.wrongNotes,
-        unitProgress: s.unitProgress,
         dailyStats: s.dailyStats,
         pendingAttempts: s.pendingAttempts,
         pendingEnds: s.pendingEnds,

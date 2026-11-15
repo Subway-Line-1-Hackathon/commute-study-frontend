@@ -20,11 +20,3 @@ export function getTimePlan(studyMin) {
 
 // 문항당 걸리는 시간(초)
 export const QUESTION_SEC = { [T.OX]: 30, [T.MCQ]: 60, [T.SHORT]: 90 }
-
-// 고른 유형의 평균 시간으로, 남은 시간에 풀 수 있는 문항 수
-// 예: OX+단답 고르고 600초 -> 평균 60초 -> 10문항. 시간이 모자라도 최소 1문항
-export function recommendCount(types, sec) {
-  if (types.length === 0) return 0
-  const avg = types.reduce((sum, t) => sum + QUESTION_SEC[t], 0) / types.length
-  return Math.max(1, Math.floor(sec / avg))
-}

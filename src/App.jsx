@@ -1,7 +1,18 @@
-// 최상위 컴포넌트. 지금은 라우터만 렌더링한다
-// (전역 Provider나 모달이 필요해지면 여기에 감싼다)
+// 모든 주소에 인증 확인과 저장 상태 안내를 적용한다.
 import AppRouter from './routes/AppRouter'
+import AuthBoundary from './components/AuthBoundary'
+import StorageNotice from './components/StorageNotice'
+import RouteErrorBoundary from './components/RouteErrorBoundary'
 
 export default function App() {
-  return <AppRouter />
+  return (
+    <>
+      <StorageNotice />
+      <AuthBoundary>
+        <RouteErrorBoundary>
+          <AppRouter />
+        </RouteErrorBoundary>
+      </AuthBoundary>
+    </>
+  )
 }

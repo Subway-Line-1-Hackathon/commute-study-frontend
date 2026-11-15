@@ -5,6 +5,12 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.jsx'
+import { setTokenProvider } from './lib/api'
+import { createTokenProvider } from './lib/authToken'
+import { supabase } from './lib/supabase'
+import { useAuthStore } from './store/useAuthStore'
+
+setTokenProvider(createTokenProvider(supabase, () => useAuthStore.getState().user?.id))
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

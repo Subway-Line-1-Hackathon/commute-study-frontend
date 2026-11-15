@@ -1,193 +1,69 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import AppLayout from '../layouts/AppLayout'
 import TabLayout from '../layouts/TabLayout'
 import { ROUTES } from '../lib/constants'
 import { RequireAuth, RequireActive } from './guards'
-import S00Splash from '../pages/S00Splash'
-import S01Login from '../pages/S01Login'
-import S02Nickname from '../pages/S02Nickname'
-import S04Commute from '../pages/S04Commute'
-import S05Material from '../pages/S05Material'
-import S10Waiting from '../pages/S10Waiting'
-import S11UnitPreview from '../pages/S11UnitPreview'
-import S20Home from '../pages/S20Home'
-import S30Setup from '../pages/S30Setup'
-import S32Review from '../pages/S32Review'
-import S35Listen from '../pages/S35Listen'
-import S40Player from '../pages/S40Player'
-import S50Summary from '../pages/S50Summary'
-import S51Report from '../pages/S51Report'
-import S52WrongNotes from '../pages/S52WrongNotes'
-import S60Settings from '../pages/S60Settings'
-import S61CommuteEdit from '../pages/S61CommuteEdit'
-import S62Account from '../pages/S62Account'
-import S63SubjectManage from '../pages/S63SubjectManage'
+const S00Splash = lazy(() => import('../pages/S00Splash'))
+const S01Login = lazy(() => import('../pages/S01Login'))
+const S02Nickname = lazy(() => import('../pages/S02Nickname'))
+const S04Commute = lazy(() => import('../pages/S04Commute'))
+const S05Material = lazy(() => import('../pages/S05Material'))
+const S10Waiting = lazy(() => import('../pages/S10Waiting'))
+const S11UnitPreview = lazy(() => import('../pages/S11UnitPreview'))
+const S20Home = lazy(() => import('../pages/S20Home'))
+const S30Setup = lazy(() => import('../pages/S30Setup'))
+const S32Review = lazy(() => import('../pages/S32Review'))
+const S35Listen = lazy(() => import('../pages/S35Listen'))
+const S40Player = lazy(() => import('../pages/S40Player'))
+const S50Summary = lazy(() => import('../pages/S50Summary'))
+const S51Report = lazy(() => import('../pages/S51Report'))
+const S52WrongNotes = lazy(() => import('../pages/S52WrongNotes'))
+const S60Settings = lazy(() => import('../pages/S60Settings'))
+const S61CommuteEdit = lazy(() => import('../pages/S61CommuteEdit'))
+const S62Account = lazy(() => import('../pages/S62Account'))
+const S63SubjectManage = lazy(() => import('../pages/S63SubjectManage'))
 
-// 전체 화면 라우팅 표
-// 화면 이름 S00~S60은 기획서의 화면 번호와 같다
-// - RequireAuth: 로그인만 되어 있으면 통과 (온보딩: 닉네임, 통학 시간)
-// - RequireActive: 온보딩까지 끝난 ACTIVE 유저만 통과 (홈, 학습 화면)
-// - TabLayout 안의 화면만 하단 탭바가 보인다
+// 인증 확인은 App에서 처리하고, 접근 조건은 라우트 그룹에 적용한다.
 export default function AppRouter() {
   return (
-    <Routes>
-      {/* 모든 화면을 감싸는 공통 레이아웃 (모바일 폭 고정) */}
-      <Route element={<AppLayout />}>
-        {/* 누구나 들어올 수 있는 화면 */}
-        <Route path={ROUTES.SPLASH} element={<S00Splash />} />
-        <Route path={ROUTES.LOGIN} element={<S01Login />} />
-
-        {/* 온보딩: 로그인만 필요 */}
-
-        <Route
-          path={ROUTES.NICKNAME}
-          element={
-            <RequireAuth>
-              <S02Nickname />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path={ROUTES.COMMUTE}
-          element={
-            <RequireAuth>
-              <S04Commute />
-            </RequireAuth>
-          }
-        />
-        {/* 과목·자료 등록 흐름: 과목 만들기 -> 업로드/분석 대기 -> 단원 미리보기 */}
-        <Route
-          path={ROUTES.SUBJECT_NEW}
-          element={
-            <RequireActive>
-              <S05Material />
-            </RequireActive>
-          }
-        />
-        <Route
-          path={ROUTES.MATERIAL_UPLOAD}
-          element={
-            <RequireActive>
-              <S10Waiting />
-            </RequireActive>
-          }
-        />
-        <Route
-          path={ROUTES.UNIT_PREVIEW}
-          element={
-            <RequireActive>
-              <S11UnitPreview />
-            </RequireActive>
-          }
-        />
-
-        {/* 학습 흐름: 개념 듣기 -> 문제 설정 -> (복습) -> 문제 풀이 -> 결과 요약 */}
-        <Route
-          path={ROUTES.LISTEN}
-          element={
-            <RequireActive>
-              <S35Listen />
-            </RequireActive>
-          }
-        />
-        <Route
-          path={ROUTES.SETUP}
-          element={
-            <RequireActive>
-              <S30Setup />
-            </RequireActive>
-          }
-        />
-        <Route
-          path={ROUTES.REVIEW}
-          element={
-            <RequireActive>
-              <S32Review />
-            </RequireActive>
-          }
-        />
-        <Route
-          path={ROUTES.PLAYER}
-          element={
-            <RequireActive>
-              <S40Player />
-            </RequireActive>
-          }
-        />
-        <Route
-          path={ROUTES.SUMMARY}
-          element={
-            <RequireActive>
-              <S50Summary />
-            </RequireActive>
-          }
-        />
-
-        {/* 설정 하위 화면: 통학 정보 수정, 계정 */}
-        <Route
-          path={ROUTES.SETTINGS_COMMUTE}
-          element={
-            <RequireActive>
-              <S61CommuteEdit />
-            </RequireActive>
-          }
-        />
-        <Route
-          path={ROUTES.SETTINGS_ACCOUNT}
-          element={
-            <RequireActive>
-              <S62Account />
-            </RequireActive>
-          }
-        />
-        <Route
-          path={ROUTES.SETTINGS_SUBJECTS}
-          element={
-            <RequireActive>
-              <S63SubjectManage />
-            </RequireActive>
-          }
-        />
-
-        {/* 하단 탭바가 있는 화면: 홈 / 오답노트 / 리포트 / 설정 */}
-        <Route element={<TabLayout />}>
-          <Route
-            path={ROUTES.HOME}
-            element={
-              <RequireActive>
-                <S20Home />
-              </RequireActive>
-            }
-          />
-          <Route
-            path={ROUTES.WRONG_NOTES}
-            element={
-              <RequireActive>
-                <S52WrongNotes />
-              </RequireActive>
-            }
-          />
-          <Route
-            path={ROUTES.REPORT}
-            element={
-              <RequireActive>
-                <S51Report />
-              </RequireActive>
-            }
-          />
-          <Route
-            path={ROUTES.SETTINGS}
-            element={
-              <RequireActive>
-                <S60Settings />
-              </RequireActive>
-            }
-          />
+    <Suspense
+      fallback={
+        <p role="status" className="p-6 text-center text-caption text-muted">
+          화면을 불러오는 중…
+        </p>
+      }
+    >
+      <Routes>
+        <Route element={<AppLayout />}>
+          <Route path={ROUTES.SPLASH} element={<S00Splash />} />
+          <Route path={ROUTES.LOGIN} element={<S01Login />} />
+          <Route element={<RequireAuth />}>
+            <Route path={ROUTES.NICKNAME} element={<S02Nickname />} />
+            <Route path={ROUTES.COMMUTE} element={<S04Commute />} />
+          </Route>
+          <Route element={<RequireActive />}>
+            <Route path={ROUTES.SUBJECT_NEW} element={<S05Material />} />
+            <Route path={ROUTES.MATERIAL_UPLOAD} element={<S10Waiting />} />
+            <Route path={ROUTES.UNIT_PREVIEW} element={<S11UnitPreview />} />
+            <Route path={ROUTES.LISTEN} element={<S35Listen />} />
+            <Route path={ROUTES.SETUP} element={<S30Setup />} />
+            <Route path={ROUTES.REVIEW} element={<S32Review />} />
+            <Route path={ROUTES.PLAYER} element={<S40Player />} />
+            <Route path={ROUTES.SUMMARY} element={<S50Summary />} />
+            <Route path={ROUTES.SETTINGS_COMMUTE} element={<S61CommuteEdit />} />
+            <Route path={ROUTES.SETTINGS_ACCOUNT} element={<S62Account />} />
+            <Route path={ROUTES.SETTINGS_SUBJECTS} element={<S63SubjectManage />} />
+            <Route element={<TabLayout />}>
+              <Route path={ROUTES.HOME} element={<S20Home />} />
+              <Route path={ROUTES.WRONG_NOTES} element={<S52WrongNotes />} />
+              <Route path={ROUTES.REPORT} element={<S51Report />} />
+              <Route path={ROUTES.SETTINGS} element={<S60Settings />} />
+            </Route>
+          </Route>
+          <Route path="*" element={<Navigate to={ROUTES.SPLASH} replace />} />
         </Route>
-
-        {/* 없는 주소는 스플래시로 보낸다 (스플래시가 상태에 맞는 화면으로 다시 보냄) */}
-        <Route path="*" element={<Navigate to={ROUTES.SPLASH} replace />} />
-      </Route>
-    </Routes>
+      </Routes>
+    </Suspense>
   )
 }

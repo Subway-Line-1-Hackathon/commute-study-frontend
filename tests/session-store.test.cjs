@@ -9,29 +9,53 @@ function setup(overrides = {}) {
   let sequence = 0
   const deps = {
     create,
-    persist: (init, config) => { options = config; return init },
-    createJSONStorage: () => ({}), zustandStorage: {}, supabase: {},
+    persist: (init, config) => {
+      options = config
+      return init
+    },
+    createJSONStorage: () => ({}),
+    zustandStorage: {},
     S: { READY: 'READY', IN_PROGRESS: 'IN_PROGRESS', COMPLETED: 'COMPLETED', ENDED: 'ENDED' },
     PHASE: { LISTEN: 'LISTEN', QUIZ: 'QUIZ' },
     SOLVE_MODE: { READ: 'READ', LISTEN: 'LISTEN' },
     T: { OX: 'OX', MCQ: 'MCQ', SHORT: 'SHORT' },
-    WRONG_STATUS: { OPEN: 'OPEN', RESOLVED: 'RESOLVED' }, WARNING_SEC: 300,
+    WRONG_STATUS: { OPEN: 'OPEN', RESOLVED: 'RESOLVED' },
+    WARNING_SEC: 300,
     ROUTES: { HOME: '/home', LISTEN: '/study/listen', PLAYER: '/study/play' },
-    ApiError: class ApiError extends Error { constructor(status, body) { super(); this.status = status; this.body = body } },
-    uid: () => String(++sequence), kstDateKey: () => '2026-11-14',
-    DIFFICULTY_LEVEL: { NORMAL: 2 }, toServerTypes: (types) => types.map((t) => t === 'MCQ' ? 'MC' : t),
-    fromServerQuestion: (q) => q, summaryToScript: () => [], toServerAnswer: (_q, value) => value,
-    apiCreateSession: async (body) => { calls.push(['create', body]); return { sessionId: 42, studyMin: 20, questions: [{ id: 1, type: 'OX', answer: 'O' }] } },
-    apiStartSession: async (id) => { calls.push(['start', id]) },
-    apiEndSession: async (id, reason) => { calls.push(['end', id, reason]) },
-    saveAttempts: async (body) => { calls.push(['save', body]) },
+    ApiError: class ApiError extends Error {
+      constructor(status, body) {
+        super()
+        this.status = status
+        this.body = body
+      }
+    },
+    uid: () => String(++sequence),
+    kstDateKey: () => '2026-11-14',
+    DIFFICULTY_LEVEL: { NORMAL: 2 },
+    toServerTypes: (types) => types.map((t) => (t === 'MCQ' ? 'MC' : t)),
+    fromServerQuestion: (q) => q,
+    summaryToScript: () => [],
+    toServerAnswer: (_q, value) => value,
+    apiCreateSession: async (body) => {
+      calls.push(['create', body])
+      return { sessionId: 42, studyMin: 20, questions: [{ id: 1, type: 'OX', answer: 'O' }] }
+    },
+    apiStartSession: async (id) => {
+      calls.push(['start', id])
+    },
+    apiEndSession: async (id, reason) => {
+      calls.push(['end', id, reason])
+    },
+    saveAttempts: async (body) => {
+      calls.push(['save', body])
+    },
     getCurrentSession: async () => null,
     getWrongNotes: async () => ({ items: [] }),
     useMaterialStore: { getState: () => ({ subjects: [], categories: {} }) },
     getTimePlan: (minutes) => ({ totalSec: minutes * 60, conceptSec: 0, quizSec: minutes * 60 }),
     getOpenNotes: (notes) => notes.filter((n) => n.status === 'OPEN'),
-    pickReviewNotes: (notes) => ({ picked: notes }), MAX_SESSION_QUESTIONS: 30,
-    recommendCount: () => 3, generateQuestions: () => [], generateScript: () => [],
+    pickReviewNotes: (notes) => ({ picked: notes }),
+    MAX_SESSION_QUESTIONS: 30,
     ...overrides,
   }
   const loaded = loadSessionStore(deps)
@@ -39,23 +63,43 @@ function setup(overrides = {}) {
   return { ...loaded, calls, options }
 }
 
-const input = { draft: { source: 'categories', categoryIds: [7], unitId: '7', unitTitle: 'unit', subjectId: '3' }, types: ['MCQ'], difficulty: 'NORMAL', studyMin: 20 }
+const input = {
+  draft: { source: 'categories', categoryIds: [7], unitId: '7', unitTitle: 'unit', subjectId: '3' },
+  types: ['MCQ'],
+  difficulty: 'NORMAL',
+  studyMin: 20,
+}
 
 test('persistence keeps the existing storage key, version, fields and migrations', () => {
   const { useSessionStore: store, options } = setup()
   assert.equal(options.name, 'cs:session')
-  assert.equal(options.version, 4)
+  assert.equal(options.version, 5)
   const state = store.getState()
-  assert.deepEqual(Object.keys(options.partialize(state)).sort(), ['accountId', 'current', 'history', 'wrongNotes', 'unitProgress', 'dailyStats', 'pendingAttempts', 'pendingEnds', 'continuing'].sort())
+  assert.deepEqual(
+    Object.keys(options.partialize(state)).sort(),
+    [
+      'accountId',
+      'current',
+      'history',
+      'wrongNotes',
+      'dailyStats',
+      'pendingAttempts',
+      'pendingEnds',
+      'continuing',
+    ].sort(),
+  )
   assert.equal(options.migrate({ current: { id: 'old' } }, 3).current, null)
-  const current = { id: 'saved' }
+  const current = { id: 'saved', serverId: 42 }
   assert.equal(options.migrate({ current }, 4).current, current)
 })
 
 test('server session creation sends the same request and starts before exposing current', async () => {
   const { useSessionStore: store, calls, getSessionRoute } = setup()
   const session = await store.getState().createSession(input)
-  assert.deepEqual(calls, [['create', { source: 'categories', categoryIds: [7], questionTypes: ['MC'], difficulty: 2 }], ['start', 42]])
+  assert.deepEqual(calls, [
+    ['create', { source: 'categories', categoryIds: [7], questionTypes: ['MC'], difficulty: 2 }],
+    ['start', 42],
+  ])
   assert.equal(session.serverId, 42)
   assert.equal(session.status, 'IN_PROGRESS')
   assert.equal(session.phase, 'QUIZ')
@@ -76,14 +120,25 @@ test('summary sessions retain listening, skip and timer transitions', async () =
   assert.equal(store.getState().current.quizRemainingSec, 1199)
 })
 
-test('mock review selects the requested unit and resolves a correct old mistake', async () => {
+test('review sessions request the selected categories and resolve a correct old mistake', async () => {
   const question = { id: 1, type: 'OX', answer: 'O' }
-  const { useSessionStore: store } = setup({ supabase: null })
-  store.setState({ wrongNotes: [
-    { id: 'n1', unitId: 7, questionId: 1, question, status: 'OPEN' },
-    { id: 'n2', unitId: 8, questionId: 2, question: { ...question, id: 2 }, status: 'OPEN' },
-  ] })
-  await store.getState().createSession({ ...input, types: ['OX'], draft: { source: 'wrongNotes', unitIds: [7] } })
+  let requested
+  const { useSessionStore: store } = setup({
+    apiCreateSession: async (body) => {
+      requested = body
+      return { sessionId: 42, studyMin: 20, questions: [question] }
+    },
+  })
+  store.setState({
+    wrongNotes: [
+      { id: 'n1', unitId: 7, questionId: 1, question, status: 'OPEN' },
+      { id: 'n2', unitId: 8, questionId: 2, question: { ...question, id: 2 }, status: 'OPEN' },
+    ],
+  })
+  await store
+    .getState()
+    .createSession({ ...input, types: ['OX'], draft: { source: 'wrongNotes', categoryIds: [7] } })
+  assert.deepEqual(requested.categoryIds, [7])
   assert.deepEqual(store.getState().current.questions, [question])
   const result = await store.getState().submitAnswer('O')
   assert.equal(result.completed, true)
@@ -95,21 +150,40 @@ test('mock review selects the requested unit and resolves a correct old mistake'
 test('timer expiration still ends a session once and preserves history', async () => {
   const { useSessionStore: store, calls } = setup()
   await store.getState().createSession(input)
-  store.setState({ current: { ...store.getState().current, quizRemainingSec: 1, answers: [{ questionId: 1, correct: true }] } })
+  store.setState({
+    current: {
+      ...store.getState().current,
+      quizRemainingSec: 1,
+      answers: [{ questionId: 1, correct: true }],
+    },
+  })
   store.getState().tick()
   store.getState().endSession()
   await store.getState().flushAttempts()
   assert.equal(store.getState().current.status, 'ENDED')
   assert.equal(store.getState().history.length, 1)
-  assert.deepEqual(calls.filter(([name]) => name === 'end'), [['end', 42, 'ARRIVED']])
+  assert.deepEqual(
+    calls.filter(([name]) => name === 'end'),
+    [['end', 42, 'ARRIVED']],
+  )
 })
 
 test('concurrent flush calls serialize and send 101 attempts in two batches only', async () => {
   const { useSessionStore: store, calls } = setup()
-  store.setState({ pendingAttempts: Array.from({ length: 101 }, (_, i) => ({ key: String(i), sessionId: 42, questionId: i + 1, answer: 'O' })) })
+  store.setState({
+    pendingAttempts: Array.from({ length: 101 }, (_, i) => ({
+      key: String(i),
+      sessionId: 42,
+      questionId: i + 1,
+      answer: 'O',
+    })),
+  })
   await Promise.all([store.getState().flushAttempts(), store.getState().flushAttempts()])
   const batches = calls.filter(([name]) => name === 'save')
-  assert.deepEqual(batches.map(([, body]) => body.attempts.length), [100, 1])
+  assert.deepEqual(
+    batches.map(([, body]) => body.attempts.length),
+    [100, 1],
+  )
   assert.equal('key' in batches[0][1].attempts[0], false)
   assert.equal('sessionId' in batches[0][1].attempts[0], false)
   assert.equal(store.getState().pendingAttempts.length, 0)
@@ -117,8 +191,25 @@ test('concurrent flush calls serialize and send 101 attempts in two batches only
 
 test('syncing wrong notes preserves server-to-display conversions', async () => {
   const { useSessionStore: store } = setup({
-    useMaterialStore: { getState: () => ({ subjects: [{ id: '3' }], categories: { 3: [{ categoryId: 7, title: 'unit' }] } }) },
-    getWrongNotes: async () => ({ items: [{ questionId: 1, categoryId: 7, type: 'MCQ', choices: ['A', 'B'], answer: '2', lastAnswer: '1', status: 'OPEN' }] }),
+    useMaterialStore: {
+      getState: () => ({
+        subjects: [{ id: '3' }],
+        categories: { 3: [{ categoryId: 7, title: 'unit' }] },
+      }),
+    },
+    getWrongNotes: async () => ({
+      items: [
+        {
+          questionId: 1,
+          categoryId: 7,
+          type: 'MCQ',
+          choices: ['A', 'B'],
+          answer: '2',
+          lastAnswer: '1',
+          status: 'OPEN',
+        },
+      ],
+    }),
   })
   await store.getState().syncWrongNotes()
   assert.equal(store.getState().wrongNotes[0].unitTitle, 'unit')
@@ -130,8 +221,13 @@ test('failed answer saving retains both queues and never ends the session before
   let failing = true
   const events = []
   const { useSessionStore: store } = setup({
-    saveAttempts: async () => { events.push('save'); if (failing) throw new Error('offline') },
-    apiEndSession: async () => { events.push('end') },
+    saveAttempts: async () => {
+      events.push('save')
+      if (failing) throw new Error('offline')
+    },
+    apiEndSession: async () => {
+      events.push('end')
+    },
   })
   store.setState({ pendingAttempts: [{ key: 'a', sessionId: 42, questionId: 1, answer: 'O' }] })
   await assert.rejects(store.getState().queueSessionEnd(42, 'QUIT'))
@@ -146,7 +242,11 @@ test('failed answer saving retains both queues and never ends the session before
 })
 
 test('404 does not discard a whole session of unsent answers', async () => {
-  const { useSessionStore: store } = setup({ saveAttempts: async () => { throw Object.assign(new Error('not found'), { status: 404 }) } })
+  const { useSessionStore: store } = setup({
+    saveAttempts: async () => {
+      throw Object.assign(new Error('not found'), { status: 404 })
+    },
+  })
   const pendingAttempts = [{ key: 'a', sessionId: 42, questionId: 1, answer: 'O' }]
   store.setState({ pendingAttempts })
   await assert.rejects(store.getState().flushAttempts())
@@ -155,12 +255,20 @@ test('404 does not discard a whole session of unsent answers', async () => {
 
 test('failed end request is retried after reload without resending saved answers', async () => {
   let failing = true
-  const { useSessionStore: store, options } = setup({ apiEndSession: async () => { if (failing) throw new Error('offline') } })
+  const { useSessionStore: store, options } = setup({
+    apiEndSession: async () => {
+      if (failing) throw new Error('offline')
+    },
+  })
   await assert.rejects(store.getState().queueSessionEnd(42, 'ARRIVED'))
   const persisted = options.partialize(store.getState())
-  const reloaded = setup({ apiEndSession: async (id, reason, { accountId }) => {
-    assert.equal(id, 42); assert.equal(reason, 'ARRIVED'); assert.equal(accountId, 'user-1')
-  } }).useSessionStore
+  const reloaded = setup({
+    apiEndSession: async (id, reason, { accountId }) => {
+      assert.equal(id, 42)
+      assert.equal(reason, 'ARRIVED')
+      assert.equal(accountId, 'user-1')
+    },
+  }).useSessionStore
   reloaded.setState(persisted)
   failing = false
   await reloaded.getState().flushAttempts()
@@ -170,12 +278,23 @@ test('failed end request is retried after reload without resending saved answers
 test('account switch during saving cannot remove the new account queue or send the next batch', async () => {
   let finish
   let calls = 0
-  const { useSessionStore: store } = setup({ saveAttempts: async (_body, { accountId }) => {
-    calls += 1
-    assert.equal(accountId, 'user-1')
-    await new Promise((resolve) => { finish = resolve })
-  } })
-  store.setState({ pendingAttempts: Array.from({ length: 101 }, (_, i) => ({ key: String(i), sessionId: 42, questionId: i + 1, answer: 'O' })) })
+  const { useSessionStore: store } = setup({
+    saveAttempts: async (_body, { accountId }) => {
+      calls += 1
+      assert.equal(accountId, 'user-1')
+      await new Promise((resolve) => {
+        finish = resolve
+      })
+    },
+  })
+  store.setState({
+    pendingAttempts: Array.from({ length: 101 }, (_, i) => ({
+      key: String(i),
+      sessionId: 42,
+      questionId: i + 1,
+      answer: 'O',
+    })),
+  })
   const pending = store.getState().flushAttempts()
   while (!finish) await Promise.resolve()
   const otherQueue = [{ key: '0', sessionId: 99, questionId: 1, answer: 'X' }]
@@ -189,8 +308,17 @@ test('account switch during saving cannot remove the new account queue or send t
 test('deleted subject notes are refreshed using retained IDs even with no active subjects', async () => {
   const ids = []
   const { useSessionStore: store } = setup({
-    useMaterialStore: { getState: () => ({ subjects: [], archivedSubjects: [{ id: '3', name: '삭제한 과목' }], categories: {} }) },
-    getWrongNotes: async (id) => { ids.push(id); return { items: [{ questionId: 1, categoryId: 7, status: 'OPEN', type: 'OX', stem: '문제' }] } },
+    useMaterialStore: {
+      getState: () => ({
+        subjects: [],
+        archivedSubjects: [{ id: '3', name: '삭제한 과목' }],
+        categories: {},
+      }),
+    },
+    getWrongNotes: async (id) => {
+      ids.push(id)
+      return { items: [{ questionId: 1, categoryId: 7, status: 'OPEN', type: 'OX', stem: '문제' }] }
+    },
   })
   await store.getState().syncWrongNotes()
   assert.deepEqual(ids, ['3'])
@@ -199,7 +327,11 @@ test('deleted subject notes are refreshed using retained IDs even with no active
 })
 
 test('failed deleted subject lookup preserves all existing notes', async () => {
-  const { useSessionStore: store } = setup({ getWrongNotes: async () => { throw new Error('offline') } })
+  const { useSessionStore: store } = setup({
+    getWrongNotes: async () => {
+      throw new Error('offline')
+    },
+  })
   const notes = [{ questionId: 1, subjectId: 3, question: { id: 1 } }]
   store.setState({ wrongNotes: notes })
   await store.getState().syncWrongNotes()
@@ -221,16 +353,40 @@ test('continuation is available only for finished sessions with at least one min
 })
 
 test('server continuation sends remaining minutes and skips summary while preserving cumulative time', async () => {
-  const { useSessionStore: store, calls, getElapsedSec, getRemainingSec, options } = setup({
+  const {
+    useSessionStore: store,
+    calls,
+    getElapsedSec,
+    getRemainingSec,
+    options,
+  } = setup({
     summaryToScript: () => [{ id: 'unused-summary', text: 'summary' }],
   })
-  const previous = { id: 'old', status: 'ENDED', plan: { totalSec: 1200, conceptSec: 180, quizSec: 1020 },
-    conceptRemainingSec: 25, quizRemainingSec: 400, warned: true }
+  const previous = {
+    id: 'old',
+    status: 'ENDED',
+    plan: { totalSec: 1200, conceptSec: 180, quizSec: 1020 },
+    conceptRemainingSec: 25,
+    quizRemainingSec: 400,
+    warned: true,
+  }
   store.setState({ current: previous })
   store.getState().startContinue()
   assert.equal(options.partialize(store.getState()).continuing, true)
-  const session = await store.getState().createSession({ ...input, studyMin: 7, continueFrom: store.getState().getContinueFrom() })
-  assert.deepEqual(calls[0], ['create', { source: 'categories', categoryIds: [7], questionTypes: ['MC'], difficulty: 2, studyMinOverride: 7, skipSummary: true }])
+  const session = await store
+    .getState()
+    .createSession({ ...input, studyMin: 7, continueFrom: store.getState().getContinueFrom() })
+  assert.deepEqual(calls[0], [
+    'create',
+    {
+      source: 'categories',
+      categoryIds: [7],
+      questionTypes: ['MC'],
+      difficulty: 2,
+      studyMinOverride: 7,
+      skipSummary: true,
+    },
+  ])
   assert.equal(session.phase, 'QUIZ')
   assert.deepEqual(session.script, [])
   assert.equal(session.conceptRemainingSec, 0)
@@ -244,17 +400,17 @@ test('server continuation sends remaining minutes and skips summary while preser
   assert.equal(getElapsedSec(store.getState().current), 776)
 })
 
-test('mock continuation uses only remaining time for question selection and keeps the original total', async () => {
-  let budget
-  const { useSessionStore: store, getElapsedSec } = setup({
-    supabase: null,
-    recommendCount: (_types, seconds) => { budget = seconds; return 1 },
-    generateQuestions: () => [{ id: 1, type: 'OX', answer: 'O' }],
-  })
-  const previous = { status: 'COMPLETED', plan: { totalSec: 1200, conceptSec: 180, quizSec: 1020 },
-    conceptRemainingSec: 0, quizRemainingSec: 180 }
+test('continuation retains exact remaining seconds after requesting a server session', async () => {
+  const { useSessionStore: store, getElapsedSec, calls } = setup()
+  const previous = {
+    status: 'COMPLETED',
+    plan: { totalSec: 1200, conceptSec: 180, quizSec: 1020 },
+    conceptRemainingSec: 0,
+    quizRemainingSec: 180,
+  }
   const session = await store.getState().createSession({ ...input, continueFrom: previous })
-  assert.equal(budget, 180)
+  assert.equal(calls[0][1].studyMinOverride, 3)
+  assert.equal(calls[0][1].skipSummary, true)
   assert.equal(session.plan.totalSec, 1200)
   assert.equal(session.quizRemainingSec, 180)
   assert.equal(session.conceptRemainingSec, 0)
@@ -262,8 +418,18 @@ test('mock continuation uses only remaining time for question selection and keep
 })
 
 test('failed continuation leaves the previous session and unsent queues intact', async () => {
-  const { useSessionStore: store } = setup({ apiCreateSession: async () => { throw new Error('offline') } })
-  const previous = { id: 'old', status: 'COMPLETED', plan: { totalSec: 1200 }, conceptRemainingSec: 0, quizRemainingSec: 120 }
+  const { useSessionStore: store } = setup({
+    apiCreateSession: async () => {
+      throw new Error('offline')
+    },
+  })
+  const previous = {
+    id: 'old',
+    status: 'COMPLETED',
+    plan: { totalSec: 1200 },
+    conceptRemainingSec: 0,
+    quizRemainingSec: 120,
+  }
   const pendingAttempts = [{ key: 'a', sessionId: 1, answer: 'O' }]
   const pendingEnds = [{ key: 'e', sessionId: 1, reason: 'QUIT' }]
   store.setState({ current: previous, continuing: true, pendingAttempts, pendingEnds })
