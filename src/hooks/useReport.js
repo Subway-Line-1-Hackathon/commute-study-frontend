@@ -3,7 +3,7 @@ import { kstDateKey } from '../lib/date'
 import { getReport } from '../lib/endpoints'
 import { buildReport, dayLabel, TREND_DAYS } from '../lib/report'
 import { getRecordSubjects } from '../lib/recordSubjects'
-import { supabase } from '../lib/supabase'
+import { isServerMode } from '../lib/runtime'
 import { useMaterialStore } from '../store/useMaterialStore'
 import { useSessionStore } from '../store/useSessionStore'
 
@@ -73,7 +73,7 @@ function useServerReport() {
   const [result, setResult] = useState(null) // { requestKey, status, trend, today }
 
   useEffect(() => {
-    if (!supabase || !key) return
+    if (!isServerMode || !key) return
     let cancelled = false
     // 기기에 쌓인 답안을 먼저 서버로 보내야 방금 푼 기록까지 리포트에 들어간다
     useSessionStore
@@ -129,7 +129,7 @@ export function useReport() {
   }, [])
 
   const report = buildReport({ dailyStats, history, wrongNotes })
-  if (!supabase) return { ...report, status: REPORT_STATUS.OK, reload: () => {} }
+  if (!isServerMode) return { ...report, status: REPORT_STATUS.OK, reload: () => {} }
 
   // 서버 모드: 정답률 관련 숫자는 서버 기록으로만 채운다
   const today = server.today ?? { answered: 0, correct: 0 }

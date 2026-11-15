@@ -6,7 +6,7 @@ import logo from '../assets/logo-sns-ko.svg'
 import mascot from '../assets/mascot-default.png'
 
 // S00 스플래시: 앱 첫 화면
-// 로그인 세션 확인 -> 서버 정보 동기화 -> 상태에 맞는 화면(로그인/온보딩/홈)으로 이동
+// AuthBoundary의 인증 확인 이후 상태에 맞는 화면(로그인/온보딩/홈)으로 이동
 // 구글 로그인 후 돌아오는 화면(redirectTo)도 여기다
 export default function S00Splash() {
   const navigate = useNavigate()

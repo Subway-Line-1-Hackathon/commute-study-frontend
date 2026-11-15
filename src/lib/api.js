@@ -3,7 +3,7 @@
 // 배포 시 VITE_API_BASE_URL에 백엔드 주소를 넣는다.
 const BASE = import.meta.env.VITE_API_BASE_URL ?? ''
 
-// 토큰을 꺼내는 함수. 기본은 토큰 없음이고, supabase.js가 로드되면 교체된다
+// 토큰 공급자는 앱 진입점에서 등록한다. API 클라이언트는 인증 SDK를 알 필요가 없다.
 let getToken = () => null
 // 로그인 모듈(Supabase 등)이 붙으면 토큰 공급 함수를 등록한다
 export const setTokenProvider = (fn) => {

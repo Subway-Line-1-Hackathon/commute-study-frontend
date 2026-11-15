@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { errorMessage } from '../lib/api'
 import { askQuestion, getAiQuota } from '../lib/endpoints'
-import { supabase } from '../lib/supabase'
+import { isServerMode } from '../lib/runtime'
 import TextField from './TextField'
 
 // 문제에 대해 AI에게 묻는 대화창 (서버 모드에서만 보인다)
@@ -22,7 +22,7 @@ export default function AskAi({ questionId, flat = false }) {
 
   // 처음 열 때 남은 횟수 조회, 화면을 떠나면 진행 중인 답변 요청을 끊는다
   useEffect(() => {
-    if (supabase) {
+    if (isServerMode) {
       getAiQuota()
         .then(setQuota)
         .catch(() => {})
@@ -30,7 +30,7 @@ export default function AskAi({ questionId, flat = false }) {
     return () => abortRef.current?.abort()
   }, [])
 
-  if (!supabase || questionId == null) return null
+  if (!isServerMode || questionId == null) return null
 
   const noQuota = quota?.remaining === 0
   const canSend = input.trim() !== '' && !streaming && !noQuota

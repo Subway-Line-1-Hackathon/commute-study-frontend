@@ -74,16 +74,32 @@ test('withdrawal removes only the active account backup', () => {
 test('queued requests cannot acquire another account token', async () => {
   let provider
   let current = 'B'
-  const source = fs.readFileSync(path.join(__dirname, '../src/lib/supabase.js'), 'utf8')
-  const register = source.slice(source.indexOf('if (supabase)'))
+  const source = fs.readFileSync(path.join(__dirname, '../src/lib/authToken.js'), 'utf8')
+    .replace(/^import .*$/gm, '').replace('export function', 'function')
   class ApiError extends Error { constructor(status) { super(); this.status = status } }
-  new Function('supabase', 'setTokenProvider', 'ApiError', register)(
+  provider = new Function('client', 'ApiError', source + '\nreturn createTokenProvider(client)')(
     { auth: { getSession: async () => ({ data: { session: current ? { user: { id: current }, access_token: current + '-token' } : null } }) } },
-    (fn) => { provider = fn }, ApiError,
+    ApiError,
   )
   await assert.rejects(provider('A'), { status: 401 })
   current = 'A'
   assert.equal(await provider('A'), 'A-token')
   current = null
   await assert.rejects(provider('A'), { status: 401 })
+})
+
+test('ordinary API calls capture the expected account before awaiting token lookup', async () => {
+  let finish
+  let current = 'A'
+  const source = fs.readFileSync(path.join(__dirname, '../src/lib/authToken.js'), 'utf8')
+    .replace(/^import .*$/gm, '').replace('export function', 'function')
+  class ApiError extends Error { constructor(status) { super(); this.status = status } }
+  const provider = new Function('client', 'getAccountId', 'ApiError', source + '\nreturn createTokenProvider(client, getAccountId)')(
+    { auth: { getSession: () => new Promise((resolve) => { finish = resolve }) } },
+    () => current, ApiError,
+  )
+  const pending = provider()
+  current = 'B'
+  finish({ data: { session: { user: { id: 'B' }, access_token: 'B-token' } } })
+  await assert.rejects(pending, { status: 401 })
 })

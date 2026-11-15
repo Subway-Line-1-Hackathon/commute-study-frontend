@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getExplanation } from '../lib/endpoints'
-import { supabase } from '../lib/supabase'
+import { isServerMode } from '../lib/runtime'
 import { stripMarkdown } from '../lib/text'
 import { QUESTION_TYPE as T } from '../lib/constants'
 
@@ -17,7 +17,8 @@ export function useExplanation(question, enabled = true, { includeAnswer = false
 
   useEffect(() => {
     // 조회할 필요가 없는 경우: 비활성, 이미 해설 있음, Mock 모드, 문제 없음, 이미 받아 옴
-    if (!enabled || (own && !needsAnswer) || !supabase || id == null || fetched.id === id) return
+    if (!enabled || (own && !needsAnswer) || !isServerMode || id == null || fetched.id === id)
+      return
     // 응답 전에 문제가 바뀌거나 화면을 떠나면 늦게 온 응답을 무시한다
     let cancelled = false
     getExplanation(id)
@@ -45,6 +46,6 @@ export function useExplanation(question, enabled = true, { includeAnswer = false
     ...(includeAnswer ? { answer: ownAnswer ?? received?.answer ?? null } : {}),
     explanation: stripMarkdown(own ?? received?.explanation ?? null),
     sourcePage: question?.sourcePage ?? received?.sourcePage ?? null,
-    loaded: Boolean((own && !needsAnswer) || received || !supabase),
+    loaded: Boolean((own && !needsAnswer) || received || !isServerMode),
   }
 }

@@ -1,9 +1,18 @@
-const fs = require('node:fs')
-const path = require('node:path')
+const loadSource = require('./loadSource.cjs')
 
 // Keep browser/API dependencies replaceable while exercising the real action modules.
 module.exports = function loadSessionStore(deps) {
-  deps = { storage: { get: () => null }, ApiError: class ApiError extends Error { constructor(status, body) { super(body?.message); this.status = status; this.body = body } }, ...deps }
+  deps = {
+    storage: { get: () => null },
+    ApiError: class ApiError extends Error {
+      constructor(status, body) {
+        super(body?.message)
+        this.status = status
+        this.body = body
+      }
+    },
+    ...deps,
+  }
   const files = [
     '../lib/answer.js',
     '../lib/recordSubjects.js',
@@ -15,12 +24,9 @@ module.exports = function loadSessionStore(deps) {
     'session/lifecycle.js',
     'useSessionStore.js',
   ]
-  const source = files.map((file) =>
-    fs.readFileSync(path.join(__dirname, '../../src/store', file), 'utf8')
-      .replace(/^import[\s\S]*?from\s+['"][^'"]+['"]\s*$/gm, '')
-      .replace(/^export\s+\{[\s\S]*?\}\s+from\s+['"][^'"]+['"]\s*$/gm, '')
-      .replace(/export const /g, 'const ')
-      .replace(/export function /g, 'function '),
-  ).join('\n')
-  return new Function(...Object.keys(deps), `${source}\nreturn { useSessionStore, getSessionRoute, resumeMessage, canContinue, getRemainingSec, getElapsedSec }`)(...Object.values(deps))
+  const source = loadSource(files.map((file) => `store/${file}`))
+  return new Function(
+    ...Object.keys(deps),
+    `${source}\nreturn { useSessionStore, getSessionRoute, resumeMessage, canContinue, getRemainingSec, getElapsedSec }`,
+  )(...Object.values(deps))
 }

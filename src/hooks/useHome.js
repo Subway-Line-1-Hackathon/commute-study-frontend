@@ -7,7 +7,7 @@ import {
 } from '../lib/constants'
 import { getDDay } from '../lib/date'
 import { getOpenNotes } from '../lib/review'
-import { supabase } from '../lib/supabase'
+import { isServerMode } from '../lib/runtime'
 import { isReviewOnly } from '../lib/time'
 import { getUploadReadiness } from '../lib/materialReadiness'
 import { useAuthStore } from '../store/useAuthStore'
@@ -62,7 +62,7 @@ function findNextUnit(session, groups) {
 }
 
 function syncWithServer() {
-  if (!supabase) return
+  if (!isServerMode) return
 
   const session = useSessionStore.getState()
   session.flushAttempts().catch(() => {})
@@ -104,7 +104,7 @@ export function useHome() {
   const openWrongCount = getOpenNotes(wrongNotes).length
   const { readyMaterials, waitingMaterials } = getUploadReadiness(
     { materials, categories, subjects, dismissedReadyIds },
-    Boolean(supabase),
+    isServerMode,
   )
   const pendingMaterials = [
     ...materials.filter((m) => PENDING.includes(m.status)),

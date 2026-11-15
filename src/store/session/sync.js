@@ -7,7 +7,7 @@ import {
 } from '../../lib/endpoints'
 import { getRecordSubjects } from '../../lib/recordSubjects'
 import { uid } from '../../lib/storage'
-import { supabase } from '../../lib/supabase'
+import { isServerMode } from '../../lib/runtime'
 import { useMaterialStore } from '../useMaterialStore'
 import { fromServerNote } from './wrongNotes'
 
@@ -20,7 +20,7 @@ export function createSessionSync(set, get) {
     flushing = flushing
       .catch(() => {})
       .then(async () => {
-        if (!supabase || !active()) return
+        if (!isServerMode || !active()) return
         const pending = get().pendingAttempts
         if (pending.length === 0 && get().pendingEnds.length === 0) return
         if (!accountId) throw new Error('답안을 작성한 계정을 확인할 수 없어요.')
@@ -82,7 +82,7 @@ export function createSessionSync(set, get) {
       return flushAttempts()
     },
     syncCurrent: async () => {
-      if (!supabase) return
+      if (!isServerMode) return
       const cur = get().current
       if (cur?.status !== S.IN_PROGRESS || !cur.serverId) return
       const res = await getCurrentSession()
@@ -96,7 +96,7 @@ export function createSessionSync(set, get) {
       }
     },
     syncWrongNotes: async () => {
-      if (!supabase) return
+      if (!isServerMode) return
       const accountId = get().accountId
       await flushAttempts()
       if (get().accountId !== accountId) return

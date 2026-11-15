@@ -17,7 +17,7 @@ function setup(flush = async () => {}) {
   const source = read('hooks/useReport.js').replace(/^import .*$/gm, '')
     .replace(/export const /g, 'const ').replace(/export function /g, 'function ')
   const hook = new Function('useState', 'useEffect', 'useMaterialStore', 'useSessionStore',
-    'supabase', 'getReport', 'kstDateKey', 'dayLabel', 'TREND_DAYS', helpers + '\n' + source + '\nreturn useServerReport')(
+    'isServerMode', 'getReport', 'kstDateKey', 'dayLabel', 'TREND_DAYS', helpers + '\n' + source + '\nreturn useServerReport')(
     (initial) => { const slot = index++; if (!(slot in slots)) slots[slot] = initial;
       return [slots[slot], (value) => { slots[slot] = typeof value === 'function' ? value(slots[slot]) : value }] },
     (fn) => { effect = fn }, (selector) => selector(materials), useSessionStore, {},

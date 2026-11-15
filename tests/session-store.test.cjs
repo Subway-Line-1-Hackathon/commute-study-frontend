@@ -10,7 +10,7 @@ function setup(overrides = {}) {
   const deps = {
     create,
     persist: (init, config) => { options = config; return init },
-    createJSONStorage: () => ({}), zustandStorage: {}, supabase: {},
+    createJSONStorage: () => ({}), zustandStorage: {}, isServerMode: true,
     S: { READY: 'READY', IN_PROGRESS: 'IN_PROGRESS', COMPLETED: 'COMPLETED', ENDED: 'ENDED' },
     PHASE: { LISTEN: 'LISTEN', QUIZ: 'QUIZ' },
     SOLVE_MODE: { READ: 'READ', LISTEN: 'LISTEN' },
@@ -78,7 +78,7 @@ test('summary sessions retain listening, skip and timer transitions', async () =
 
 test('mock review selects the requested unit and resolves a correct old mistake', async () => {
   const question = { id: 1, type: 'OX', answer: 'O' }
-  const { useSessionStore: store } = setup({ supabase: null })
+  const { useSessionStore: store } = setup({ isServerMode: false })
   store.setState({ wrongNotes: [
     { id: 'n1', unitId: 7, questionId: 1, question, status: 'OPEN' },
     { id: 'n2', unitId: 8, questionId: 2, question: { ...question, id: 2 }, status: 'OPEN' },
@@ -247,7 +247,7 @@ test('server continuation sends remaining minutes and skips summary while preser
 test('mock continuation uses only remaining time for question selection and keeps the original total', async () => {
   let budget
   const { useSessionStore: store, getElapsedSec } = setup({
-    supabase: null,
+    isServerMode: false,
     recommendCount: (_types, seconds) => { budget = seconds; return 1 },
     generateQuestions: () => [{ id: 1, type: 'OX', answer: 'O' }],
   })

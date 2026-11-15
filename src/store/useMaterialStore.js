@@ -1,58 +1,41 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { ApiError, errorMessage } from '../lib/api'
-import { MATERIAL_STATUS as M, UPLOAD } from '../lib/constants'
+import { MATERIAL_STATUS as M } from '../lib/constants'
 import {
-  createSubject as apiCreateSubject,
   deleteMaterial as apiDeleteMaterial,
-  getCategories,
-  getMaterials,
   getMaterialStatus,
-  getSubjects,
   retryMaterial as apiRetryMaterial,
   uploadMaterial as apiUploadMaterial,
 } from '../lib/endpoints'
-import { supabase } from '../lib/supabase'
+import { isServerMode } from '../lib/runtime'
+import { createMaterialQueries } from './material/queries'
 import { zustandStorage, uid, wait } from '../lib/storage'
 import { generateUnitsAndSummary, MOCK_FAIL_MESSAGE, shouldMockFail } from '../mocks/mockMaterial'
+
+export {
+  getRecentMaterials,
+  getSubjectUnits,
+  getUnitGroups,
+  isGroupedByMaterial,
+} from './material/selectors'
 
 // 과목·학습 자료·단원 전역 스토어
 // 자료 하나의 흐름: 업로드(UPLOADING) -> 서버 접수(UPLOADED) -> AI 분석(PROCESSING) -> READY/FAILED
 // 서버 모드는 상태를 3초마다 조회(polling)하고, Mock 모드는 타이머로 상태를 흉내 낸다
 
-// 지금 상태 조회(advance)가 돌고 있는 자료 id. 같은 자료를 두 번 polling하지 않게 막는다
-const inflight = new Map()
 // 파일명에서 확장자를 뗀다 ("강의1.pdf" -> "강의1")
 const baseName = (fileName) => fileName.replace(/\.[^.]+$/, '')
-// 업로드를 한 번에 하나씩 순서대로 보내기 위한 Promise 체인
-let uploadQueue = Promise.resolve()
-// 홈으로 이동해도 현재 탭에서 전송 중인 파일은 여전히 살아 있다.
-const activeUploads = new Set()
 
 const POLL_MS = 3000 // 상태 조회 간격
 const DONE = [M.READY, M.FAILED, M.EXPIRED] // 더 이상 조회할 필요 없는 상태
 
-// 서버 단원(category) -> 화면 단원
-function toUnit(c, subjectId) {
-  let pages = null
-  if (c.pageStart != null && c.pageEnd != null) pages = c.pageEnd - c.pageStart + 1
-  return {
-    id: String(c.id),
-    categoryId: c.id,
-    subjectId,
-    materialId: c.materialId != null ? String(c.materialId) : null,
-    title: c.name,
-    pages,
-    progress: c.progress ?? 0, // 0~1
-    accuracy: c.accuracy ?? null, // 0~1
-    state: c.state ?? null,
-    questionStatus: c.questionStatus ?? null, // AVAILABLE | PREPARING ...
-  }
-}
-
 export const useMaterialStore = create(
   persist(
     (set, get) => {
+      const inflight = new Map() // 자료별 polling 중복 방지
+      const activeUploads = new Set() // 홈으로 이동해도 전송 중인 파일은 유지
+      let uploadQueue = Promise.resolve() // 파일 전송은 순서대로 처리
       let requestGeneration = 0
       const captureRequest = () => {
         const generation = requestGeneration
@@ -187,82 +170,7 @@ export const useMaterialStore = create(
         dismissReadyMaterial: (id) =>
           set((s) => ({ dismissedReadyIds: [...new Set([...(s.dismissedReadyIds ?? []), id])] })),
 
-        syncMaterials: async () => {
-          if (!supabase) return
-          const isCurrent = captureRequest()
-          const res = await getMaterials()
-          if (!isCurrent()) return
-          const serverMaterials = (res?.materials ?? []).map((m) => ({
-            id: String(m.id),
-            subjectId: String(m.subjectId),
-            fileName: m.fileName,
-            status: m.status,
-            createdAt: Date.parse(m.createdAt),
-          }))
-          set({ serverMaterials })
-        },
-
-        // 과목 등록. 서버가 연결돼 있으면 서버에 만들고 받은 id를 쓴다
-        addSubject: async (name, examDate = null) => {
-          const isCurrent = captureRequest()
-          const body = { name: name.trim(), examDate: examDate || null }
-          let id = uid()
-          if (supabase) {
-            const res = await apiCreateSubject({ ...body, examDate: body.examDate ?? undefined })
-            if (!isCurrent()) throw new Error('계정이 변경되어 과목 등록을 취소했어요.')
-            id = String(res.subjectId)
-          }
-          const subject = { id, ...body }
-          set((s) => ({ subjects: [...s.subjects, subject] }))
-          return subject
-        },
-
-        // 서버의 과목 목록으로 바꾼다. id는 URL 쿼리와 비교하기 쉽게 문자열로 둔다
-        syncSubjects: async () => {
-          if (!supabase) return
-          const isCurrent = captureRequest()
-          const res = await getSubjects()
-          if (!isCurrent()) return
-          const subjects = (res?.subjects ?? []).map((s) => ({
-            id: String(s.id),
-            name: s.name,
-            examDate: s.examDate ?? null,
-            dDay: s.dDay ?? null,
-          }))
-          set((s) => ({
-            subjects,
-            // 다른 기기에서 삭제한 과목도, 이 기기에 있던 ID는 보존한다.
-            archivedSubjects: [...(s.archivedSubjects ?? []), ...s.subjects].filter(
-              (sub, index, all) =>
-                !subjects.some((active) => active.id === sub.id) &&
-                all.findIndex((item) => item.id === sub.id) === index,
-            ),
-          }))
-        },
-
-        // 과목별 단원(진도·정답률 포함)을 서버에서 받는다. subjectId가 없으면 모든 과목
-        syncCategories: async (subjectId) => {
-          if (!supabase) return
-          const isCurrent = captureRequest()
-          get()
-            .syncMaterials()
-            .catch(() => {})
-          const ids = subjectId ? [subjectId] : get().subjects.map((s) => s.id)
-          const results = await Promise.all(
-            ids.map((id) =>
-              getCategories(id)
-                .then((res) => [id, (res?.categories ?? []).map((c) => toUnit(c, id))])
-                .catch(() => null),
-            ),
-          )
-          if (!isCurrent()) return
-          // 실패한 과목(null)은 건너뛰고, 성공한 과목만 덮어쓴다
-          set((s) => {
-            const categories = { ...s.categories }
-            for (const r of results) if (r) categories[r[0]] = r[1]
-            return { categories }
-          })
-        },
+        ...createMaterialQueries(set, get, captureRequest),
 
         // 자료 업로드 시작. 목록에 UPLOADING 상태로 먼저 추가하고(화면에 바로 보이게),
         // 실제 전송은 큐에 넣어 하나씩 처리한다. 프론트 임시 id를 바로 돌려준다
@@ -293,7 +201,7 @@ export const useMaterialStore = create(
                 fileSize,
                 pageCount: files.length,
                 status: M.UPLOADING,
-                progress: supabase ? null : 0, // 서버 업로드는 진행률을 알 수 없어서 null
+                progress: isServerMode ? null : 0, // 서버 업로드는 진행률을 알 수 없어서 null
                 errorMessage: null,
                 retried: false, // 재시도는 1번만 허용
                 units: [],
@@ -306,7 +214,7 @@ export const useMaterialStore = create(
           const isCurrent = captureRequest()
           const run = () => {
             if (!isCurrent()) return
-            return supabase ? uploadServer(id, files, isCurrent) : uploadMock(id, isCurrent)
+            return isServerMode ? uploadServer(id, files, isCurrent) : uploadMock(id, isCurrent)
           }
           // 앞 업로드가 끝나야 다음 업로드가 시작된다. 하나가 실패해도 큐가 멈추지 않게 catch
           uploadQueue = uploadQueue
@@ -377,7 +285,7 @@ export const useMaterialStore = create(
           if (target && [M.UPLOADING, M.UPLOADED, M.PROCESSING].includes(target.status)) {
             throw new ApiError(409, { message: '분석 중인 자료는 지울 수 없어요.' })
           }
-          const serverId = local?.serverId ?? (supabase && !local ? id : null)
+          const serverId = local?.serverId ?? (isServerMode && !local ? id : null)
           if (serverId) {
             try {
               await apiDeleteMaterial(serverId)
@@ -429,93 +337,3 @@ export const useMaterialStore = create(
     },
   ),
 )
-
-// ---- 스토어 상태를 받아 화면용 데이터를 만드는 함수들 (selector) ----
-
-// 최근 올린 자료부터 최대 MAX_VISIBLE개
-export function getRecentMaterials(materials) {
-  const newestFirst = [...materials].sort((a, b) => b.createdAt - a.createdAt)
-  return newestFirst.slice(0, UPLOAD.MAX_VISIBLE)
-}
-
-// 과목의 단원. 서버 모드는 서버 단원, Mock은 준비된 자료의 단원
-export function getSubjectUnits({ materials, categories }, subjectId) {
-  if (supabase) return categories[subjectId] ?? []
-  return materials
-    .filter((m) => m.subjectId === subjectId && m.status === M.READY)
-    .flatMap((m) => m.units.map((u) => ({ ...u, materialId: m.id, subjectId })))
-}
-
-// 단원 선택 화면의 묶음. 서버 단원은 자료 구분이 없어서 과목별로 묶는다
-// -> [{ key, title, subjectName, units, isNew }]
-function hasServerMaterialInfo({ categories, serverMaterials = [] }) {
-  if (serverMaterials.length === 0) return false
-  return Object.values(categories)
-    .flat()
-    .some((u) => u.materialId != null)
-}
-
-export function isGroupedByMaterial(state) {
-  return !supabase || hasServerMaterialInfo(state)
-}
-
-function getServerMaterialGroups(
-  { materials, categories, subjects, serverMaterials },
-  newMaterialIds,
-) {
-  const subjectName = (id) => subjects.find((s) => s.id === id)?.name ?? ''
-  const allUnits = Object.values(categories).flat()
-  const newServerIds = materials
-    .filter((m) => newMaterialIds.includes(m.id))
-    .map((m) => String(m.serverId))
-
-  return getRecentMaterials(serverMaterials)
-    .filter((m) => m.status === M.READY)
-    .map((m) => ({
-      key: m.id,
-      title: m.fileName,
-      subjectName: subjectName(m.subjectId),
-      units: allUnits.filter((u) => u.materialId === m.id),
-      isNew: newServerIds.includes(m.id),
-    }))
-    .filter((g) => g.units.length > 0)
-}
-
-export function getUnitGroups(
-  { materials, categories, subjects, serverMaterials = [] },
-  newMaterialIds = [],
-) {
-  const subjectName = (id) => subjects.find((s) => s.id === id)?.name ?? ''
-
-  if (supabase && hasServerMaterialInfo({ categories, serverMaterials })) {
-    return getServerMaterialGroups(
-      { materials, categories, subjects, serverMaterials },
-      newMaterialIds,
-    )
-  }
-
-  if (supabase) {
-    const newSubjectIds = materials
-      .filter((m) => newMaterialIds.includes(m.id))
-      .map((m) => m.subjectId)
-    return subjects
-      .map((s) => ({
-        key: s.id,
-        title: s.name,
-        subjectName: '',
-        units: categories[s.id] ?? [],
-        isNew: newSubjectIds.includes(s.id),
-      }))
-      .filter((g) => g.units.length > 0)
-  }
-
-  return getRecentMaterials(materials)
-    .filter((m) => m.status === M.READY)
-    .map((m) => ({
-      key: m.id,
-      title: m.fileName,
-      subjectName: subjectName(m.subjectId),
-      units: m.units.map((u) => ({ ...u, materialId: m.id, subjectId: m.subjectId })),
-      isNew: newMaterialIds.includes(m.id),
-    }))
-}

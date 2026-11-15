@@ -6,30 +6,7 @@ const test = require('node:test')
 const read = (file) => fs.readFileSync(path.join(__dirname, '..', 'src', file), 'utf8')
 const withoutImports = (code) => code.replace(/^import[\s\S]*?from\s+['"][^'"]+['"]\s*$/gm, '')
 
-function materialStore(overrides = {}) {
-  const calls = []
-  const M = Object.fromEntries(['UPLOADING', 'UPLOADED', 'PROCESSING', 'READY', 'FAILED', 'EXPIRED'].map((s) => [s, s]))
-  class ApiError extends Error {
-    constructor(status, body) { super(body?.message); this.status = status; this.body = body }
-  }
-  const create = (init) => {
-    let state
-    const get = () => state
-    const set = (patch) => { state = { ...state, ...(typeof patch === 'function' ? patch(state) : patch) } }
-    state = init(set, get)
-    return { getState: get, setState: set }
-  }
-  const deps = {
-    create, persist: (init) => init, createJSONStorage: () => ({}), zustandStorage: {},
-    M, ApiError, UPLOAD: { MAX_VISIBLE: 10 }, supabase: {},
-    apiDeleteMaterial: async (id) => calls.push(['deleteMaterial', id]),
-    errorMessage: (e) => e.message,
-    ...overrides,
-  }
-  const code = withoutImports(read('store/useMaterialStore.js')).replace(/export const useMaterialStore/, 'const useMaterialStore').replace(/export function /g, 'function ')
-  const store = new Function(...Object.keys(deps), `${code}\nreturn useMaterialStore`)(...Object.values(deps))
-  return { store, calls, ApiError }
-}
+const materialStore = require('./helpers/loadMaterialStore.cjs')
 
 test('returning home preserves active uploads and removes only stale interrupted uploads', () => {
   const { store } = materialStore({ uid: () => 'live', apiUploadMaterial: () => new Promise(() => {}) })

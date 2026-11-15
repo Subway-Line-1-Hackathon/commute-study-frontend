@@ -12,7 +12,7 @@ import {
   toServerTypes,
 } from '../../lib/question'
 import { getOpenNotes, MAX_SESSION_QUESTIONS, pickReviewNotes } from '../../lib/review'
-import { supabase } from '../../lib/supabase'
+import { isServerMode } from '../../lib/runtime'
 import { uid } from '../../lib/storage'
 import { generateQuestions } from '../../mocks/mockQuiz'
 import { generateScript } from '../../mocks/mockScript'
@@ -38,7 +38,7 @@ export function createSessionCreation(set, get) {
       let plan
       let shortage = null
 
-      if (supabase) {
+      if (isServerMode) {
         // 서버 모드: 서버가 문제와 요약을 만들어 준다
         const body = {
           source: draft.source,

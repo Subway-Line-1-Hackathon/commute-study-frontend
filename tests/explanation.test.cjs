@@ -11,7 +11,7 @@ function setup() {
   const source = fs.readFileSync(path.join(__dirname, '../src/hooks/useExplanation.js'), 'utf8')
     .replace(/^import .*$/gm, '')
     .replace('export function', 'function')
-  const hook = new Function('useState', 'useEffect', 'getExplanation', 'supabase', 'stripMarkdown', 'T',
+  const hook = new Function('useState', 'useEffect', 'getExplanation', 'isServerMode', 'stripMarkdown', 'T',
     source + '\nreturn useExplanation')(
     (initial) => { state ??= initial; return [state, (next) => { state = next }] },
     (callback) => { effect = callback },

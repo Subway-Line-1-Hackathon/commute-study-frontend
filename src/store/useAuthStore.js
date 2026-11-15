@@ -5,6 +5,7 @@ import { getMe, saveSettings, withdraw as apiWithdraw } from '../lib/endpoints'
 import { resetUserData, suspendUserData } from './resetUserData'
 import { zustandStorage } from '../lib/storage'
 import { supabase } from '../lib/supabase'
+import { isServerMode } from '../lib/runtime'
 import { clampCommute, isValidCommute } from '../lib/time'
 import { MOCK_USER } from '../mocks/mockUser'
 
@@ -83,7 +84,7 @@ export const useAuthStore = create(
         if (!isValidCommute(studyMin)) return false
         const user = get().user
         let savedMin = studyMin
-        if (supabase) {
+        if (isServerMode) {
           const res = await saveSettings({
             nickname: nickname.trim(),
             oneWayMin: studyMin,
@@ -105,7 +106,7 @@ export const useAuthStore = create(
 
       // 서버의 내 정보로 닉네임·통학 설정·온보딩 상태를 맞춘다. 처음 부르면 서버가 사용자를 만든다
       syncMe: async () => {
-        if (!supabase) return
+        if (!isServerMode) return
         const user = get().user
         const me = await getMe()
         if (get().user !== user || get().status === AUTH_STATUS.ANONYMOUS) return
@@ -142,7 +143,7 @@ export const useAuthStore = create(
       // 회원 탈퇴: 서버에서 계정·학습 기록을 지우고, 기기에 남은 데이터도 모두 비운 뒤 로그아웃한다
       // 서버 삭제가 실패하면 에러를 던지고 아무것도 지우지 않는다 (다시 시도 가능)
       withdraw: async () => {
-        if (supabase) {
+        if (isServerMode) {
           await apiWithdraw()
           await supabase.auth.signOut().catch(() => {})
         }
